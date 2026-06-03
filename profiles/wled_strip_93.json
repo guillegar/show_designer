@@ -1,0 +1,16 @@
+{
+  "profile_id": "wled_strip_93",
+  "name": "WLED LED Strip 93×RGB",
+  "kind": "led_strip",
+  "num_channels": 279,
+  "channel_map": {
+    "led_0_r": 0, "led_0_g": 1, "led_0_b": 2
+  },
+  "led_count": 93,
+  "metadata": {
+    "manufacturer": "WLED",
+    "color_order": "RGB",
+    "max_fps": 44,
+    "_note": "Cada LED ocupa 3 canales DMX consecutivos. Total 93*3=279 canales por strip. Universos típicos: 1-10 para 10 barras."
+  }
+}

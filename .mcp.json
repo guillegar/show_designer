@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "show-control": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["-m", "src.mcp.mcp_show_server"],
+      "env": {}
+    }
+  }
+}

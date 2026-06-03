@@ -1,0 +1,35 @@
+{
+  "profile_id": "generic_beam_18ch",
+  "name": "Generic Beam Moving Head 18ch",
+  "kind": "beam",
+  "num_channels": 18,
+  "channel_map": {
+    "pan": 0, "pan_fine": 1,
+    "tilt": 2, "tilt_fine": 3,
+    "dim": 4,
+    "shutter": 5,
+    "color_wheel": 6,
+    "gobo_wheel": 7,
+    "gobo_rotation": 8,
+    "prism": 9,
+    "prism_rotation": 10,
+    "focus": 11,
+    "frost": 12,
+    "r": 13, "g": 14, "b": 15,
+    "speed": 16,
+    "reset": 17
+  },
+  "led_count": 0,
+  "metadata": {
+    "max_pan_deg": 540,
+    "max_tilt_deg": 270,
+    "has_rgb": true,
+    "has_white": false,
+    "has_gobo": true,
+    "has_prism": true,
+    "has_focus": true,
+    "has_frost": true,
+    "beam_angle_deg": 3.0,
+    "_note": "Plantilla beam pequeño/medio con discos color+gobo, prisma rotatorio, focus y frost. Estilo Robe Pointe / Sharpy / Maverick MK Pyxis."
+  }
+}

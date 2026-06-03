@@ -1,0 +1,288 @@
+[
+  {
+    "preset_id": "70b72b39f0c9",
+    "name": "Flash Blanco",
+    "kind": "pixel",
+    "base_effect_id": 0,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "flash",
+    "params": {},
+    "color": "#f3f4f6",
+    "scope": "global"
+  },
+  {
+    "preset_id": "1d4f35f44555",
+    "name": "Flash Rojo",
+    "kind": "pixel",
+    "base_effect_id": 1,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "flash",
+    "params": {
+      "hue": 0
+    },
+    "color": "#f0654b",
+    "scope": "global"
+  },
+  {
+    "preset_id": "4824796fca36",
+    "name": "Flash Verde",
+    "kind": "pixel",
+    "base_effect_id": 1,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "flash",
+    "params": {
+      "hue": 120
+    },
+    "color": "#1fe39a",
+    "scope": "global"
+  },
+  {
+    "preset_id": "f7d41d5d6034",
+    "name": "Flash Azul",
+    "kind": "pixel",
+    "base_effect_id": 1,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "flash",
+    "params": {
+      "hue": 220
+    },
+    "color": "#5aa9f0",
+    "scope": "global"
+  },
+  {
+    "preset_id": "d1cb9b586f38",
+    "name": "Strobe",
+    "kind": "pixel",
+    "base_effect_id": 3,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "flash",
+    "params": {},
+    "color": "#ffffff",
+    "scope": "global"
+  },
+  {
+    "preset_id": "0ce0975c70e7",
+    "name": "Wave Azul",
+    "kind": "pixel",
+    "base_effect_id": 10,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "wave",
+    "params": {
+      "hue": 210
+    },
+    "color": "#5aa9f0",
+    "scope": "global"
+  },
+  {
+    "preset_id": "8d3fc238cbe1",
+    "name": "Wave Arcoíris",
+    "kind": "pixel",
+    "base_effect_id": 13,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "wave",
+    "params": {},
+    "color": "#d569e0",
+    "scope": "global"
+  },
+  {
+    "preset_id": "f7d00e67e9c6",
+    "name": "Gradiente Magenta",
+    "kind": "pixel",
+    "base_effect_id": 20,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "gradient",
+    "params": {
+      "hue": 300
+    },
+    "color": "#d569e0",
+    "scope": "global"
+  },
+  {
+    "preset_id": "dec313dee26c",
+    "name": "Chase Verde",
+    "kind": "pixel",
+    "base_effect_id": 35,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "pattern",
+    "params": {
+      "hue": 140
+    },
+    "color": "#3fe08a",
+    "scope": "global"
+  },
+  {
+    "preset_id": "34a77cdc03f3",
+    "name": "Sparkle",
+    "kind": "pixel",
+    "base_effect_id": 34,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "pattern",
+    "params": {},
+    "color": "#e0c05a",
+    "scope": "global"
+  },
+  {
+    "preset_id": "918b76eceef1",
+    "name": "Breathing Ámbar",
+    "kind": "pixel",
+    "base_effect_id": 32,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "pattern",
+    "params": {
+      "hue": 45
+    },
+    "color": "#e0c05a",
+    "scope": "global"
+  },
+  {
+    "preset_id": "f27443cf9524",
+    "name": "Hue Cycle",
+    "kind": "pixel",
+    "base_effect_id": 40,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "spectral",
+    "params": {},
+    "color": "#a779f0",
+    "scope": "global"
+  },
+  {
+    "preset_id": "98efacf5ec9b",
+    "name": "Mover Círculo",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "pos_circle",
+    "category": "position",
+    "family": "position",
+    "params": {
+      "speed": 0.3,
+      "radius": 0.25
+    },
+    "color": "#a779f0",
+    "scope": "global"
+  },
+  {
+    "preset_id": "c2aea350b492",
+    "name": "Mover Ocho",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "pos_figure8",
+    "category": "position",
+    "family": "position",
+    "params": {
+      "speed": 0.3,
+      "radius": 0.25
+    },
+    "color": "#a779f0",
+    "scope": "global"
+  },
+  {
+    "preset_id": "3e710e5932b0",
+    "name": "Mover Barrido",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "pos_pan_sweep",
+    "category": "position",
+    "family": "position",
+    "params": {
+      "speed": 0.2
+    },
+    "color": "#5aa9f0",
+    "scope": "global"
+  },
+  {
+    "preset_id": "43323af3406d",
+    "name": "Color Arcoíris",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "col_rainbow",
+    "category": "color",
+    "family": "color",
+    "params": {
+      "speed": 0.2
+    },
+    "color": "#d569e0",
+    "scope": "global"
+  },
+  {
+    "preset_id": "083535c05bd8",
+    "name": "Color Cálido-Frío",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "col_warm_cold",
+    "category": "color",
+    "family": "color",
+    "params": {
+      "speed": 0.2
+    },
+    "color": "#e0c05a",
+    "scope": "global"
+  },
+  {
+    "preset_id": "39cb731fd9d9",
+    "name": "Dim Pulso",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "dim_pulse",
+    "category": "intensity",
+    "family": "intensity",
+    "params": {
+      "speed": 0.5
+    },
+    "color": "#1fe39a",
+    "scope": "global"
+  },
+  {
+    "preset_id": "a7c8b72d7b01",
+    "name": "Dim Respiración",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "dim_breath",
+    "category": "intensity",
+    "family": "intensity",
+    "params": {
+      "speed": 0.3
+    },
+    "color": "#1fe39a",
+    "scope": "global"
+  },
+  {
+    "preset_id": "8ae635f36f04",
+    "name": "Strobe",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "str_flash",
+    "category": "strobe",
+    "family": "strobe",
+    "params": {
+      "freq_hz": 12
+    },
+    "color": "#ffffff",
+    "scope": "global"
+  },
+  {
+    "preset_id": "151854a30d43",
+    "name": "Gobo Spin",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "opt_gobo_spin",
+    "category": "optical",
+    "family": "optical",
+    "params": {
+      "speed": 0.4
+    },
+    "color": "#f0654b",
+    "scope": "global"
+  }
+]

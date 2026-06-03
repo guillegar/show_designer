@@ -1,0 +1,28 @@
+{
+  "profile_id": "generic_mover_16ch",
+  "name": "Generic Moving Head 16ch",
+  "kind": "moving_head",
+  "num_channels": 16,
+  "channel_map": {
+    "pan": 0, "pan_fine": 1,
+    "tilt": 2, "tilt_fine": 3,
+    "dim": 4,
+    "shutter": 5,
+    "color_wheel": 6,
+    "gobo_wheel": 7,
+    "gobo_rotation": 8,
+    "r": 9, "g": 10, "b": 11, "w": 12,
+    "speed": 13,
+    "macro": 14,
+    "reset": 15
+  },
+  "led_count": 0,
+  "metadata": {
+    "max_pan_deg": 540,
+    "max_tilt_deg": 270,
+    "has_rgb": true,
+    "has_white": true,
+    "has_gobo": true,
+    "_note": "Plantilla genérica de mover compatible con muchas marcas DJ low-cost."
+  }
+}

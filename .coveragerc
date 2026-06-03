@@ -1,0 +1,62 @@
+[run]
+# Módulos a medir (la lógica del show, no la UI)
+source =
+    timeline_model
+    effects_engine
+    fixtures
+    show_engine
+    outputs
+    loaders
+    analyzer_service
+    channel_effects
+    mcp_bridge
+    exporter
+    project_manager
+    plugins
+
+# Excluir archivos sin sentido cubrir
+omit =
+    # UI y orquestación Qt
+    timeline_editor.py
+    timeline_editor_v01.py
+    timeline_editor_v02.py
+    timeline_editor_v03.py
+    timeline_editor_v04.py
+    feedback_app_with_barras.py
+    patch_panel.py
+    analyzer_panel.py
+    dual_app.py
+    shortcuts.py
+    # Servidores de red / puente WebSocket (requieren app corriendo)
+    viewer3d_server.py
+    mcp_show_server.py
+    mcp_bridge.py
+    # Motor de show (requiere pygame, red, audio)
+    show_engine.py
+    # Utilidades/herramientas auxiliares
+    touchdesigner_bridge.py
+    wled_framework.py
+    unify_abl.py
+    unify_gamma.py
+    # Scripts de análisis offline
+    analyzer.py
+    analyzer_pro.py
+    # Venv y tests
+    venv311/*
+    tests/*
+    # Scripts de tests antiguos en raíz
+    test_*.py
+
+[report]
+# Excluir líneas "imposibles" de cubrir sin UI/hardware
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    raise NotImplementedError
+    pass
+
+show_missing = True
+fail_under = 60
+
+[html]
+directory = coverage_html

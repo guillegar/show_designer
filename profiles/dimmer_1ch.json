@@ -1,0 +1,13 @@
+{
+  "profile_id": "dimmer_1ch",
+  "name": "Dimmer / Conventional 1ch",
+  "kind": "dimmer",
+  "num_channels": 1,
+  "channel_map": {
+    "dim": 0
+  },
+  "led_count": 0,
+  "metadata": {
+    "_note": "Foco convencional o LED par de 1 canal (solo intensidad)."
+  }
+}

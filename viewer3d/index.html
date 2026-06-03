@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Show Designer · 3D Viewer</title>
+  <style>
+    html, body { margin: 0; padding: 0; overflow: hidden; height: 100%;
+                 font-family: 'Segoe UI', sans-serif; background: #06080c; color: #ccc; }
+    #info { position: fixed; top: 10px; left: 10px; padding: 8px 12px;
+            background: rgba(0,0,0,0.55); border-radius: 4px;
+            font-size: 11px; pointer-events: none; user-select: none; z-index: 10; }
+    #info b { color: #6cf; }
+    #status { position: fixed; bottom: 10px; right: 10px; padding: 6px 10px;
+              background: rgba(0,0,0,0.55); border-radius: 4px; font-size: 11px;
+              font-family: 'Consolas', monospace; z-index: 10; }
+    .ws-on  { color: #6f6; }
+    .ws-off { color: #f66; }
+  </style>
+</head>
+<body>
+  <div id="info">
+    <b>Show Designer · 3D Viewer</b><br>
+    Drag para rotar · scroll para zoom · click derecho para pan<br>
+    <span id="bar-info">10 barras · 93 LEDs cada una</span>
+  </div>
+  <div id="status">
+    WS: <span id="ws-status" class="ws-off">—</span> ·
+    FPS: <span id="fps">0</span>
+  </div>
+
+  <!-- Three.js via CDN (sin npm) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="./main.js?v=18"></script>
+</body>
+</html>

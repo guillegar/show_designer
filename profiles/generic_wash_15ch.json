@@ -1,0 +1,29 @@
+{
+  "profile_id": "generic_wash_15ch",
+  "name": "Generic LED Wash 15ch",
+  "kind": "wash",
+  "num_channels": 15,
+  "channel_map": {
+    "pan": 0, "pan_fine": 1,
+    "tilt": 2, "tilt_fine": 3,
+    "dim": 4,
+    "shutter": 5,
+    "r": 6, "g": 7, "b": 8, "w": 9,
+    "color_macro": 10,
+    "zoom": 11,
+    "speed": 12,
+    "reset": 13,
+    "preset": 14
+  },
+  "led_count": 0,
+  "metadata": {
+    "max_pan_deg": 540,
+    "max_tilt_deg": 270,
+    "has_rgb": true,
+    "has_white": true,
+    "has_zoom": true,
+    "beam_angle_min_deg": 10,
+    "beam_angle_max_deg": 60,
+    "_note": "Plantilla wash LED genérico con zoom: RGBW + color macros + zoom + speed. Cubre la mayoría de wash chinos low-cost de 4×10W a 7×40W."
+  }
+}

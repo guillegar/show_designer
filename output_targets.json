@@ -1,0 +1,14 @@
+{
+  "_comment": "Routing universe -> output target. Universos no listados caen a sim_only. v1.7 — solo simulacion para no-WLED por ahora; cuando llegue el nodo Art-Net fisico, cambiar la entrada del universo 11 a {'type': 'artnet_node', 'ip': '192.168.1.50'} sin tocar nada mas.",
+  "1":  {"type": "wled", "ip": "192.168.1.201"},
+  "2":  {"type": "wled", "ip": "192.168.1.202"},
+  "3":  {"type": "wled", "ip": "192.168.1.203"},
+  "4":  {"type": "wled", "ip": "192.168.1.204"},
+  "5":  {"type": "wled", "ip": "192.168.1.205"},
+  "6":  {"type": "wled", "ip": "192.168.1.206"},
+  "7":  {"type": "wled", "ip": "192.168.1.207"},
+  "8":  {"type": "wled", "ip": "192.168.1.208"},
+  "9":  {"type": "wled", "ip": "192.168.1.209"},
+  "10": {"type": "wled", "ip": "192.168.1.210"},
+  "11": {"type": "sim_only"}
+}

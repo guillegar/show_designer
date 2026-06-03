@@ -1,0 +1,16 @@
+{
+  "profile_id": "generic_strobe_2ch",
+  "name": "Generic LED Strobe / Blinder 2ch",
+  "kind": "strobe",
+  "num_channels": 2,
+  "channel_map": {
+    "intensity": 0,
+    "speed": 1
+  },
+  "led_count": 0,
+  "metadata": {
+    "has_rgb": false,
+    "max_strobe_hz": 25.0,
+    "_note": "Strobe / blinder LED genérico de 2 canales: intensidad + velocidad de parpadeo. Para Atomic 3000 LED, blinders DJ low-cost, etc."
+  }
+}

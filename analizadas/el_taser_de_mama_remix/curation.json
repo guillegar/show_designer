@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "song_id": "39f24ab9db32",
+  "section_labels": [
+    {
+      "idx": 0,
+      "name": "Mi Intro",
+      "type": "intro"
+    },
+    {
+      "idx": 7,
+      "name": "  ",
+      "type": ""
+    }
+  ],
+  "disabled_events": [],
+  "manual_events": [
+    {
+      "time_sec": 9.5,
+      "kind": "kick",
+      "source": "manual"
+    }
+  ],
+  "manual_threshold_overrides": {},
+  "cue_seeds": []
+}
