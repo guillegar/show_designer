@@ -1,11 +1,14 @@
 # Show Designer Pro
 
-Software profesional de control de iluminación en Python + PyQt5, controlable
-tanto por humano (UI estilo Adobe / FL Studio) como por Claude (vía MCP).
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
+[![Tests: 363/363](https://img.shields.io/badge/tests-363%2F363-brightgreen)](tests/)
+[![Coverage: 92.6%](https://img.shields.io/badge/coverage-92.6%25-green)](https://pytest.org/)
+[![License: PPL 3.0](https://img.shields.io/badge/license-PPL%203.0-blue)](LICENSE)
+[![Code: Python + PyQt5](https://img.shields.io/badge/code-Python%20%2B%20PyQt5-informational)](requirements.txt)
 
-**Versión actual**: v1.9 F2 (drag-create de channel clips + estabilidad anti-crash)
-**Tests**: 363/363 verdes · **Cobertura**: 92.6%
-**Licencia**: GPL-3.0
+**Software profesional de control de iluminación**: diseña coreografías de luces para barras LED + fixtures DMX en un timeline editor visual (Adobe/FL Studio style), o controla via **Claude MCP** con 50+ tools JSON-RPC.
+
+**Versión actual**: v1.9 F2 — drag-create channel clips + anti-crash stabilization
 
 ---
 
@@ -28,6 +31,20 @@ tanto por humano (UI estilo Adobe / FL Studio) como por Claude (vía MCP).
 - **MCP server**: Claude controla la app vía 50+ tools JSON-RPC sobre WebSocket
   (`mcp__show-control__*`).
 - **Export**: QLC+ XML workspace, CSV de clips, CSV DMX frame-a-frame.
+
+---
+
+## 📋 Tabla de contenidos
+
+- [Arranque rápido](#arranque-rápido)
+- [Uso básico](#uso-básico-de-la-ui)
+- [Control desde Claude](#control-desde-claude-mcp)
+- [Crear plugins](#crear-plugins-de-efectos)
+- [Tests](#tests)
+- [Estructura del repo](#estructura-del-repo)
+- [Hardware](#hardware-soportado-actualmente)
+- [Documentación](#documentación)
+- [Licencia](#licencia)
 
 ---
 
@@ -250,8 +267,55 @@ Para añadir hardware: ver `profiles/`, `output_targets.json` y la tab Patch.
 
 ---
 
-## Más información
+---
 
-- **Arquitectura profunda**: `CLAUDE.md`
-- **Checkpoints históricos**: `versions/*/CHANGELOG.md`
-- **Estado en vivo**: `versions/v1.9_p2_stabilization/CHANGELOG.md`
+## 📚 Documentación
+
+- **[CLAUDE.md](CLAUDE.md)** — Arquitectura profunda, decisiones de diseño, estado actual (v1.10+)
+- **[STRUCTURE.md](STRUCTURE.md)** — Organización de directorios y archivos
+- **[SETUP.md](SETUP.md)** — Instalación paso a paso
+- **[Checkpoints históricos](versions/)** — Rollback a versiones anteriores (cada fase con CHANGELOG + SHA-256)
+
+---
+
+## 🖥️ Requisitos del sistema
+
+- **Python**: 3.11 o superior
+- **OS**: Windows 10+ (probado en Windows 11), compatible con Linux/macOS (sin garantía)
+- **Hardware WLED (opcional)**: 10 barras WLED en red local (Art-Net compatible)
+- **Hardware DMX (opcional)**: nodo Art-Net→DMX + fixtures convencionales
+
+**Dependencias principales** (ver `requirements.txt`):
+- PyQt5 (UI desktop)
+- librosa + madmom (análisis de audio)
+- demucs (separación de stems)
+- pygdtf (soporte GDTF para fixtures)
+- websockets + fastapi (backend headless v1.10+)
+
+---
+
+## 🤝 Contribuciones
+
+Las contribuciones son bienvenidas. Ver [CONTRIBUTING.md](CONTRIBUTING.md) para:
+- Cómo reportar bugs
+- Cómo hacer pull requests
+- Estándares de código
+- Proceso de testing
+
+---
+
+## 📄 Licencia
+
+**Prosperity Public License 3.0.0 (PPL)**
+
+| Uso | Permitido | Nota |
+|-----|-----------|------|
+| Personal / Educativo | ✅ Libre | Siempre |
+| Open Source / Comunidad | ✅ Libre | Mantener crédito |
+| Comercial (prueba) | ✅ 30 días | Período de evaluación |
+| Comercial (producción) | ❌ Requiere licencia | Contacta a guille@example.com |
+
+Ver [LICENSE](LICENSE) para términos completos.
+
+**Inspiración**: [ASLS Studio](https://github.com/Bergvca/asls_studio)
+**Atribuciones**: `src/viewer3d/CREDITS.md`
