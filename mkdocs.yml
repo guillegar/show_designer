@@ -1,0 +1,67 @@
+site_name: Show Designer Pro
+site_description: Professional lighting control software for LED strips and DMX fixtures
+site_url: https://guillegar.github.io/show_designer/
+repo_url: https://github.com/guillegar/show_designer
+repo_name: guillegar/show_designer
+copyright: "Copyright © 2026 Guille Garci | Prosperity Public License 3.0.0"
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: blue
+      accent: amber
+    - scheme: slate
+      primary: blue
+      accent: amber
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search
+  - glightbox
+
+markdown_extensions:
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      use_pygments: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Quick Start: quickstart.md
+  - Features: features.md
+  - Installation: installation.md
+  - Usage:
+    - UI Guide: usage/ui-guide.md
+    - Keyboard Shortcuts: usage/shortcuts.md
+    - Projects: usage/projects.md
+  - Advanced:
+    - Architecture: advanced/architecture.md
+    - Plugins: advanced/plugins.md
+    - Claude MCP: advanced/mcp.md
+    - 3D Viewer: advanced/viewer3d.md
+  - Development:
+    - Setup: development/setup.md
+    - Testing: development/testing.md
+    - Contributing: development/contributing.md
+  - Hardware: hardware.md
+  - FAQ: faq.md
+  - License: license.md
