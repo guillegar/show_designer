@@ -4,24 +4,44 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 echo ============================================
-echo   LUCES - arrancando backend web...
+echo   LUCES - reinicio limpio
 echo ============================================
 echo.
 
-REM Lanza el backend headless en su propia ventana (cierrala para parar la app)
+REM --- 1) Cerrar cualquier instancia previa (puertos 8000 web + 9876 MCP) ---
+echo Cerrando instancias anteriores...
+powershell -NoProfile -Command ^
+  "foreach ($p in 8000,9876,5173) { try { Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } } catch {} }"
+
+REM Pequena espera para que el SO libere los puertos
+timeout /t 1 /nobreak >nul
+
+REM --- 2) Arrancar el backend headless en su propia ventana ---
+echo Arrancando backend web...
 start "Luces backend" "%cd%\venv311\Scripts\python.exe" -m server.main
 
-REM Espera a que el servidor este escuchando en el puerto 8000 (carga ~5-8s)
+REM --- 3) Esperar a que el servidor escuche en el puerto 8000 (carga ~5-8s) ---
 echo Esperando a que el servidor este listo...
+set /a tries=0
 :wait
 timeout /t 1 /nobreak >nul
+set /a tries+=1
 powershell -NoProfile -Command "try { (New-Object Net.Sockets.TcpClient).Connect('127.0.0.1',8000); exit 0 } catch { exit 1 }" >nul 2>&1
-if errorlevel 1 goto wait
+if errorlevel 1 (
+  if %tries% geq 30 (
+    echo.
+    echo [ERROR] El servidor no arranco en 30s. Revisa la ventana "Luces backend".
+    pause
+    exit /b 1
+  )
+  goto wait
+)
 
+REM --- 4) Abrir el navegador ---
 echo Servidor listo. Abriendo el navegador...
 start "" http://localhost:8000
 
 echo.
 echo La app esta corriendo en http://localhost:8000
-echo Para detenerla, cierra la ventana "Luces backend".
+echo Para detenerla: cierra la ventana "Luces backend" o usa "Cerrar Luces.bat".
 timeout /t 4 /nobreak >nul

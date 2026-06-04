@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import Moveable from "react-moveable";
+import Selecto from "react-selecto";
 import { control } from "../api/control";
 import { useStore, famColor, EffectInfo, Clip, Preset } from "../store";
 import { fmtTime } from "../icons";
 import { ContextMenu, MenuState } from "../components/ContextMenu";
 import { Browser } from "../components/Browser";
+import { ClipInspector } from "../components/ClipInspector";
+import { ToastContainer, useToast } from "../components/Toast";
+import { HelpOverlay } from "../components/HelpOverlay";
+import { xToMs, msToX } from "./timelineGeometry";
 
 const NUM_BARS = 10;
 const LANE_H = 22;
@@ -14,6 +20,8 @@ type Lane =
   | { key: string; kind: "fixture"; fixtureId: string; label: string; ip: string };
 
 export function TimelineView() {
+  const { toasts, addToast, dismissToast } = useToast();
+
   const t = useStore((s) => s.t);
   const clips = useStore((s) => s.clips);
   const effects = useStore((s) => s.effects);
@@ -30,8 +38,12 @@ export function TimelineView() {
   const clipboard = useStore((s) => s.clipboard);
   const setClipboard = useStore((s) => s.setClipboard);
 
+  const MIN_ZOOM = 2;
+  const MAX_ZOOM = 50;
+  const DEFAULT_ZOOM = 7;
+
   const [tool, setTool] = useState<"select" | "draw" | "cut">("select");
-  const [zoom, setZoom] = useState(7);
+  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [snap, setSnap] = useState(true);
   const [snapGrid, setSnapGrid] = useState<"off" | "bar" | "beat" | "half" | "quarter">("quarter");
   const [beats, setBeats] = useState<number[]>([]);
@@ -46,13 +58,35 @@ export function TimelineView() {
   const [genSec, setGenSec] = useState(0);
   const [genTrig, setGenTrig] = useState("on_beat");
   const [genAll, setGenAll] = useState(true);
-  const [dragPreview, setDragPreview] = useState<{ id: number; start: number; end: number } | null>(null);
+  const [lastEffectDuration, setLastEffectDuration] = useState(() => {
+    const saved = localStorage.getItem("sd_lastEffectDuration");
+    return saved ? parseInt(saved, 10) : 500;
+  });
+  const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
+  const [showHelp, setShowHelp] = useState(false);
   const lanesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     control.call("analyzer_list_beats").then((r) => setBeats(r.beats || [])).catch(() => {});
     control.call("analyzer_list_downbeats").then((r) => setDownbeats(r.downbeats || [])).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("sd_lastEffectDuration", lastEffectDuration.toString());
+  }, [lastEffectDuration]);
+
+  // Remember duration when clip is selected
+  useEffect(() => {
+    if (selectedClipId != null) {
+      const c = clips.find(x => x.id === selectedClipId);
+      if (c) {
+        const dur = c.end_ms - c.start_ms;
+        if (dur > 100 && dur < 60000) {
+          setLastEffectDuration(dur);
+        }
+      }
+    }
+  }, [selectedClipId, clips]);
 
   const beatSec = 60 / bpm;
   const barSec = beatSec * 4;
@@ -95,28 +129,64 @@ export function TimelineView() {
 
   const snapMs = (ms: number) => {
     if (!snap || snapGrid === "off") return ms;
-    // imán a markers cercanos (8 px)
+
     const tolMs = (8 / zoom) * 1000;
+
+    // Snap to markers first (8px tolerance)
     for (const m of markers) {
       if (Math.abs(m.time_ms - ms) < tolMs) return m.time_ms;
     }
-    const t = ms / 1000;
-    // 'beat'/'bar' → snap al beat/downbeat REAL más cercano (del analyzer)
-    if (snapGrid === "beat" && beats.length) {
-      let best = beats[0], bd = 1e9;
-      for (const b of beats) { const d = Math.abs(b - t); if (d < bd) { bd = d; best = b; } }
-      return best * 1000;
+
+    // Snap to computed gridlines
+    if (gridlines.length > 0) {
+      const nearestLine = gridlines.reduce((best, { t }) => {
+        const lineMs = t * 1000;
+        return Math.abs(lineMs - ms) < Math.abs(best - ms) ? lineMs : best;
+      }, ms);
+
+      if (Math.abs(nearestLine - ms) < tolMs) return nearestLine;
     }
-    if (snapGrid === "bar" && downbeats.length) {
-      let best = downbeats[0], bd = 1e9;
-      for (const b of downbeats) { const d = Math.abs(b - t); if (d < bd) { bd = d; best = b; } }
-      return best * 1000;
-    }
-    // subdivisiones del beat
+
+    // Fallback: snap using BPM calculation
     const div = snapGrid === "half" ? 0.5 : snapGrid === "quarter" ? 0.25 : 1;
     const step = beatSec * div * 1000;
     return Math.round(ms / step) * step;
   };
+
+  // Memoized gridline computation — ADAPTIVE to zoom.
+  // Visual density is decoupled from snap granularity: only the finest level whose
+  // lines are at least MIN_PX apart is drawn. Otherwise lines collapse into a solid
+  // wall (e.g. ¼ beat at 7× = ~1.7px apart). Snapping still uses the chosen grid.
+  const gridlines = useMemo(() => {
+    const lines: { t: number; kind: "bar" | "beat" | "subdiv" }[] = [];
+
+    if (snapGrid === "off") return [];
+
+    const MIN_PX = 7; // minimum on-screen gap between rendered lines
+
+    const subStep = snapGrid === "quarter" ? beatSec * 0.25
+      : snapGrid === "half" ? beatSec * 0.5
+      : beatSec;
+    const wantsSub = snapGrid === "half" || snapGrid === "quarter";
+    const wantsBeats = snapGrid !== "bar";
+
+    // Pick the finest level that is still readable at the current zoom
+    let renderStep: number;
+    if (wantsSub && subStep * zoom >= MIN_PX) renderStep = subStep;
+    else if (wantsBeats && beatSec * zoom >= MIN_PX) renderStep = beatSec;
+    else if (barSec * zoom >= MIN_PX) renderStep = barSec;
+    else return []; // even bars would be a wall — hide the grid
+
+    const tol = 0.001;
+    const MAX = 1500; // safety cap
+    let n = 0;
+    for (let t = 0; t <= duration + barSec && n < MAX; t += renderStep, n++) {
+      const isBar = Math.abs(t - Math.round(t / barSec) * barSec) < tol;
+      const isBeat = Math.abs(t - Math.round(t / beatSec) * beatSec) < tol;
+      lines.push({ t, kind: isBar ? "bar" : isBeat ? "beat" : "subdiv" });
+    }
+    return lines;
+  }, [snapGrid, bpm, duration, beatSec, barSec, zoom]);
 
   // Draw-to-create (efecto base / preset píxel en barras; preset de canal en fixture lanes)
   const draw = useRef<{ lane: Lane; startMs: number } | null>(null);
@@ -133,6 +203,72 @@ export function TimelineView() {
     draw.current = { lane, startMs };
     e.preventDefault();
   };
+
+  // Click-to-paint: apply effect to existing clip in draw mode
+  // Or Ctrl+Click for multi-select
+  const onClipClick = async (e: React.MouseEvent, c: Clip) => {
+    e.stopPropagation();
+
+    // Ctrl+Click: multi-select toggle
+    if ((e.ctrlKey || e.metaKey) && tool === "select") {
+      const newSet = new Set(selectedClipIds);
+      if (newSet.has(c.id)) {
+        newSet.delete(c.id);
+      } else {
+        newSet.add(c.id);
+      }
+      setSelectedClipIds(newSet);
+      return;
+    }
+
+    // Draw mode: paint selected clips
+    if (tool === "draw") {
+      // Apply effect to all selected clips, or just this one if none selected
+      const targets = selectedClipIds.size > 0 ? Array.from(selectedClipIds) : [c.id];
+
+      for (const clipId of targets) {
+        try {
+          if (activePreset) {
+            await control
+              .call("set_clip_preset", {
+                clip_id: clipId,
+                preset_id: activePreset.preset_id,
+              })
+              .catch(async () => {
+                if (activeFx) {
+                  await control.call("set_clip_effect", {
+                    clip_id: clipId,
+                    effect_id: activeFx.id,
+                  });
+                }
+              });
+          } else if (activeFx) {
+            await control.call("set_clip_effect", {
+              clip_id: clipId,
+              effect_id: activeFx.id,
+            });
+          }
+        } catch (err) {
+          console.warn(`Failed to paint clip ${clipId}:`, err);
+        }
+      }
+
+      selectClip(c.id);
+      setLastEffectDuration(c.end_ms - c.start_ms);
+      addToast(
+        `✓ ${targets.length} clip(s) painted`,
+        "success"
+      );
+      await refreshClips();
+      // Create undo snapshot
+      try {
+        await control.call("snapshot");
+      } catch (e) {
+        // Undo not available
+      }
+      return;
+    }
+  };
   useEffect(() => {
     const up = async (e: MouseEvent) => {
       const d = draw.current; draw.current = null;
@@ -140,7 +276,17 @@ export function TimelineView() {
       const r = lanesRef.current!.getBoundingClientRect();
       const endMs = snapMs(((e.clientX - r.left) / zoom) * 1000);
       const a = Math.min(d.startMs, endMs);
-      const dur = Math.max(300, Math.abs(endMs - d.startMs));
+      const dragDist = Math.abs(endMs - d.startMs);
+
+      // If drag is very short (< 50ms), use last remembered duration
+      let dur = dragDist;
+      if (dragDist < 50) {
+        dur = lastEffectDuration;
+      } else if (dragDist > 100) {
+        // Drag was long enough: remember this duration for next short click
+        setLastEffectDuration(dragDist);
+      }
+      dur = Math.max(100, dur);
       if (d.lane.kind === "fixture" && isChannelPreset) {
         await control.call("add_preset_clip", {
           preset_id: activePreset!.preset_id, fixture_id: d.lane.fixtureId,
@@ -164,63 +310,247 @@ export function TimelineView() {
     return () => window.removeEventListener("mouseup", up);
   }, [activeFx, activePreset, isChannelPreset, zoom, snap, beatSec, refreshClips]);
 
-  // ── Drag de clips: mover / redimensionar (tool select) ───────────────────
-  const dragRef = useRef<null | { id: number; mode: "move" | "l" | "r"; origStart: number; origEnd: number; clientX0: number }>(null);
-  const previewFor = (d: NonNullable<typeof dragRef.current>, clientX: number) => {
-    const dms = ((clientX - d.clientX0) / zoom) * 1000;
-    let start = d.origStart, end = d.origEnd;
-    if (d.mode === "move") { start = Math.max(0, snapMs(d.origStart + dms)); end = start + (d.origEnd - d.origStart); }
-    else if (d.mode === "l") { start = Math.max(0, Math.min(snapMs(d.origStart + dms), d.origEnd - 100)); }
-    else { end = Math.max(snapMs(d.origEnd + dms), d.origStart + 100); }
-    return { start, end };
-  };
-  const onClipMouseDown = (e: React.MouseEvent, c: Clip) => {
-    if (tool !== "select") return;   // en draw, el mousedown lo gestiona la lane
-    e.stopPropagation();
-    selectClip(c.id);
-    if (c.locked) return;
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const offX = e.clientX - rect.left;
-    const mode = offX < 7 ? "l" : offX > rect.width - 7 ? "r" : "move";
-    dragRef.current = { id: c.id, mode, origStart: c.start_ms, origEnd: c.end_ms, clientX0: e.clientX };
-  };
-  useEffect(() => {
-    const move = (e: MouseEvent) => {
-      const d = dragRef.current; if (!d) return;
-      const { start, end } = previewFor(d, e.clientX);
-      setDragPreview({ id: d.id, start, end });
-    };
-    const up = (e: MouseEvent) => {
-      const d = dragRef.current; dragRef.current = null;
-      setDragPreview(null);
-      if (!d) return;
-      if (Math.abs(e.clientX - d.clientX0) < 3) return;   // click puro, no mover
-      const { start, end } = previewFor(d, e.clientX);
-      const params: any = { clip_id: d.id };
-      if (d.mode === "move") params.new_start_ms = Math.round(start);
-      else if (d.mode === "l") { params.new_start_ms = Math.round(start); params.new_end_ms = Math.round(end); }
-      else params.new_end_ms = Math.round(end);
-      control.call("move_clip", params).then(() => refreshClips());
-    };
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
-    return () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
-  }, [tool, zoom, snap, snapGrid, beats, downbeats, beatSec, refreshClips]);
+  // ── Interacción de clips: Moveable (mover/redimensionar) + Selecto (multi-sel) ──
+  const moveableRef = useRef<any>(null);
+  const selectoRef = useRef<any>(null);
+  const rowRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const [moveTargets, setMoveTargets] = useState<(HTMLElement | SVGElement)[]>([]);
+  const [dropBar, setDropBar] = useState<number | null>(null);
+  const dropPosRef = useRef<{ bar: number; layer: number } | null>(null); // destino bajo el cursor
 
-  // Borrar clip seleccionado (ignorar si se está escribiendo en un campo)
+  // Líneas-guía de snap (rejilla BPM) como posiciones X en píxeles para Moveable.
+  const verticalGuidelines = useMemo(
+    () => (snap ? gridlines.map((g) => msToX(g.t * 1000, zoom)) : []),
+    [snap, gridlines, zoom]
+  );
+
+  // Hit-test: clientY → { bar, layer } usando rects MEDIDOS (las filas tienen
+  // altura variable según nº de layers). El layer se deduce de la Y dentro de la
+  // fila; se permite una capa nueva justo debajo de las existentes.
+  const barLayerAtClientY = (clientY: number): { bar: number; layer: number } | null => {
+    let res: { bar: number; layer: number } | null = null;
+    rowRefs.current.forEach((el, key) => {
+      if (!key.startsWith("bar-")) return;
+      const r = el.getBoundingClientRect();
+      if (clientY >= r.top && clientY < r.bottom) {
+        const bar = parseInt(key.slice(4), 10);
+        const localY = clientY - r.top - 7; // 7 = padding superior usado en el clip
+        const maxLayer = Math.max(0, ...clips.filter((c) => c.track === bar).map((c) => c.layer));
+        // round (no floor): cada capa tiene una zona de destino amplia; se permite
+        // una capa nueva justo debajo de las existentes.
+        const layer = Math.max(0, Math.min(Math.round(localY / LANE_H), maxLayer + 1));
+        res = { bar, layer };
+      }
+    });
+    return res;
+  };
+
+  const clipFromEl = (el: Element | null | undefined): Clip | undefined => {
+    const id = el?.getAttribute?.("data-clip-id");
+    return id != null ? clips.find((c) => c.id === +id) : undefined;
+  };
+
+  const commitMoves = async (calls: Array<Record<string, any>>) => {
+    if (!calls.length) { moveableRef.current?.updateRect(); return; }
+    try {
+      for (const params of calls) await control.call("move_clip", params);
+      await refreshClips();
+      try { await control.call("snapshot"); } catch {}
+    } catch (err) {
+      console.error("[Timeline] move_clip failed:", err);
+    }
+  };
+
+  // Mantener los targets de Moveable sincronizados con la selección (sin locked).
+  useEffect(() => {
+    if (!lanesRef.current) { setMoveTargets([]); return; }
+    const ids = selectedClipIds.size > 0
+      ? [...selectedClipIds]
+      : (selectedClipId != null ? [selectedClipId] : []);
+    const els = ids
+      .filter((id) => !clips.find((c) => c.id === id)?.locked)
+      .map((id) => lanesRef.current!.querySelector<HTMLElement>(`[data-clip-id="${id}"]`))
+      .filter((el): el is HTMLElement => !!el);
+    setMoveTargets(els);
+  }, [selectedClipId, selectedClipIds, clips, zoom, lanes.length, tool]);
+
+  // Reposicionar los controles de Moveable tras cambios de layout.
+  useEffect(() => { moveableRef.current?.updateRect(); }, [zoom, clips, moveTargets]);
+
+  // ── Handlers Moveable: mover (1 clip) ──────────────────────────────────────
+  const onClipDrag = (e: any) => {
+    // El clip sigue al cursor en ambos ejes (estilo DAW); sube z-index para no
+    // quedar tapado por otras filas al cruzarlas.
+    e.target.style.transform = `translate(${e.translate[0]}px, ${e.translate[1]}px)`;
+    e.target.style.zIndex = "20";
+    const clientY = e.clientY ?? e.inputEvent?.clientY;
+    if (clientY != null) {
+      const pos = barLayerAtClientY(clientY);
+      dropPosRef.current = pos;
+      setDropBar(pos ? pos.bar : null);
+    }
+  };
+  const onClipDragEnd = (e: any) => {
+    const dest = dropPosRef.current;
+    dropPosRef.current = null;
+    setDropBar(null);
+    e.target.style.transform = ""; // React reposiciona vía `left` tras el commit
+    e.target.style.zIndex = "";
+    const c = clipFromEl(e.target);
+    if (!c || !e.lastEvent) { moveableRef.current?.updateRect(); return; }
+    const dx = e.lastEvent.translate[0];
+    const newStart = Math.max(0, Math.round(c.start_ms + xToMs(dx, zoom)));
+    const params: any = { clip_id: c.id, new_start_ms: newStart };
+    if (c.track >= 0 && dest) {
+      if (dest.bar !== c.track) params.new_track = dest.bar;
+      if (dest.layer !== c.layer) params.new_layer = dest.layer;
+    }
+    commitMoves([params]);
+  };
+
+  // ── Handlers Moveable: redimensionar (1 clip) ──────────────────────────────
+  const onClipResize = (e: any) => {
+    e.target.style.width = `${e.width}px`;
+    e.target.style.transform = e.drag.transform;
+  };
+  const onClipResizeEnd = (e: any) => {
+    e.target.style.transform = "";
+    e.target.style.width = "";
+    const c = clipFromEl(e.target);
+    if (!c || !e.lastEvent) { moveableRef.current?.updateRect(); return; }
+    const { width, drag, direction } = e.lastEvent;
+    let newStart = c.start_ms;
+    let newEnd = c.end_ms;
+    if (direction[0] === -1) { // borde izquierdo: cambia inicio
+      newStart = Math.max(0, Math.round(c.start_ms + xToMs(drag.translate[0], zoom)));
+      newEnd = Math.max(newStart + 50, Math.round(newStart + xToMs(width, zoom)));
+    } else { // borde derecho: cambia fin
+      newEnd = Math.max(c.start_ms + 50, Math.round(c.start_ms + xToMs(width, zoom)));
+    }
+    commitMoves([{ clip_id: c.id, new_start_ms: newStart, new_end_ms: newEnd }]);
+  };
+
+  // ── Handlers Moveable: mover en GRUPO (multi-selección, solo horizontal) ────
+  const onClipDragGroup = (e: any) => {
+    e.events.forEach((ev: any) => { ev.target.style.transform = `translateX(${ev.translate[0]}px)`; });
+  };
+  const onClipDragGroupEnd = (e: any) => {
+    const calls = e.events.map((ev: any) => {
+      ev.target.style.transform = "";
+      const c = clipFromEl(ev.target);
+      if (!c || !ev.lastEvent) return null;
+      return { clip_id: c.id, new_start_ms: Math.max(0, Math.round(c.start_ms + xToMs(ev.lastEvent.translate[0], zoom))) };
+    }).filter(Boolean);
+    commitMoves(calls as any);
+  };
+
+  // ── Selecto: rubber-band + delegar drag a Moveable (gesto único) ───────────
+  const onSelectoDragStart = (e: any) => {
+    if (tool !== "select") { e.stop(); return; }
+    const target = e.inputEvent.target as HTMLElement;
+    const mv = moveableRef.current;
+    if (mv?.isMoveableElement?.(target) || moveTargets.some((t) => t === target || (t as HTMLElement).contains?.(target))) {
+      e.stop();
+    }
+  };
+  const onSelectoSelectEnd = (e: any) => {
+    if (e.isDragStart) {
+      e.inputEvent.preventDefault();
+      moveableRef.current?.waitToChangeTarget?.().then(() => {
+        moveableRef.current?.dragStart(e.inputEvent);
+      });
+    }
+    setMoveTargets(e.selected);
+    const ids = (e.selected as HTMLElement[])
+      .map((el) => +(el.getAttribute("data-clip-id") || "-1"))
+      .filter((n) => n >= 0);
+    setSelectedClipIds(new Set(ids));
+    if (ids.length === 1) selectClip(ids[0]);
+    else if (ids.length === 0) selectClip(null);
+  };
+
+  // Copy/Paste & Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
       const tag = el?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) return;
+
       if ((e.key === "Delete" || e.key === "Backspace") && selectedClipId != null) {
         e.preventDefault();
         control.call("delete_clip", { clip_id: selectedClipId }).then(() => {
           selectClip(null);
           refreshClips();
         });
+      } else if (e.key === "0" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        setZoom(DEFAULT_ZOOM);
+      } else if (e.key === "[") {
+        e.preventDefault();
+        setLastEffectDuration(d => Math.max(100, d - 50));
+      } else if (e.key === "]") {
+        e.preventDefault();
+        setLastEffectDuration(d => Math.min(60000, d + 50));
+      } else if ((e.key === "c" || e.key === "C") && (e.ctrlKey || e.metaKey)) {
+        // Copy selected clip
+        e.preventDefault();
+        if (selectedClipId != null) {
+          const c = clips.find(x => x.id === selectedClipId);
+          if (c) {
+            setClipboard(c);
+            addToast("✓ Clip copied", "success");
+          }
+        }
+      } else if ((e.key === "a" || e.key === "A") && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        // Ctrl+A: select all clips in current track
+        e.preventDefault();
+        if (selectedClipId != null) {
+          const c = clips.find(x => x.id === selectedClipId);
+          if (c) {
+            const trackClips = clips.filter(x => x.track === c.track);
+            const ids = new Set(trackClips.map(x => x.id));
+            setSelectedClipIds(ids);
+            addToast(`✓ ${ids.size} clips selected (track)`, "info");
+          }
+        }
+      } else if ((e.key === "a" || e.key === "A") && e.shiftKey && (e.ctrlKey || e.metaKey)) {
+        // Ctrl+Shift+A: select all clips globally
+        e.preventDefault();
+        const ids = new Set(clips.map(x => x.id));
+        setSelectedClipIds(ids);
+        addToast(`✓ ${ids.size} clips selected (all)`, "info");
+      } else if ((e.key === "v" || e.key === "V") && (e.ctrlKey || e.metaKey)) {
+        // Paste at current time
+        e.preventDefault();
+        if (clipboard && selectedClipId != null) {
+          const c = clips.find(x => x.id === selectedClipId);
+          if (c) {
+            const dur = clipboard.end_ms - clipboard.start_ms;
+            control.call("add_clip", {
+              track: c.track,
+              start_ms: Math.round(c.start_ms),
+              end_ms: Math.round(c.start_ms + dur),
+              effect_id: clipboard.effect_id,
+              scope: clipboard.scope,
+              color: clipboard.color,
+              label: clipboard.label,
+            }).then(async () => {
+              addToast("✓ Clip pasted", "success");
+              await refreshClips();
+              // Create undo snapshot
+              try {
+                await control.call("snapshot");
+              } catch (e) {
+                // Undo not available
+              }
+            });
+          }
+        }
       } else if (e.ctrlKey || e.metaKey) {
         return; // no pisar atajos con Ctrl (undo/save los gestiona App)
+      } else if (e.key === "?") {
+        e.preventDefault();
+        setShowHelp((s) => !s);
       } else if (e.key === "v" || e.key === "V") setTool("select");
       else if (e.key === "d" || e.key === "D" || e.key === "b" || e.key === "B") setTool("draw");
       else if (e.key === "c" || e.key === "C") setTool("cut");
@@ -387,10 +717,14 @@ export function TimelineView() {
           <button className="btn sm ghost" title="Exportar CSV de clips" onClick={() => doExport("csv")}>⬇ CSV</button>
           <button className="btn sm ghost" title="Exportar workspace QLC+" onClick={() => doExport("qlc")}>⬇ QLC+</button>
           <div className="zoomctl">
-            <button className="btn sm ghost" onClick={() => setZoom((z) => Math.max(3, z - 1.5))}>−</button>
+            <button className="btn sm ghost" onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z - 1))} title="Zoom out (−)">−</button>
             <span className="mono" style={{ width: 34, textAlign: "center", fontSize: 11, color: "var(--txt-3)" }}>{Math.round(zoom * 10) / 10}×</span>
-            <button className="btn sm ghost" onClick={() => setZoom((z) => Math.min(20, z + 1.5))}>+</button>
+            <button className="btn sm ghost" onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z + 1))} title="Zoom in (+)">+</button>
+            <button className="btn sm ghost" onClick={() => setZoom(DEFAULT_ZOOM)} title="Reset zoom (Ctrl+0)">↺</button>
           </div>
+          <span className="duration-memory" title="Last effect duration ([/] to adjust ±50ms)">
+            {(lastEffectDuration / 1000).toFixed(2)}s
+          </span>
         </div>
 
         {/* ruler */}
@@ -456,8 +790,13 @@ export function TimelineView() {
 
             <div className="tl-lanes" style={{ width: W }} ref={lanesRef}>
               <div className="tl-gridlines">
-                {Array.from({ length: barTicks }, (_, i) => (
-                  <div key={i} className="gl bar" style={{ left: i * barSec * zoom }} />
+                {gridlines.map(({ t, kind }, i) => (
+                  <div
+                    key={`grid-${kind}-${i}`}
+                    className={`gl gl-${kind}`}
+                    style={{ left: t * zoom }}
+                    title={`${kind.toUpperCase()} @ ${t.toFixed(2)}s`}
+                  />
                 ))}
               </div>
               {sections.map((s, i) => {
@@ -468,32 +807,40 @@ export function TimelineView() {
               {lanes.map((lane) => {
                 const h = lane.kind === "bar" ? rowHeight(lane.bar) : laneHeight(lane);
                 const dim = lane.kind === "bar" && muted[lane.bar];
+                const isDrop = lane.kind === "bar" && dropBar === lane.bar;
                 return (
-                  <div key={lane.key} className="tl-row" style={{ height: h, opacity: dim ? 0.4 : 1 }}
+                  <div key={lane.key}
+                    ref={(el) => { if (el) rowRefs.current.set(lane.key, el); else rowRefs.current.delete(lane.key); }}
+                    className={"tl-row" + (isDrop ? " drop-target" : "")}
+                    style={{ height: h, opacity: dim ? 0.4 : 1 }}
                     onMouseDown={(e) => onLaneMouseDown(e, lane)}
                     onContextMenu={(e) => openLaneMenu(e, lane)}>
                     {clipsForLane(lane).map((c) => {
                       const col = c.color || famColor(famName(c.effect_id));
-                      const dp = dragPreview && dragPreview.id === c.id ? dragPreview : null;
-                      const cs = dp ? dp.start : c.start_ms;
-                      const ce = dp ? dp.end : c.end_ms;
                       return (
                         <div key={c.id}
-                          className={"clip" + (selectedClipId === c.id ? " sel" : "") + (c.locked ? " locked" : "")}
-                          onMouseDown={(e) => onClipMouseDown(e, c)}
-                          onClick={(e) => { e.stopPropagation(); selectClip(c.id); }}
+                          data-clip-id={c.id}
+                          data-track={c.track}
+                          className={"clip" + (selectedClipId === c.id || selectedClipIds.has(c.id) ? " sel" : "") + (c.locked ? " locked" : "") + (tool === "draw" && (activeFx || activePreset) ? " clip-paintable" : "")}
+                          onMouseDown={(e) => {
+                            if (tool !== "select" || c.locked) return;
+                            e.stopPropagation();
+                            selectClip(c.id);
+                            setSelectedClipIds(new Set());
+                            setMoveTargets([e.currentTarget as HTMLElement]);
+                          }}
+                          onClick={(e) => { if (tool === "draw") onClipClick(e, c); }}
                           onContextMenu={(e) => openClipMenu(e, c)}
                           onDoubleClick={(e) => { e.stopPropagation(); selectClip(c.id); setInspector(true); }}
+                          title={tool === "draw" ? "Click para pintar el efecto" : `${c.label || effectById.get(c.effect_id)?.name || "clip"} · ${((c.end_ms - c.start_ms) / 1000).toFixed(2)}s`}
                           style={{
-                            left: (cs / 1000) * zoom, width: ((ce - cs) / 1000) * zoom - 2,
+                            left: (c.start_ms / 1000) * zoom, width: ((c.end_ms - c.start_ms) / 1000) * zoom - 2,
                             top: 7 + c.layer * LANE_H, height: LANE_H - 4,
                             background: `color-mix(in oklab, ${col} 32%, var(--bg-2))`, borderColor: col,
                             cursor: tool === "select" && !c.locked ? "grab" : "pointer",
                           }}>
-                          <span className="clip-grip-l" />
                           <span className="clip-bar" style={{ background: col }} />
                           <span className="clip-name">{c.label || (c.preset_id ? "preset" : effectById.get(c.effect_id)?.name) || "clip"}</span>
-                          <span className="clip-grip" />
                         </div>
                       );
                     })}
@@ -508,6 +855,48 @@ export function TimelineView() {
               <div className="tl-playhead" style={{ left: t * zoom }}>
                 <div className="ph-flag mono">{fmtTime(t)}</div>
               </div>
+
+              {/* Multi-selección por rubber-band (solo en modo select) */}
+              {tool === "select" && (
+                <Selecto
+                  ref={selectoRef}
+                  dragContainer={".tl-lanes"}
+                  selectableTargets={[".clip"]}
+                  hitRate={0}
+                  selectByClick={true}
+                  selectFromInside={false}
+                  toggleContinueSelect={["ctrl"]}
+                  ratio={0}
+                  onDragStart={onSelectoDragStart}
+                  onSelectEnd={onSelectoSelectEnd}
+                />
+              )}
+
+              {/* Mover / redimensionar / arrastrar entre tracks (solo select) */}
+              {tool === "select" && (
+                <Moveable
+                  ref={moveableRef}
+                  target={moveTargets}
+                  draggable={true}
+                  resizable={true}
+                  renderDirections={["w", "e"]}
+                  origin={false}
+                  keepRatio={false}
+                  edge={false}
+                  snappable={true}
+                  snapDirections={{ left: true, right: true }}
+                  elementSnapDirections={{ left: true, right: true }}
+                  verticalGuidelines={verticalGuidelines}
+                  snapThreshold={6}
+                  throttleDrag={0}
+                  onDrag={onClipDrag}
+                  onDragEnd={onClipDragEnd}
+                  onDragGroup={onClipDragGroup}
+                  onDragGroupEnd={onClipDragGroupEnd}
+                  onResize={onClipResize}
+                  onResizeEnd={onClipResizeEnd}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -528,54 +917,16 @@ export function TimelineView() {
       {inspector && selClip && (
         <div className="clip-inspector">
           <div className="ci-head">
-            <h4>Clip · {selClip.label || effectById.get(selClip.effect_id)?.name || "—"}</h4>
             <button className="x" onClick={() => setInspector(false)}>×</button>
           </div>
           <div className="ci-body">
-            <div className="ci-row">
-              <label>Efecto</label>
-              <select value={selClip.effect_id}
-                onChange={(e) => control.call("set_clip_effect", { clip_id: selClip.id, effect_id: +e.target.value, label: effectById.get(+e.target.value)?.name }).then(afterEdit)}>
-                {families.map(([f, list]) => (
-                  <optgroup key={f} label={f || "otros"}>
-                    {list.map((fx) => <option key={fx.id} value={fx.id}>{fx.name}</option>)}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
-            <div className="ci-row">
-              <label>Scope</label>
-              <select value={selClip.scope}
-                onChange={(e) => control.call("set_clip_scope", { clip_id: selClip.id, scope: e.target.value }).then(afterEdit)}>
-                <option value="per_bar">per_bar</option>
-                <option value="global">global</option>
-                {groups.map((g) => <option key={g.name} value={`group:${g.name}`}>Grupo: {g.name}</option>)}
-                {!["per_bar", "global"].includes(selClip.scope) && !groups.some((g) => `group:${g.name}` === selClip.scope) && <option value={selClip.scope}>{selClip.scope}</option>}
-              </select>
-            </div>
-            <div className="ci-row">
-              <label>Color</label>
-              <input type="color" value={selClip.color || "#3a7acc"}
-                onChange={(e) => control.call("set_clip_color", { clip_id: selClip.id, color: e.target.value }).then(afterEdit)} />
-            </div>
-            {Object.keys(selClip.params || {}).length > 0 && <div className="ci-sub">Parámetros</div>}
-            {Object.entries(selClip.params || {}).map(([k, v]) => (
-              <div className="ci-row" key={k}>
-                <label>{k}</label>
-                <input className="mono" defaultValue={String(v)} key={k + selClip.id}
-                  onBlur={(e) => {
-                    let val: any = e.target.value;
-                    const n = Number(val);
-                    if (val.trim() !== "" && !isNaN(n)) val = n;
-                    control.call("set_clip_params", { clip_id: selClip.id, params: { [k]: val } }).then(afterEdit);
-                  }} />
-              </div>
-            ))}
-            <div className="ci-row" style={{ marginTop: 4, gap: 6 }}>
-              <button className="btn sm" style={{ flex: 1 }} onClick={() => toggleClipMute(selClip)}>{selClip.muted ? "Unmute" : "Mute"}</button>
-              <button className="btn sm" style={{ flex: 1 }} onClick={() => toggleClipLock(selClip)}>{selClip.locked ? "Unlock" : "Lock"}</button>
-              <button className="btn sm" style={{ color: "var(--bad)" }} onClick={() => { delClip(selClip); setInspector(false); }}>Borrar</button>
-            </div>
+            <ClipInspector
+              clip={selClip}
+              effects={effects}
+              lastDuration={lastEffectDuration}
+              onDurationChange={setLastEffectDuration}
+              onClipUpdate={afterEdit}
+            />
           </div>
         </div>
       )}
@@ -614,6 +965,10 @@ export function TimelineView() {
           </div>
         </div>
       )}
+
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
+      {showHelp && <HelpOverlay onClose={() => setShowHelp(false)} />}
     </div>
   );
 }

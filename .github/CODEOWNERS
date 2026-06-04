@@ -1,0 +1,22 @@
+# Codeowners para Show Designer Pro
+
+# Owner global
+* @guillegar
+
+# Core architecture
+src/core/ @guillegar
+src/mcp/ @guillegar
+src/io/ @guillegar
+
+# UI
+src/ui/ @guillegar
+
+# 3D viewer
+src/viewer3d/ @guillegar
+viewer3d/ @guillegar
+
+# Audio analysis
+src/analysis/ @guillegar
+
+# Tests
+tests/ @guillegar

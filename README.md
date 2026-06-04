@@ -233,5 +233,4 @@ Las contribuciones son bienvenidas. Ver [CONTRIBUTING.md](CONTRIBUTING.md) para:
 
 Ver [LICENSE](LICENSE) para términos completos.
 
-**Inspiración**: [ASLS Studio](https://github.com/Bergvca/asls_studio)
 **Atribuciones**: `src/viewer3d/CREDITS.md`

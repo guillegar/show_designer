@@ -16,7 +16,7 @@ Módulos:
 
 __version__ = "1.9.2"
 __author__ = "Usuario"
-__license__ = "GPL-3.0"
+__license__ = "Prosperity Public License 3.0.0"
 
 # Para imports relativos desde cualquier punto:
 # from src.core import show_engine

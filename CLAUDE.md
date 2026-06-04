@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Hardware actual: **10 barras WLED** (93 LEDs cada una) en universos Art-Net 1..10 (IPs `192.168.1.201..210`).
 - Show de prueba: `show_timeline.json` para "El Taser de Mamá Remix" (`El Taser de Mama Remix.mp3`, 273.3 s).
 - Plan maestro detallado en `C:\Users\guille\.claude\plans\mellow-rolling-cray.md`.
-- Licencia: **GPL-3.0** (compatible con ASLS Studio del que tomamos inspiración).
+- Licencia: **Prosperity Public License 3.0.0 (PPL)** — código original propio.
 
 ---
 
@@ -52,10 +52,43 @@ Claves:
 - **Tests**: `tests/test_session.py`, `tests/test_dispatcher.py`, `tests/test_web.py`
   (este último con `LUCES_NO_MCP_COMPAT=1` para no abrir :9876). **382 verdes**.
 - Deps nuevas: `fastapi`, `uvicorn[standard]`, `httpx` (test), `pygame`/`pygdtf`/
-  `websockets` ya estaban en uso. Frontend: Node/npm + `vite react zustand`.
+  `websockets` ya estaban en uso. Frontend: Node/npm + `vite react zustand`
+  + **`react-moveable` + `react-selecto`** (interacción del timeline, ver abajo).
 - **Arrancar**: `python -m server.main` y abrir http://localhost:8000 (sirve `web/dist`).
   Dev del frontend: `cd web && npm install && npm run dev` (Vite :5173 proxea WS a :8000).
   Rebuild para producción: `cd web && npm run build`.
+- **Launchers Windows (1 clic)**: `Luces.bat` = reinicio limpio (mata puertos
+  8000/9876/5173, arranca `python -m server.main`, espera al :8000 y abre el
+  navegador). `Cerrar Luces.bat` = apaga (mata esos puertos).
+
+### Timeline web — capa de interacción (IMPORTANTE si tocas `web/src/views/Timeline.tsx`)
+
+La mecánica de mover/redimensionar/seleccionar clips está sobre **react-moveable**
+(drag + resize por bordes + snap a guías) y **react-selecto** (rubber-band). NO hay
+matemática de punteros a mano (se eliminó: causaba bugs repetidos).
+- `web/src/views/timelineGeometry.ts` — funciones PURAS `xToMs/msToX/buildLaneLayout/
+  yToLane` (mapeo píxel↔tiempo y hit-test de filas con **altura variable**).
+- Selección al pulsar el clip (`onMouseDown`) → fija el target de Moveable. Moveable
+  va SIEMPRE montado en modo select (target puede ir vacío).
+- **Arrastre vertical**: el clip sigue al cursor (translate XY + z-index); en `onDrag`
+  se hit-testea el bar+layer destino con rects MEDIDOS (`barLayerAtClientY`, `round`
+  para zonas amplias) y se resalta la fila; al soltar se commitea `new_track`/
+  `new_layer` vía `move_clip` (el backend `_h_move_clip` ya soporta ambos + `new_start_ms`/`new_end_ms`).
+- Snap a BPM: las gridlines se pasan como `verticalGuidelines` a Moveable.
+- Componentes web auxiliares: `ClipInspector.tsx` (inspector adaptativo),
+  `Toast.tsx` (notificaciones), `HelpOverlay.tsx` (atajos, tecla `?`).
+- Atajos: `V/D/C` (select/draw/cut), `Q` (snap), `Ctrl+0` (reset zoom), `[`/`]`
+  (duración ±50ms), `Ctrl+C/V` (copiar/pegar), `Ctrl+A`/`Ctrl+Shift+A` (sel. track/todo),
+  `?` (ayuda).
+
+### Viewer 3D en la web (CÓMO SE SIRVE — no volver a romperlo)
+
+El viewer 3D va en un `<iframe src="/v3d/">` (`web/src/views/Viewer3D.tsx`). Los
+archivos se sirven desde **`web/public/v3d/`** (Vite los copia a `web/dist/v3d/` en
+CADA build). **OJO**: `npm run build` VACÍA `dist/`, así que los ficheros del viewer
+DEBEN vivir en `web/public/v3d/` (NO colocarlos a mano en `dist/v3d/`, se borran).
+Three.js entra por CDN (importmap en `index.html`). `session.py` regenera
+`rig_layout.json` en runtime.
 
 ---
 
@@ -212,7 +245,7 @@ Para que **Claude controle la app por MCP**: `.mcp.json` ya está configurado. C
 - **MIDI** no interesa por ahora.
 - **sACN** no interesa por ahora.
 - **Git** no usar (el usuario no quiere operaciones git).
-- No reinventar lo que ASLS Studio o Three.js ya hacen bien.
+- No reinventar lo que Three.js ya hace bien.
 
 ---
 
@@ -229,13 +262,13 @@ Para que **Claude controle la app por MCP**: `.mcp.json` ya está configurado. C
 | **Render unificado: timeline calcula el frame, todos lo pintan** | Evita dos cómputos paralelos. `_link_renders()` reconecta el `render_timer` del timeline a un `shared_tick` que pinta timeline + feedback + broadcast 3D + envía Art-Net. |
 | **Idle FPS reducido a 10 Hz** | Cuando nada se reproduce, no hay razón para 30 fps. Ahorra CPU del usuario. |
 | **`viewer3d/rig_layout.json` auto-generado** | Single source of truth = `fixtures.json` (FixtureRig). El layout JS lo deriva. |
-| **MovingHead JS escrito desde cero, inspirado en ASLS** | El usuario dijo explícitamente: *"tu leelo e inspirate todo lo necesario pero no copies el código, aunque es imposible, porque quiero que sea mío"*. Conceptos replicados (base→yoke→head→beam, fresnel, falloff), implementación nueva. Atribución en `viewer3d/CREDITS.md`. |
+| **MovingHead JS escrito desde cero** | Implementación original propia. Arquitectura base→yoke→head→beam con fresnel + falloff en shaders. Three.js (MIT) como única dependencia de render. |
 | **Shader beam: fresnel + `min(a, 1.0)` en alpha** | Con AdditiveBlending y DoubleSide, los dos lados del cilindro hueco acumulan luminosidad. Sin clamp en RGB (ACES tonemapping comprime), sí clamp en alpha. |
 | **Bars: body BEHIND LEDs + LEDs ligeramente más grandes** | Antes los LEDs estaban dentro del body opaco y no se veían. Ahora `body.position.z = -bodyDepth` y LEDs `0.95×` body en lugar de iguales. |
 | **Movers responden a DMX real desde Fase 4** | `get_fixture_dmx_states()` lee `manual_channels` de cada fixture no-LED y los broadcast al viewer 3D cada tick. Patch panel sliders → mover gira en tiempo real. |
 | **ChannelEffect puro: t+ctx+params→dict** (v1.7 F6) | Mismo principio que los pixel effects: sin Qt, sin red, sin rig. `_render_clip_channels()` los llama lazy. Facilita tests y catálogo ampliable sin tocar show_engine. |
 | **track=-1 para channel clips** (v1.7 F5) | Clips de canal (category!='pixel') usan track=-1. La UI del timeline no los renderiza (no hay track -1 visible), y el motor los filtra por scope='fixture:<id>'. |
-| **GPL-3.0** | Compatible con ASLS Studio (el código del que nos inspiramos es GPL-3.0). |
+| **Prosperity Public License 3.0.0 (PPL)** | Código original propio. Libre para uso personal/educativo; uso comercial requiere licencia. |
 | **GDTF + JSON híbrido para profiles** (v1.7) | GDTF para fixtures comerciales (descargar de gdtf-share.com). JSON propio para WLED + genéricos sin marca + prototipos. Internamente UN solo `FixtureProfile`. Decisión: el usuario dijo *"gdtf tiene que usar lo que dudo es si usar los json tambien o no"* → híbrido porque WLED no tiene GDTF natural. |
 | **Categorías por capacidad, deducidas auto** (v1.7) | 6 categorías: pixel/position/color/intensity/optical/strobe. `FixtureProfile.supported_categories()` las deduce del `channel_map`. Cada `ChannelEffect` declara `category` + `required_channels`. **Imposible** aplicar MoverCircle a una barra LED. Razón del usuario: *"creo que habria quee separar en efecto para cada tipo de fixure, no se puede aplicar movimiento a una barra"*. |
 | **LTP por layers en mezcla de canales** (v1.7) | Cuando varios clips channel-level activos tocan el mismo canal de un fixture, el de mayor `layer` gana. Coherente con sistema RGB existente. Permite a un wash tener clips paralelos en position+color+intensity sin chocar. |
@@ -366,8 +399,6 @@ Projects/
 │   ├── old_scripts/           ← test_*.py al raíz, unify_*, wled_framework, etc.
 │   └── timeline_editor_versions/  ← v01-v04 históricos
 │
-├── references/
-│   └── asls-studio/           ← clone para LEER inspiración (NO copiar)
 └── venv311/                   ← venv Python 3.11
 ```
 
@@ -553,7 +584,7 @@ Tools deferred: **siempre** cargar las del show con `ToolSearch(query="mcp__show
 - Escribe en español, a veces sin tildes y con erratas ("focos se veian", "elacoplamiento", "gdtf tiene que usar lo que dudo es si usar los json tambien"). No corregirle.
 - Quiere **rapidez** y **resultados visibles**: prefiere ver el visualizer encendido antes que arquitectura perfecta.
 - Le preocupa el acoplamiento. Cualquier refactor que reduzca acoplamiento entre piezas → win.
-- Quiere código **suyo**. ASLS Studio se LEE para inspirarse, no se copia ni siquiera con permiso. La excepción es Three.js (MIT) y pygdtf (LGPL). Atribución obligatoria en `CREDITS.md`.
+- Quiere código **suyo**: original, escrito desde cero, sin copiar de terceros (instrucción explícita al equipo: no copiar). Las dependencias reales (Three.js MIT, pygdtf LGPL) sí se usan como librerías y se acreditan en `CREDITS.md`.
 - Auto Mode está activo: hay que avanzar sin pedir permiso para decisiones razonables. Solo parar si la dirección es genuinamente ambigua.
 - **Guarda versiones**: el usuario insistió *"recuerda guardar versiones por si estropeamos el codigo"*. Cada fase de v1.7 → checkpoint en `versions/v1.7_pN_xxx/` con CHANGELOG + SHA-256.
 - **Pregunta principios estructurales**: cuando una decisión afecta a TODO el sistema (ej. categorías de efectos), conviene preguntar antes con AskUserQuestion. El usuario sabe lo que quiere, y un mal principio cuesta caro de revertir.

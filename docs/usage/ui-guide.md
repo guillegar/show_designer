@@ -15,29 +15,50 @@ The heart of Show Designer.
 
 ### Center: Timeline
 
-- **Horizontal axis** — Time (with ruler showing bars/beats/seconds)
-- **Vertical axis** — 10 bars + groups + fixtures
-- **Clips** — Colored rectangles showing effect instances
-  - Drag to move
-  - Right-click to edit/delete
-  - Double-click to select properties
+- **Horizontal axis** — Time (BPM-synced grid; the grid density adapts to zoom)
+- **Vertical axis** — 10 bars (each with stackable layers) + fixture lanes
+- **Clips** — Colored rectangles showing effect instances. In **Select** mode:
+  - **Click + drag horizontally** → move in time (snaps to the BPM grid, with guide lines)
+  - **Click + drag vertically** → move to another **bar (track)** and/or **layer**;
+    the clip follows the cursor and the destination row is highlighted
+  - **Drag the left/right edge** → resize
+  - **Drag over empty space** → rubber-band multi-select
+  - Right-click → context menu (duplicate, mirror, split, mute, lock, delete)
+  - Locked clips can't be moved or resized
+- In **Draw** mode: click an existing clip to repaint it with the selected effect.
 
-### Right Panel: Properties
+### Keyboard shortcuts (press `?` in the timeline for the full list)
 
-When a clip is selected:
+| Key | Action |
+|-----|--------|
+| `V` / `D` / `B` / `C` | Select / Draw / Draw / Cut tool |
+| `Q` | Toggle snap |
+| `+` `−` / `Ctrl+0` | Zoom in/out (2–50×) / reset zoom |
+| `[` `]` | Adjust default effect duration ±50 ms |
+| `Ctrl+C` / `Ctrl+V` | Copy / paste clip |
+| `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / redo |
+| `Ctrl+A` / `Ctrl+Shift+A` | Select all clips in track / everywhere |
+| `Ctrl+Click` | Add/remove clip from selection |
+| `Delete` / `Backspace` | Delete selected clip |
 
-- **Start / Duration** — Timing in ms
-- **Layer** — Z-order (higher = priority)
-- **Effect selector** — Choose which effect
-- **Effect parameters** — Customize (speed, color, etc.)
+### Right Panel: Properties (adaptive inspector)
+
+When a clip is selected the inspector shows, sized to the effect's parameters:
+
+- **Duration** — click to edit inline
+- **Effect selector** — choose which effect
+- **Scope** and **Color**
+- **Effect parameters** — customize (speed, hue, etc.)
+- **Lock / Mute / Delete** actions
 
 ### Toolbar
 
 - **Transport** — Play, Pause, Stop
-- **Project selector** — Switch between shows
-- **Export button** — QLC+ or CSV
-- **Snap toggle** — Align to beat grid
-- **Zoom** — +/- buttons to zoom in/out
+- **Tools** — Select / Draw / Cut + Undo/Redo
+- **Snap toggle** + grid selector (bar / beat / ½ / ¼ / free)
+- **Zoom** — −/value/+ and reset (Ctrl+0)
+- **Last duration** indicator (the duration new painted clips inherit)
+- **Generate / Export** — QLC+ or CSV
 
 ## Tab 2: Feedback + Bars WLED
 

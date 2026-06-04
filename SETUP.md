@@ -209,8 +209,8 @@ Show Designer Pro/
 ## Más info
 
 - **GitHub Issues / Bugs:** Reporta en el repositorio
-- **Licencia:** GPL-3.0
-- **Basado en:** ASLS Studio (inspiración), Three.js, PyQt5
+- **Licencia:** Prosperity Public License 3.0.0 (PPL)
+- **Basado en:** Three.js, PyQt5
 
 ---
 
