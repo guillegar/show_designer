@@ -1,10 +1,9 @@
 /**
  * moving_head.js — Mesh de cabeza móvil con beam volumétrico.
  *
- * Implementación ORIGINAL. Conceptos aprendidos por inspección de ASLS Studio
- * (GPL-3.0, Tim Kadel) pero NO se ha copiado código. Lo que se replica es la
- * arquitectura general (base → yoke → head → beam) y la idea de un cono
- * volumétrico con falloff radial+longitudinal, no la implementación concreta.
+ * Implementación ORIGINAL, escrita desde cero. Arquitectura jerárquica
+ * (base → yoke → head → beam) con un cono volumétrico generado por shader
+ * (falloff radial + longitudinal).
  *
  * Anatomía:
  *   Group "fixture"

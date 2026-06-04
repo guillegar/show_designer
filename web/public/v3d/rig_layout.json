@@ -1,0 +1,645 @@
+{
+  "_comment": "Auto-generated from FixtureRig (server.session).",
+  "stage": {
+    "width": 12.0,
+    "depth": 6.0,
+    "floor_color": "#1a1a22",
+    "background_color": "#06080c"
+  },
+  "fixtures": [
+    {
+      "id": "bar_0",
+      "type": "led_strip",
+      "leds": 93,
+      "position": [
+        -5.0,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0
+    },
+    {
+      "id": "bar_1",
+      "type": "led_strip",
+      "leds": 93,
+      "position": [
+        -4.0,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0
+    },
+    {
+      "id": "bar_2",
+      "type": "led_strip",
+      "leds": 93,
+      "position": [
+        -3.0,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0
+    },
+    {
+      "id": "bar_3",
+      "type": "led_strip",
+      "leds": 93,
+      "position": [
+        -2.0,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0
+    },
+    {
+      "id": "bar_4",
+      "type": "led_strip",
+      "leds": 93,
+      "position": [
+        -0.883,
+        1.0,
+        0.033
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0
+    },
+    {
+      "id": "bar_5",
+      "type": "led_strip",
+      "leds": 93,
+      "position": [
+        1.0,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0
+    },
+    {
+      "id": "bar_6",
+      "type": "led_strip",
+      "leds": 93,
+      "position": [
+        2.0,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0
+    },
+    {
+      "id": "bar_7",
+      "type": "led_strip",
+      "leds": 93,
+      "position": [
+        3.0,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0
+    },
+    {
+      "id": "bar_8",
+      "type": "led_strip",
+      "leds": 93,
+      "position": [
+        4.0,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0
+    },
+    {
+      "id": "bar_9",
+      "type": "led_strip",
+      "leds": 93,
+      "position": [
+        5.0,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0
+    },
+    {
+      "id": "mover_wash_L_back",
+      "type": "moving_head",
+      "leds": 0,
+      "position": [
+        -7.25,
+        4.0,
+        -0.333
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0,
+      "channels": [
+        "pan",
+        "pan_fine",
+        "tilt",
+        "tilt_fine",
+        "dim",
+        "shutter",
+        "color_wheel",
+        "gobo_wheel",
+        "gobo_rotation",
+        "r",
+        "g",
+        "b",
+        "w",
+        "speed",
+        "macro",
+        "reset"
+      ],
+      "metadata": {
+        "max_pan_deg": 540.0,
+        "max_tilt_deg": 270.0,
+        "beam_angle_deg": 22.0
+      }
+    },
+    {
+      "id": "mover_wash_L_front",
+      "type": "moving_head",
+      "leds": 0,
+      "position": [
+        -6.017,
+        4.0,
+        0.483
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0,
+      "channels": [
+        "pan",
+        "pan_fine",
+        "tilt",
+        "tilt_fine",
+        "dim",
+        "shutter",
+        "color_wheel",
+        "gobo_wheel",
+        "gobo_rotation",
+        "r",
+        "g",
+        "b",
+        "w",
+        "speed",
+        "macro",
+        "reset"
+      ],
+      "metadata": {
+        "max_pan_deg": 540.0,
+        "max_tilt_deg": 270.0,
+        "beam_angle_deg": 22.0
+      }
+    },
+    {
+      "id": "mover_wash_R_front",
+      "type": "moving_head",
+      "leds": 0,
+      "position": [
+        6.0,
+        4.0,
+        0.5
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0,
+      "channels": [
+        "pan",
+        "pan_fine",
+        "tilt",
+        "tilt_fine",
+        "dim",
+        "shutter",
+        "color_wheel",
+        "gobo_wheel",
+        "gobo_rotation",
+        "r",
+        "g",
+        "b",
+        "w",
+        "speed",
+        "macro",
+        "reset"
+      ],
+      "metadata": {
+        "max_pan_deg": 540.0,
+        "max_tilt_deg": 270.0,
+        "beam_angle_deg": 22.0
+      }
+    },
+    {
+      "id": "mover_wash_R_back",
+      "type": "moving_head",
+      "leds": 0,
+      "position": [
+        6.9,
+        4.0,
+        -0.317
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0,
+      "channels": [
+        "pan",
+        "pan_fine",
+        "tilt",
+        "tilt_fine",
+        "dim",
+        "shutter",
+        "color_wheel",
+        "gobo_wheel",
+        "gobo_rotation",
+        "r",
+        "g",
+        "b",
+        "w",
+        "speed",
+        "macro",
+        "reset"
+      ],
+      "metadata": {
+        "max_pan_deg": 540.0,
+        "max_tilt_deg": 270.0,
+        "beam_angle_deg": 22.0
+      }
+    },
+    {
+      "id": "generic_0",
+      "type": "moving_head",
+      "leds": 0,
+      "position": [
+        -8.0,
+        1.0,
+        -1.217
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0,
+      "channels": [
+        "pan",
+        "pan_fine",
+        "tilt",
+        "tilt_fine",
+        "dim",
+        "shutter",
+        "color_wheel",
+        "gobo_wheel",
+        "gobo_rotation",
+        "r",
+        "g",
+        "b",
+        "w",
+        "speed",
+        "macro",
+        "reset"
+      ],
+      "metadata": {
+        "max_pan_deg": 540.0,
+        "max_tilt_deg": 270.0,
+        "beam_angle_deg": 22.0
+      }
+    },
+    {
+      "id": "dimmer_0",
+      "type": "dimmer",
+      "leds": 0,
+      "position": [
+        -8.767,
+        1.0,
+        -2.833
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0,
+      "channels": [
+        "dim"
+      ],
+      "metadata": {
+        "max_pan_deg": 540.0,
+        "max_tilt_deg": 270.0,
+        "beam_angle_deg": 22.0
+      }
+    },
+    {
+      "id": "dimmer_1",
+      "type": "dimmer",
+      "leds": 0,
+      "position": [
+        8.433,
+        1.0,
+        -2.25
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0,
+      "channels": [
+        "dim"
+      ],
+      "metadata": {
+        "max_pan_deg": 540.0,
+        "max_tilt_deg": 270.0,
+        "beam_angle_deg": 22.0
+      }
+    },
+    {
+      "id": "dimmer_2",
+      "type": "dimmer",
+      "leds": 0,
+      "position": [
+        8.434,
+        1.0,
+        -2.95
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0,
+      "channels": [
+        "dim"
+      ],
+      "metadata": {
+        "max_pan_deg": 540.0,
+        "max_tilt_deg": 270.0,
+        "beam_angle_deg": 22.0
+      }
+    },
+    {
+      "id": "dimmer_3",
+      "type": "dimmer",
+      "leds": 0,
+      "position": [
+        7.717,
+        1.0,
+        -2.267
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0,
+      "channels": [
+        "dim"
+      ],
+      "metadata": {
+        "max_pan_deg": 540.0,
+        "max_tilt_deg": 270.0,
+        "beam_angle_deg": 22.0
+      }
+    },
+    {
+      "id": "dimmer_4",
+      "type": "dimmer",
+      "leds": 0,
+      "position": [
+        -7.75,
+        1.0,
+        -2.767
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0,
+      "channels": [
+        "dim"
+      ],
+      "metadata": {
+        "max_pan_deg": 540.0,
+        "max_tilt_deg": 270.0,
+        "beam_angle_deg": 22.0
+      }
+    },
+    {
+      "id": "dimmer_5",
+      "type": "dimmer",
+      "leds": 0,
+      "position": [
+        -8.767,
+        1.0,
+        -3.583
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0,
+      "channels": [
+        "dim"
+      ],
+      "metadata": {
+        "max_pan_deg": 540.0,
+        "max_tilt_deg": 270.0,
+        "beam_angle_deg": 22.0
+      }
+    },
+    {
+      "id": "dimmer_6",
+      "type": "dimmer",
+      "leds": 0,
+      "position": [
+        -9.6,
+        1.0,
+        -2.8
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0,
+      "channels": [
+        "dim"
+      ],
+      "metadata": {
+        "max_pan_deg": 540.0,
+        "max_tilt_deg": 270.0,
+        "beam_angle_deg": 22.0
+      }
+    },
+    {
+      "id": "dimmer_7",
+      "type": "dimmer",
+      "leds": 0,
+      "position": [
+        -8.767,
+        1.0,
+        -2.167
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0,
+      "channels": [
+        "dim"
+      ],
+      "metadata": {
+        "max_pan_deg": 540.0,
+        "max_tilt_deg": 270.0,
+        "beam_angle_deg": 22.0
+      }
+    },
+    {
+      "id": "dimmer_8",
+      "type": "dimmer",
+      "leds": 0,
+      "position": [
+        9.217,
+        1.0,
+        -2.233
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0,
+      "channels": [
+        "dim"
+      ],
+      "metadata": {
+        "max_pan_deg": 540.0,
+        "max_tilt_deg": 270.0,
+        "beam_angle_deg": 22.0
+      }
+    },
+    {
+      "id": "dimmer_9",
+      "type": "dimmer",
+      "leds": 0,
+      "position": [
+        8.4,
+        1.0,
+        -1.467
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0,
+      "channels": [
+        "dim"
+      ],
+      "metadata": {
+        "max_pan_deg": 540.0,
+        "max_tilt_deg": 270.0,
+        "beam_angle_deg": 22.0
+      }
+    },
+    {
+      "id": "generic_1",
+      "type": "moving_head",
+      "leds": 0,
+      "position": [
+        7.75,
+        1.0,
+        -1.233
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "length": 1.0,
+      "channels": [
+        "pan",
+        "pan_fine",
+        "tilt",
+        "tilt_fine",
+        "dim",
+        "shutter",
+        "color_wheel",
+        "gobo_wheel",
+        "gobo_rotation",
+        "r",
+        "g",
+        "b",
+        "w",
+        "speed",
+        "macro",
+        "reset"
+      ],
+      "metadata": {
+        "max_pan_deg": 540.0,
+        "max_tilt_deg": 270.0,
+        "beam_angle_deg": 22.0
+      }
+    }
+  ]
+}

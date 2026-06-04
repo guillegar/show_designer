@@ -806,6 +806,8 @@ def _h_move_clip(app, params):
         c.end_ms = max(c.start_ms + 50, int(params["new_end_ms"]))
     if "new_track" in params:
         c.track = int(params["new_track"])
+    if "new_layer" in params:
+        c.layer = max(0, int(params["new_layer"]))
     _dirty_timeline(app)
     return {"ok": True, "clip": c.to_dict()}
 

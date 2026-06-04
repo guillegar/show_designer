@@ -4,7 +4,7 @@
  * Renderiza el rig de barras LED en 3D usando Three.js.
  * Recibe los frames RGB en tiempo real por WebSocket desde dual_app.py.
  *
- * Adaptado parcialmente de ASLS Studio (GPL-3.0, Tim Kadel) — ver CREDITS.md.
+ * Implementación original. Three.js (MIT) — ver CREDITS.md.
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';

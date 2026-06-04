@@ -84,9 +84,15 @@
 
 .tl-lanes { position: relative; flex: 1; }
 .tl-gridlines { position: absolute; inset: 0; pointer-events: none; }
-.gl.bar { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line-soft); }
+.gl { position: absolute; top: 0; bottom: 0; }
+.gl.gl-bar { width: 2px; background: rgba(100, 120, 200, 0.55); }
+.gl.gl-beat { width: 1px; background: rgba(100, 120, 200, 0.32); }
+.gl.gl-subdiv { width: 1px; background: rgba(100, 120, 200, 0.14); }
+/* Legacy support */
+.gl.bar { width: 2px; background: var(--line-soft); }
 .lane-sec { position: absolute; top: 0; bottom: 0; pointer-events: none; }
 .tl-row { position: relative; border-bottom: 1px solid var(--line-soft); }
+.tl-row.drop-target { background: color-mix(in oklab, var(--acc) 16%, transparent); outline: 1px dashed var(--acc); outline-offset: -1px; }
 
 .clip {
   position: absolute; border: 1px solid; border-radius: 5px; cursor: pointer;
@@ -95,6 +101,38 @@
 }
 .clip:hover { filter: brightness(1.12); }
 .clip.sel { outline: 2px solid var(--acc-2); outline-offset: 0; z-index: 4; box-shadow: 0 0 0 3px var(--acc-2-dim), var(--sh-2); }
+.clip.clip-paintable { cursor: cell; border-style: dashed; border-color: #0f0; }
+.clip.clip-paintable:hover { background-color: rgba(0, 255, 0, 0.15); border-style: solid; border-width: 2px; }
+.clip[data-dragging="v"] { opacity: 0.8; box-shadow: 0 0 8px #0f0; border: 2px solid #0f0; }
+.clip.locked { cursor: not-allowed; opacity: 0.5; }
+.clip.dragging { opacity: 0.6; }
+
+/* ========== TOAST ========== */
+.toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+.toast { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: 6px; font-size: 13px; color: white; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); animation: slideIn 0.3s ease-out; }
+.toast-info { background: #3a7acc; }
+.toast-success { background: #2d7a3a; }
+.toast-warning { background: #a87a2d; }
+.toast-error { background: #a02d2d; }
+.toast-close { background: none; border: none; color: white; cursor: pointer; font-size: 18px; padding: 0; width: 20px; height: 20px; }
+.toast-close:hover { opacity: 0.8; }
+@keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* ========== HELP OVERLAY ========== */
+.help-modal { position: relative; background: var(--bg-1); border-radius: 8px; max-width: 600px; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4); }
+.help-header { display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid var(--line); }
+.help-header h2 { margin: 0; font-size: 18px; }
+.help-header .x { background: none; border: none; font-size: 24px; color: var(--txt-3); cursor: pointer; padding: 0; width: 30px; height: 30px; }
+.help-body { padding: 20px; }
+.help-section { margin-bottom: 24px; }
+.help-section h3 { margin: 0 0 12px 0; font-size: 13px; font-weight: 600; color: var(--acc); text-transform: uppercase; letter-spacing: 0.5px; }
+.shortcuts { display: flex; flex-direction: column; gap: 8px; }
+.shortcut { display: flex; gap: 16px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+.shortcut:last-child { border-bottom: none; }
+.shortcut .key { min-width: 100px; font-family: var(--mono); font-size: 12px; font-weight: 600; background: var(--bg-2); padding: 4px 8px; border-radius: 3px; color: var(--acc); }
+.shortcut span:last-child { font-size: 13px; color: var(--txt-2); }
+.help-footer { padding: 12px 20px; border-top: 1px solid var(--line); text-align: center; font-size: 11px; color: var(--txt-3); }
+.help-footer .key { margin: 0 4px; }
 .clip-bar { width: 3px; height: 100%; flex: none; }
 .clip-name { font-size: 10.5px; font-weight: 600; color: var(--txt); padding: 0 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .clip-grip { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: ew-resize; }
