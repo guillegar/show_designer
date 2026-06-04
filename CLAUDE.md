@@ -52,10 +52,43 @@ Claves:
 - **Tests**: `tests/test_session.py`, `tests/test_dispatcher.py`, `tests/test_web.py`
   (este último con `LUCES_NO_MCP_COMPAT=1` para no abrir :9876). **382 verdes**.
 - Deps nuevas: `fastapi`, `uvicorn[standard]`, `httpx` (test), `pygame`/`pygdtf`/
-  `websockets` ya estaban en uso. Frontend: Node/npm + `vite react zustand`.
+  `websockets` ya estaban en uso. Frontend: Node/npm + `vite react zustand`
+  + **`react-moveable` + `react-selecto`** (interacción del timeline, ver abajo).
 - **Arrancar**: `python -m server.main` y abrir http://localhost:8000 (sirve `web/dist`).
   Dev del frontend: `cd web && npm install && npm run dev` (Vite :5173 proxea WS a :8000).
   Rebuild para producción: `cd web && npm run build`.
+- **Launchers Windows (1 clic)**: `Luces.bat` = reinicio limpio (mata puertos
+  8000/9876/5173, arranca `python -m server.main`, espera al :8000 y abre el
+  navegador). `Cerrar Luces.bat` = apaga (mata esos puertos).
+
+### Timeline web — capa de interacción (IMPORTANTE si tocas `web/src/views/Timeline.tsx`)
+
+La mecánica de mover/redimensionar/seleccionar clips está sobre **react-moveable**
+(drag + resize por bordes + snap a guías) y **react-selecto** (rubber-band). NO hay
+matemática de punteros a mano (se eliminó: causaba bugs repetidos).
+- `web/src/views/timelineGeometry.ts` — funciones PURAS `xToMs/msToX/buildLaneLayout/
+  yToLane` (mapeo píxel↔tiempo y hit-test de filas con **altura variable**).
+- Selección al pulsar el clip (`onMouseDown`) → fija el target de Moveable. Moveable
+  va SIEMPRE montado en modo select (target puede ir vacío).
+- **Arrastre vertical**: el clip sigue al cursor (translate XY + z-index); en `onDrag`
+  se hit-testea el bar+layer destino con rects MEDIDOS (`barLayerAtClientY`, `round`
+  para zonas amplias) y se resalta la fila; al soltar se commitea `new_track`/
+  `new_layer` vía `move_clip` (el backend `_h_move_clip` ya soporta ambos + `new_start_ms`/`new_end_ms`).
+- Snap a BPM: las gridlines se pasan como `verticalGuidelines` a Moveable.
+- Componentes web auxiliares: `ClipInspector.tsx` (inspector adaptativo),
+  `Toast.tsx` (notificaciones), `HelpOverlay.tsx` (atajos, tecla `?`).
+- Atajos: `V/D/C` (select/draw/cut), `Q` (snap), `Ctrl+0` (reset zoom), `[`/`]`
+  (duración ±50ms), `Ctrl+C/V` (copiar/pegar), `Ctrl+A`/`Ctrl+Shift+A` (sel. track/todo),
+  `?` (ayuda).
+
+### Viewer 3D en la web (CÓMO SE SIRVE — no volver a romperlo)
+
+El viewer 3D va en un `<iframe src="/v3d/">` (`web/src/views/Viewer3D.tsx`). Los
+archivos se sirven desde **`web/public/v3d/`** (Vite los copia a `web/dist/v3d/` en
+CADA build). **OJO**: `npm run build` VACÍA `dist/`, así que los ficheros del viewer
+DEBEN vivir en `web/public/v3d/` (NO colocarlos a mano en `dist/v3d/`, se borran).
+Three.js entra por CDN (importmap en `index.html`). `session.py` regenera
+`rig_layout.json` en runtime.
 
 ---
 
