@@ -37,32 +37,15 @@ from src._setup_paths import *
 
 import src.mcp.mcp_bridge as bridge  # noqa: E402
 from server.exporters import export_to_memory  # noqa: E402
-from server.validators import ValidationError, require_int, require_order  # noqa: E402
+from server.validators import ValidationError, require_int, require_order, require_key  # noqa: E402
 from server.toggles import toggle_set_membership  # noqa: E402
 
 
-# ── Parche: _qt_call inline + notify ────────────────────────────────────────
-def _inline_qt_call(app, fn):
-    try:
-        fn()
-    except Exception as e:
-        print(f"[dispatcher] qt_call inline error: {e}")
-    try:
-        app.notify_changed('model')
-    except Exception:
-        pass
-
-
-def _inline_qt_call_dual(app, method_name):
-    # En headless no hay _dual_window; solo notificamos para refrescar la vista.
-    try:
-        app.notify_changed(method_name)
-    except Exception:
-        pass
-
-
-bridge._qt_call = _inline_qt_call
-bridge._qt_call_dual = _inline_qt_call_dual
+# ── Desacople (B1) ───────────────────────────────────────────────────────────
+# Antes aquí se parcheaba el módulo global `bridge._qt_call`/`_qt_call_dual`.
+# Ahora la política headless vive en ShowSession (`_qt_call_impl` /
+# `_qt_call_dual_impl`) y el bridge la detecta vía getattr sobre `app`. Esto
+# elimina la mutación de estado global del módulo (más robusto y testeable).
 
 
 # Métodos de debug que dependen de widgets Qt concretos (tabs, canvas): se
@@ -140,10 +123,15 @@ _RIG_MUTATORS = {
 
 def _h_set_clip_effect(session, params):
     """Cambia el efecto (effect_id) de un clip pixel. No existe en el bridge."""
-    c = session.find_clip_by_id(params["clip_id"])
+    try:
+        clip_id = require_key(params, "clip_id")
+        effect_id = require_int(params, "effect_id", min_val=0)
+    except ValidationError as e:
+        return {"ok": False, "error": str(e)}
+    c = session.find_clip_by_id(clip_id)
     if c is None:
         return {"ok": False, "error": "clip_id no encontrado"}
-    c.effect_id = int(params["effect_id"])
+    c.effect_id = effect_id
     if params.get("label") is not None:
         c.label = params["label"]
     session.invalidate_caches()
@@ -154,10 +142,15 @@ def _h_set_clip_preset(session, params):
     """Aplica un preset (pixel o canal) a un clip EXISTENTE, conservando su
     posición (start/end/track/layer). Espeja la asignación de _h_add_preset_clip.
     Permite 'pintar' presets con click en modo draw."""
-    c = session.find_clip_by_id(params["clip_id"])
+    try:
+        clip_id = require_key(params, "clip_id")
+        preset_id = require_key(params, "preset_id")
+    except ValidationError as e:
+        return {"ok": False, "error": str(e)}
+    c = session.find_clip_by_id(clip_id)
     if c is None:
         return {"ok": False, "error": "clip_id no encontrado"}
-    p = session.presets.get(params["preset_id"])
+    p = session.presets.get(preset_id)
     if p is None:
         return {"ok": False, "error": "preset no encontrado"}
     c.params = dict(p.params)

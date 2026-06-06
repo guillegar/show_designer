@@ -33,15 +33,20 @@ Navegador (web/ — Vite+React+TS)
         ▼                  ▼                          ▼
 server/ (headless, asyncio, SIN Qt) — python -m server.main  (:8000)
   web.py        FastAPI: dist + /ws/control + /ws/stream (+ compat MCP :9876)
-  dispatcher.py REUSA los 52 handlers de mcp_bridge.py (parchea _qt_call inline)
-                + handlers web-only: set_loop/set_rec/set_volume/set_track_mute|solo/
-                  list_feedback/add_feedback/analyzer_waveform_peaks
+  dispatcher.py REUSA los handlers de mcp_bridge.py + handlers web-only
+                (set_loop/set_rec/set_volume/set_track_mute|solo/set_clip_effect/
+                 set_clip_preset/list_feedback/...). Mutadores de rig regeneran
+                rig_layout.json (_RIG_MUTATORS). Validación vía server/validators.py.
+                Desacople (B1): la política headless de `_qt_call` la provee la
+                SESIÓN (`_qt_call_impl`), el bridge la detecta vía getattr — ya NO
+                se parchea el módulo global.
   tick.py       loop asyncio 30 FPS: compute_frame → Art-Net → broadcast (dmx a 7.5 FPS)
   session.py    ShowSession: dueño headless de timeline+show_engine+rig+analysis+
-                library+audio. compute_frame = port Qt-free de TimelineEditorWindow.
-                Expone los MISMOS atributos que esperan los handlers (tl_view/props
-                son shims no-op). Reloj maestro = HeadlessAudioPlayer (pygame.mixer
-                + time.monotonic, con modo silencioso si no hay tarjeta).
+                library+audio. compute_frame = port Qt-free (bucket-index O(activos)).
+                Undo/redo extraído a server/undo_manager.py (UndoManager). Reloj
+                maestro = HeadlessAudioPlayer (pygame.mixer + time.monotonic).
+  tick.py       broadcast en paralelo (asyncio.gather; cliente lento no frena el
+                loop), sin copias numpy redundantes, estado JSON throttle ~10 FPS.
 ```
 
 Claves:
@@ -50,7 +55,8 @@ Claves:
 - **El navegador NO recalcula luces**: consume el frame binario real (10×93×3 = 2790 B)
   del `/ws/stream`. `lights.jsx` del handoff fue solo referencia, no se portó.
 - **Tests**: `tests/test_session.py`, `tests/test_dispatcher.py`, `tests/test_web.py`
-  (este último con `LUCES_NO_MCP_COMPAT=1` para no abrir :9876). **382 verdes**.
+  (este último con `LUCES_NO_MCP_COMPAT=1` para no abrir :9876). **416 verdes**
+  (+ test_validators, test_undo_manager, test_stream_hub, test_timeline_fixes).
 - Deps nuevas: `fastapi`, `uvicorn[standard]`, `httpx` (test), `pygame`/`pygdtf`/
   `websockets` ya estaban en uso. Frontend: Node/npm + `vite react zustand`
   + **`react-moveable` + `react-selecto`** (interacción del timeline, ver abajo).

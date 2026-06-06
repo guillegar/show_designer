@@ -37,26 +37,28 @@ class StreamHub:
         self.clients.discard(ws)
 
     async def broadcast_bytes(self, data: bytes):
-        dead = []
-        for ws in list(self.clients):
-            try:
-                await ws.send_bytes(data)
-            except Exception:
-                dead.append(ws)
-        for ws in dead:
-            self.clients.discard(ws)
+        # Envío en paralelo (asyncio.gather): un cliente lento NO frena al resto
+        # ni al tick loop. Coste = máx(latencias) en vez de Σ(latencias).
+        if not self.clients:
+            return
+        clients = list(self.clients)
+        results = await asyncio.gather(
+            *(ws.send_bytes(data) for ws in clients), return_exceptions=True)
+        for ws, res in zip(clients, results):
+            if isinstance(res, Exception):
+                self.clients.discard(ws)
 
     async def broadcast_json(self, obj: dict):
+        if not self.clients:
+            return
         import json
         text = json.dumps(obj)
-        dead = []
-        for ws in list(self.clients):
-            try:
-                await ws.send_text(text)
-            except Exception:
-                dead.append(ws)
-        for ws in dead:
-            self.clients.discard(ws)
+        clients = list(self.clients)
+        results = await asyncio.gather(
+            *(ws.send_text(text) for ws in clients), return_exceptions=True)
+        for ws, res in zip(clients, results):
+            if isinstance(res, Exception):
+                self.clients.discard(ws)
 
 
 class TickLoop:
@@ -68,6 +70,7 @@ class TickLoop:
         self._running = False
         self._fps_meter = 0.0
         self._n = 0
+        self._last_state_sig = None  # throttle del estado JSON (A3)
 
     async def run(self):
         self._running = True
@@ -88,36 +91,41 @@ class TickLoop:
                         s.pause()
                         playing = False
 
-                frame = s.compute_frame(t)
+                frame = s.compute_frame(t)  # (NUM_BARS, LEDS, 3) uint8
 
-                # Art-Net (siempre, no solo reproduciendo)
+                # Art-Net (siempre, no solo reproduciendo). frame[b] ya es uint8
+                # contiguo → .tobytes() da el RGB row-major sin copias extra.
                 if s.send_artnet and s.show_engine is not None:
                     try:
-                        rgb_list = [bytearray(frame[b].flatten().astype('uint8')) for b in range(NUM_BARS)]
-                        s.show_engine.send_frame(rgb_list)
+                        s.show_engine.send_frame([frame[b].tobytes() for b in range(NUM_BARS)])
                     except Exception as e:
                         print(f"[tick] Art-Net error: {e}")
-                        pass
 
-                # Broadcast frame binario
+                # Broadcast frame binario (frame ya es uint8 → sin astype redundante)
                 if self.hub.clients:
-                    await self.hub.broadcast_bytes(frame.astype('uint8').tobytes())
+                    await self.hub.broadcast_bytes(frame.tobytes())
 
+                    # Estado JSON: la UI no necesita 30 FPS. Se difunde cada 3 ticks
+                    # (~10 FPS) o cuando cambia algo relevante (play/section/bar/rev).
                     bar, beat = s.bar_beat(t)
-                    await self.hub.broadcast_json({
-                        "type": "state",
-                        "t": round(t, 3),
-                        "playing": playing,
-                        "duration": round(s.duration, 3),
-                        "loop": s.loop,
-                        "rec": s.rec,
-                        "section": s.section_name_at(t),
-                        "bar": bar,
-                        "beat": beat,
-                        "fps": round(self._fps_meter, 1),
-                        "rev": s._rev,
-                        "clip_count": len(s.timeline.clips),
-                    })
+                    section = s.section_name_at(t)
+                    sig = (playing, section, bar, beat, s.loop, s.rec, s._rev)
+                    if self._n % 3 == 0 or sig != self._last_state_sig:
+                        self._last_state_sig = sig
+                        await self.hub.broadcast_json({
+                            "type": "state",
+                            "t": round(t, 3),
+                            "playing": playing,
+                            "duration": round(s.duration, 3),
+                            "loop": s.loop,
+                            "rec": s.rec,
+                            "section": section,
+                            "bar": bar,
+                            "beat": beat,
+                            "fps": round(self._fps_meter, 1),
+                            "rev": s._rev,
+                            "clip_count": len(s.timeline.clips),
+                        })
 
                     # Estado DMX de movers/strobes (no-LED). Es caro (itera
                     # fixtures × clips), así que se difunde a ~7.5 FPS (cada 4

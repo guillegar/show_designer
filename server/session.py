@@ -182,6 +182,19 @@ class ShowSession:
         self.solo_tracks: set[int] = set()
         self._clip_bucket_index: Dict[int, list] = {}
         self._clip_bucket_index_n = -1
+        # Undo/redo extraído a UndoManager (SRP). Accede a los clips de forma
+        # perezosa (lambda) para tolerar recargas de timeline (load_show).
+        from server.undo_manager import UndoManager
+        self.undo_manager = UndoManager(
+            get_clips=lambda: self.timeline.clips,
+            restore_clips=self._restore_clips,
+        )
+        # Desacople (B1): política headless de `_qt_call` del bridge. Antes el
+        # dispatcher parcheaba el módulo global; ahora la sesión la provee a nivel
+        # de instancia (el bridge la detecta vía getattr). Sin Qt: ejecuta inline
+        # y notifica el cambio al stream para que el navegador refresque.
+        self._qt_call_impl = self._headless_qt_call
+        self._qt_call_dual_impl = self._headless_qt_call_dual
         self._cached_actx = {
             'rms': 0.5, 'energy': 0.5, 'flux': 0.3, 'centroid': 4000, 'zcr': 0.2,
             'mfcc': np.zeros(13, dtype=np.float32),
@@ -359,34 +372,40 @@ class ShowSession:
                 return c
         return None
 
-    # ── Undo / Redo (snapshots de los clips del timeline) ────────────────────
-    def snapshot(self):
-        if not hasattr(self, "_undo"):
-            self._undo, self._redo = [], []
-        self._undo.append([c.to_dict() for c in self.timeline.clips])
-        if len(self._undo) > 60:
-            self._undo.pop(0)
-        self._redo.clear()
+    # ── Política headless de _qt_call del bridge (B1) ────────────────────────
+    def _headless_qt_call(self, fn):
+        """Reemplazo headless de QTimer.singleShot: ejecuta inline + notifica."""
+        try:
+            fn()
+        except Exception as e:
+            print(f"[session] qt_call inline error: {e}")
+        try:
+            self.notify_changed('model')
+        except Exception:
+            pass
 
-    def _set_clips(self, dicts):
+    def _headless_qt_call_dual(self, method_name):
+        """En headless no hay ventana Qt; solo notifica para refrescar la vista."""
+        try:
+            self.notify_changed(method_name)
+        except Exception:
+            pass
+
+    # ── Undo / Redo — delegado en UndoManager (server/undo_manager.py) ───────
+    def _restore_clips(self, dicts):
         from src.core.timeline_model import Clip
         self.timeline.clips = [Clip.from_dict(d) for d in dicts]
         self.invalidate_clip_index()
         self.notify_changed("undo")
 
+    def snapshot(self):
+        self.undo_manager.snapshot()
+
     def undo(self) -> bool:
-        if not getattr(self, "_undo", None):
-            return False
-        self._redo.append([c.to_dict() for c in self.timeline.clips])
-        self._set_clips(self._undo.pop())
-        return True
+        return self.undo_manager.undo()
 
     def redo(self) -> bool:
-        if not getattr(self, "_redo", None):
-            return False
-        self._undo.append([c.to_dict() for c in self.timeline.clips])
-        self._set_clips(self._redo.pop())
-        return True
+        return self.undo_manager.redo()
 
     def _resolve_clip_effect(self, clip):
         """Devuelve (effect_id, params) del clip, resolviendo el preset si lo tiene.

@@ -502,7 +502,14 @@ def _h_apply_channel_preset(app, params):
 
 
 def _qt_call_dual(app, method_name):
-    """Si dual_app está disponible, invoca un método en el thread Qt."""
+    """Si dual_app está disponible, invoca un método en el thread Qt.
+
+    Desacople (B1): si `app` provee `_qt_call_dual_impl` (ShowSession headless),
+    se delega en él (típicamente notifica el cambio al stream del navegador)."""
+    impl = getattr(app, '_qt_call_dual_impl', None)
+    if impl is not None:
+        impl(method_name)
+        return
     try:
         dual = getattr(app, '_dual_window', None)
         if dual is None:
@@ -1452,7 +1459,16 @@ HANDLERS: Dict[str, Callable] = {
 # ───────────────────────────────────────────────────────────────
 
 def _qt_call(app, fn):
-    """Ejecuta `fn()` en el thread principal de Qt usando QTimer.singleShot(0)."""
+    """Ejecuta `fn()` en el thread principal de Qt usando QTimer.singleShot(0).
+
+    Desacople (B1): si `app` provee `_qt_call_impl` (lo hace ShowSession headless),
+    se delega en él en vez de tocar Qt. Antes esto se hacía parcheando el módulo
+    global desde el dispatcher; ahora cada sesión decide su propia política.
+    """
+    impl = getattr(app, '_qt_call_impl', None)
+    if impl is not None:
+        impl(fn)
+        return
     try:
         from PyQt5.QtCore import QTimer
         QTimer.singleShot(0, fn)
