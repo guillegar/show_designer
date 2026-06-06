@@ -126,7 +126,15 @@ _TIMELINE_MUTATORS = {
     "add_clip", "delete_clip", "move_clip", "set_clip_color", "set_clip_params",
     "set_clip_mute", "set_clip_lock", "set_clip_scope", "set_clip_effect",
     "add_channel_clip", "add_preset_clip", "duplicate_clip", "split_clip",
+    "set_clip_preset",
     "generate_section", "mirror_clips_lr", "apply_palette_to_range", "load_show",
+}
+
+# Métodos que mutan el rig de fixtures → regenerar rig_layout.json para el visor 3D
+# (si no, el visor muestra posiciones obsoletas tras mover/editar fixtures en Patch).
+_RIG_MUTATORS = {
+    "move_fixture", "set_fixture_property", "add_fixture", "delete_fixture",
+    "save_rig", "load_show",
 }
 
 
@@ -140,6 +148,31 @@ def _h_set_clip_effect(session, params):
         c.label = params["label"]
     session.invalidate_caches()
     return {"ok": True}
+
+
+def _h_set_clip_preset(session, params):
+    """Aplica un preset (pixel o canal) a un clip EXISTENTE, conservando su
+    posición (start/end/track/layer). Espeja la asignación de _h_add_preset_clip.
+    Permite 'pintar' presets con click en modo draw."""
+    c = session.find_clip_by_id(params["clip_id"])
+    if c is None:
+        return {"ok": False, "error": "clip_id no encontrado"}
+    p = session.presets.get(params["preset_id"])
+    if p is None:
+        return {"ok": False, "error": "preset no encontrado"}
+    c.params = dict(p.params)
+    c.color = p.color
+    c.label = p.name
+    c.preset_id = p.preset_id
+    if p.kind == "channel":
+        c.category = p.category
+        c.channel_effect_id = p.channel_effect_id
+    else:
+        c.effect_id = p.base_effect_id
+        c.category = "pixel"
+        c.channel_effect_id = None
+    session.invalidate_caches()
+    return {"ok": True, "clip": c.to_dict()}
 
 
 def _h_duplicate_clip(session, params):
@@ -366,6 +399,7 @@ _LOCAL = {
     "add_feedback": _h_add_feedback,
     "analyzer_waveform_peaks": _h_analyzer_waveform_peaks,
     "set_clip_effect": _h_set_clip_effect,
+    "set_clip_preset": _h_set_clip_preset,
     "duplicate_clip": _h_duplicate_clip,
     "split_clip": _h_split_clip,
 }
@@ -401,12 +435,24 @@ class Dispatcher:
         if method in _LOCAL:
             try:
                 result = _LOCAL[method](self.session, msg.get("params") or {})
+                self._maybe_sync_rig(method)
                 return {"jsonrpc": "2.0", "id": msg_id, "result": result}
             except Exception as e:
                 return {"jsonrpc": "2.0", "id": msg_id,
                         "error": {"code": -32000, "message": str(e),
                                   "data": traceback.format_exc()}}
-        return bridge._dispatch(self.session, msg)
+        resp = bridge._dispatch(self.session, msg)
+        self._maybe_sync_rig(method)
+        return resp
+
+    def _maybe_sync_rig(self, method: str) -> None:
+        """Tras mutar el rig, regenera rig_layout.json para que el visor 3D lo
+        refleje al recargar (la tab del visor re-monta el iframe al volver a ella)."""
+        if method in _RIG_MUTATORS:
+            try:
+                self.session.sync_rig_layout()
+            except Exception:
+                pass
 
     def call(self, method: str, params: Optional[dict] = None) -> Dict[str, Any]:
         """Atajo: invoca un método y devuelve el `result` (o lanza en error)."""

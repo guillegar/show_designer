@@ -177,7 +177,8 @@ let layoutLoaded = false;
 
 async function loadLayout() {
   try {
-    const resp = await fetch(LAYOUT_URL);
+    // cache-bust: el rig_layout.json se regenera al mover fixtures en Patch
+    const resp = await fetch(`${LAYOUT_URL}?t=${Date.now()}`, { cache: "no-store" });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const layout = await resp.json();
 

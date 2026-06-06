@@ -317,6 +317,7 @@ export function TimelineView() {
   const [moveTargets, setMoveTargets] = useState<(HTMLElement | SVGElement)[]>([]);
   const [dropBar, setDropBar] = useState<number | null>(null);
   const dropPosRef = useRef<{ bar: number; layer: number } | null>(null); // destino bajo el cursor
+  const [clipboardClips, setClipboardClips] = useState<Clip[]>([]); // portapapeles multi-clip
 
   // Líneas-guía de snap (rejilla BPM) como posiciones X en píxeles para Moveable.
   const verticalGuidelines = useMemo(
@@ -430,18 +431,33 @@ export function TimelineView() {
     commitMoves([{ clip_id: c.id, new_start_ms: newStart, new_end_ms: newEnd }]);
   };
 
-  // ── Handlers Moveable: mover en GRUPO (multi-selección, solo horizontal) ────
+  // ── Handlers Moveable: mover en GRUPO (multi-selección) ────────────────────
+  // Sigue al cursor en XY; cada clip resuelve su bar+layer destino por su propia
+  // posición (hit-test del centro), preservando la disposición relativa del grupo.
   const onClipDragGroup = (e: any) => {
-    e.events.forEach((ev: any) => { ev.target.style.transform = `translateX(${ev.translate[0]}px)`; });
+    e.events.forEach((ev: any) => {
+      ev.target.style.transform = `translate(${ev.translate[0]}px, ${ev.translate[1]}px)`;
+      ev.target.style.zIndex = "20";
+    });
   };
   const onClipDragGroupEnd = (e: any) => {
-    const calls = e.events.map((ev: any) => {
+    const calls: any[] = [];
+    e.events.forEach((ev: any) => {
+      const rect = ev.target.getBoundingClientRect();
+      const centerY = rect.top + rect.height / 2;
+      const dest = barLayerAtClientY(centerY);
       ev.target.style.transform = "";
+      ev.target.style.zIndex = "";
       const c = clipFromEl(ev.target);
-      if (!c || !ev.lastEvent) return null;
-      return { clip_id: c.id, new_start_ms: Math.max(0, Math.round(c.start_ms + xToMs(ev.lastEvent.translate[0], zoom))) };
-    }).filter(Boolean);
-    commitMoves(calls as any);
+      if (!c || !ev.lastEvent) return;
+      const params: any = { clip_id: c.id, new_start_ms: Math.max(0, Math.round(c.start_ms + xToMs(ev.lastEvent.translate[0], zoom))) };
+      if (c.track >= 0 && dest) {
+        if (dest.bar !== c.track) params.new_track = dest.bar;
+        if (dest.layer !== c.layer) params.new_layer = dest.layer;
+      }
+      calls.push(params);
+    });
+    commitMoves(calls);
   };
 
   // ── Selecto: rubber-band + delegar drag a Moveable (gesto único) ───────────
@@ -476,12 +492,17 @@ export function TimelineView() {
       const tag = el?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) return;
 
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedClipId != null) {
+      if ((e.key === "Delete" || e.key === "Backspace") && (selectedClipIds.size > 0 || selectedClipId != null)) {
         e.preventDefault();
-        control.call("delete_clip", { clip_id: selectedClipId }).then(() => {
+        const ids = selectedClipIds.size > 0 ? [...selectedClipIds] : [selectedClipId as number];
+        (async () => {
+          for (const id of ids) await control.call("delete_clip", { clip_id: id });
+          setSelectedClipIds(new Set());
+          setMoveTargets([]);
           selectClip(null);
-          refreshClips();
-        });
+          await refreshClips();
+          try { await control.call("snapshot"); } catch {}
+        })();
       } else if (e.key === "0" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         setZoom(DEFAULT_ZOOM);
@@ -492,14 +513,16 @@ export function TimelineView() {
         e.preventDefault();
         setLastEffectDuration(d => Math.min(60000, d + 50));
       } else if ((e.key === "c" || e.key === "C") && (e.ctrlKey || e.metaKey)) {
-        // Copy selected clip
+        // Copy: grupo (selectedClipIds) o clip único
         e.preventDefault();
-        if (selectedClipId != null) {
-          const c = clips.find(x => x.id === selectedClipId);
-          if (c) {
-            setClipboard(c);
-            addToast("✓ Clip copied", "success");
-          }
+        const ids = selectedClipIds.size > 0
+          ? [...selectedClipIds]
+          : (selectedClipId != null ? [selectedClipId] : []);
+        const picked = ids.map((id) => clips.find((x) => x.id === id)).filter(Boolean) as Clip[];
+        if (picked.length) {
+          setClipboardClips(picked);
+          setClipboard(picked[0]);
+          addToast(`✓ ${picked.length} clip(s) copiado(s)`, "success");
         }
       } else if ((e.key === "a" || e.key === "A") && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
         // Ctrl+A: select all clips in current track
@@ -520,31 +543,41 @@ export function TimelineView() {
         setSelectedClipIds(ids);
         addToast(`✓ ${ids.size} clips selected (all)`, "info");
       } else if ((e.key === "v" || e.key === "V") && (e.ctrlKey || e.metaKey)) {
-        // Paste at current time
+        // Paste: pega el grupo (o clip único) anclado al playhead, manteniendo
+        // los offsets relativos de tiempo y los track/layer originales.
         e.preventDefault();
-        if (clipboard && selectedClipId != null) {
-          const c = clips.find(x => x.id === selectedClipId);
-          if (c) {
-            const dur = clipboard.end_ms - clipboard.start_ms;
-            control.call("add_clip", {
-              track: c.track,
-              start_ms: Math.round(c.start_ms),
-              end_ms: Math.round(c.start_ms + dur),
-              effect_id: clipboard.effect_id,
-              scope: clipboard.scope,
-              color: clipboard.color,
-              label: clipboard.label,
-            }).then(async () => {
-              addToast("✓ Clip pasted", "success");
-              await refreshClips();
-              // Create undo snapshot
-              try {
-                await control.call("snapshot");
-              } catch (e) {
-                // Undo not available
-              }
-            });
-          }
+        const src = clipboardClips.length ? clipboardClips : (clipboard ? [clipboard] : []);
+        if (src.length) {
+          const minStart = Math.min(...src.map((cl) => cl.start_ms));
+          const anchor = Math.round(useStore.getState().t * 1000); // playhead actual
+          (async () => {
+            const newIds: number[] = [];
+            for (const cl of src) {
+              const dur = cl.end_ms - cl.start_ms;
+              const start = anchor + (cl.start_ms - minStart);
+              const res = await control.call("add_clip", {
+                track: cl.track,
+                start_ms: Math.round(start),
+                end_ms: Math.round(start + dur),
+                effect_id: cl.effect_id,
+                scope: cl.scope,
+                color: cl.color,
+                label: cl.label,
+                layer: cl.layer,
+                params: cl.params,
+              });
+              const id = res?.clip?.id;
+              if (id != null) newIds.push(id);
+            }
+            addToast(`✓ ${src.length} clip(s) pegado(s)`, "success");
+            await refreshClips();
+            // Seleccionar los recién pegados para colocarlos como grupo
+            if (newIds.length) {
+              setSelectedClipIds(new Set(newIds));
+              selectClip(newIds.length === 1 ? newIds[0] : null);
+            }
+            try { await control.call("snapshot"); } catch {}
+          })();
         }
       } else if (e.ctrlKey || e.metaKey) {
         return; // no pisar atajos con Ctrl (undo/save los gestiona App)
@@ -558,7 +591,7 @@ export function TimelineView() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedClipId, selectClip, refreshClips]);
+  }, [selectedClipId, selectedClipIds, clips, clipboard, clipboardClips, selectClip, refreshClips]);
 
   const download = (filename: string, content: string, mime: string) => {
     const blob = new Blob([content], { type: mime });
@@ -823,13 +856,32 @@ export function TimelineView() {
                           data-track={c.track}
                           className={"clip" + (selectedClipId === c.id || selectedClipIds.has(c.id) ? " sel" : "") + (c.locked ? " locked" : "") + (tool === "draw" && (activeFx || activePreset) ? " clip-paintable" : "")}
                           onMouseDown={(e) => {
+                            e.stopPropagation(); // evita que la lane cree un clip (draw) o Selecto rubber-band
                             if (tool !== "select" || c.locked) return;
-                            e.stopPropagation();
+                            // Si el clip ya está en una multi-selección, no la rompas (drag de grupo).
+                            if (selectedClipIds.has(c.id) && selectedClipIds.size > 1) {
+                              selectClip(c.id);
+                              return;
+                            }
                             selectClip(c.id);
                             setSelectedClipIds(new Set());
                             setMoveTargets([e.currentTarget as HTMLElement]);
                           }}
-                          onClick={(e) => { if (tool === "draw") onClipClick(e, c); }}
+                          onClick={(e) => {
+                            if (tool === "draw") { onClipClick(e, c); return; }
+                            if (tool === "cut") {
+                              e.stopPropagation();
+                              const r = lanesRef.current!.getBoundingClientRect();
+                              const ms = Math.round(((e.clientX - r.left) / zoom) * 1000);
+                              if (ms > c.start_ms + 20 && ms < c.end_ms - 20) {
+                                control.call("split_clip", { clip_id: c.id, t_ms: ms }).then(async () => {
+                                  addToast("✂ Clip dividido", "success");
+                                  await refreshClips();
+                                  try { await control.call("snapshot"); } catch {}
+                                });
+                              }
+                            }
+                          }}
                           onContextMenu={(e) => openClipMenu(e, c)}
                           onDoubleClick={(e) => { e.stopPropagation(); selectClip(c.id); setInspector(true); }}
                           title={tool === "draw" ? "Click para pintar el efecto" : `${c.label || effectById.get(c.effect_id)?.name || "clip"} · ${((c.end_ms - c.start_ms) / 1000).toFixed(2)}s`}

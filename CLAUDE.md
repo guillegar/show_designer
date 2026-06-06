@@ -75,6 +75,12 @@ matemática de punteros a mano (se eliminó: causaba bugs repetidos).
   para zonas amplias) y se resalta la fila; al soltar se commitea `new_track`/
   `new_layer` vía `move_clip` (el backend `_h_move_clip` ya soporta ambos + `new_start_ms`/`new_end_ms`).
 - Snap a BPM: las gridlines se pasan como `verticalGuidelines` a Moveable.
+- **Pintar (modo draw, click en clip)**: efecto base → `set_clip_effect`; preset →
+  `set_clip_preset` (handler web-only en `server/dispatcher.py` que aplica un preset
+  pixel/canal a un clip existente conservando su posición). Pinta toda la selección.
+- **Borrar grupo**: `Supr` borra todos los `selectedClipIds`. **Cut (C)**: click en
+  un clip lo parte (`split_clip`) en el punto del cursor. **Copy/Paste**: portapapeles
+  multi-clip; al pegar (anclado al playhead) los nuevos quedan seleccionados.
 - Componentes web auxiliares: `ClipInspector.tsx` (inspector adaptativo),
   `Toast.tsx` (notificaciones), `HelpOverlay.tsx` (atajos, tecla `?`).
 - Atajos: `V/D/C` (select/draw/cut), `Q` (snap), `Ctrl+0` (reset zoom), `[`/`]`
@@ -87,8 +93,13 @@ El viewer 3D va en un `<iframe src="/v3d/">` (`web/src/views/Viewer3D.tsx`). Los
 archivos se sirven desde **`web/public/v3d/`** (Vite los copia a `web/dist/v3d/` en
 CADA build). **OJO**: `npm run build` VACÍA `dist/`, así que los ficheros del viewer
 DEBEN vivir en `web/public/v3d/` (NO colocarlos a mano en `dist/v3d/`, se borran).
-Three.js entra por CDN (importmap en `index.html`). `session.py` regenera
-`rig_layout.json` en runtime.
+Three.js entra por CDN (importmap en `index.html`). `session.py.sync_rig_layout()`
+regenera `rig_layout.json` en runtime.
+- **Sync del rig**: el dispatcher tiene `_RIG_MUTATORS` (move_fixture, set_fixture_property,
+  add/delete_fixture, save_rig, load_show) → tras cada uno llama `sync_rig_layout()`.
+  El viewer recarga el JSON con cache-bust al re-montarse la pestaña (el iframe se
+  desmonta/monta al cambiar de tab). NO hay update en vivo mientras editas en Patch
+  (se ve al volver a la pestaña 3D).
 
 ---
 
