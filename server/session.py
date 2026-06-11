@@ -209,8 +209,9 @@ class ShowSession:
         """Genera `rig_layout.json` del visor 3D desde el FixtureRig actual.
 
         Port headless de `dual_app._sync_rig_to_viewer3d()`. Escribe a las DOS
-        rutas: la copia servida (`web/dist/v3d/`) y la fuente (`src/viewer3d/`),
-        para que el visor en el navegador refleje el rig real al recargar.
+        rutas: la copia servida (`web/dist/v3d/`) y la fuente única
+        (`web/public/v3d/` vía VIEWER3D_DIR), para que el visor en el navegador
+        refleje el rig real al recargar.
         """
         rig = self.fixture_rig
         if rig is None:

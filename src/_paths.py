@@ -16,7 +16,9 @@ ANALIZADAS_DIR = PROJECT_DIR / 'analizadas'
 PROFILES_DIR = PROJECT_DIR / 'profiles'
 SHOWS_SAVED_DIR = PROJECT_DIR / 'shows_saved'
 PLUGINS_DIR = PROJECT_DIR / 'plugins' / 'effects'
-VIEWER3D_DIR = PROJECT_DIR / 'src' / 'viewer3d'
+# Fuente única del viewer 3D = web/public/v3d (ANALYSIS hallazgo 7). Vite la copia
+# a web/dist/v3d en cada build; el server Qt legacy también sirve desde aquí.
+VIEWER3D_DIR = PROJECT_DIR / 'web' / 'public' / 'v3d'
 
 __all__ = [
     'PROJECT_DIR',

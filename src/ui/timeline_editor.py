@@ -136,38 +136,9 @@ GROUP_COLORS = [_bar_hue_color(i * 3).name() for i in range(12)]
 # ═══════════════════════════════════════════════════════════════
 # Undo Manager
 # ═══════════════════════════════════════════════════════════════
-class UndoManager:
-    """Snapshot-based undo/redo sobre la lista de clips."""
-    def __init__(self, max_size: int = 60):
-        self._stack: List[list] = []   # lista de snapshots (listas de dicts)
-        self._pos   = -1
-        self._max   = max_size
-
-    def snapshot(self, clips: List[Clip]):
-        """Guardar estado ANTES de una modificación."""
-        self._stack = self._stack[:self._pos + 1]
-        self._stack.append([c.to_dict() for c in clips])
-        if len(self._stack) > self._max:
-            self._stack.pop(0)
-        else:
-            self._pos += 1
-
-    def undo(self) -> Optional[List[Clip]]:
-        if self._pos <= 0:
-            return None
-        self._pos -= 1
-        return [Clip.from_dict(d) for d in self._stack[self._pos]]
-
-    def redo(self) -> Optional[List[Clip]]:
-        if self._pos >= len(self._stack) - 1:
-            return None
-        self._pos += 1
-        return [Clip.from_dict(d) for d in self._stack[self._pos]]
-
-    @property
-    def can_undo(self): return self._pos > 0
-    @property
-    def can_redo(self): return self._pos < len(self._stack) - 1
+# UndoManager extraído a la fuente única src/core/undo.py (ANALYSIS hallazgo 9).
+# El editor Qt usa la variante "push" (snapshot(clips) → undo()→clips).
+from src.core.undo import ClipSnapshotUndoManager as UndoManager
 
 
 # ═══════════════════════════════════════════════════════════════

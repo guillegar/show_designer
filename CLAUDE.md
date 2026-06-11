@@ -42,10 +42,16 @@ Estado a **2026-06-11** · **v1.10 (web)**: backend headless + frontend React, 4
   uid en `ShowSession.find_clip_by_id` y `mcp_bridge._find_clip_by_id` con **fallback int legacy**.
   Firmas MCP `clip_id: int`→`str` (`mcp_show_server.py`); frontend tipa clip id como `string`
   (store.ts/Timeline.tsx). +9 tests (`test_clip_uid.py`). 425 verde + TS typecheck limpio.
-- **Pendiente**: Fase 4 de-duplicación (7-9: viewer3d→`web/public/v3d`, el_taser→`projects/`,
-  dos UndoManager→`src/core/undo.py`), Fase 5 rendimiento (12-14), Fase 6 logging+recursos (17-18),
-  Fase 7 core agnóstico + split del editor (10,11,19). Detalle por fase en `ANALYSIS.md`.
-  Progreso vivo en el memory `analysis_audit_progress.md`.
+- **Fase 4 (de-duplicación) APLICADA** (2026-06-12): hallazgos 7,8,9. Viewer 3D: fuente única
+  `web/public/v3d/` (`VIEWER3D_DIR` y `viewer3d_server.VIEWER_DIR` repunteados; borradas las copias
+  divergentes `viewer3d/` raíz y `src/viewer3d/*.js`, queda solo el server Qt). el_taser: borrados
+  los residuos `src/projects/`, `src/io/projects/`, `data/projects/` (canónico = `projects/`).
+  UndoManager: fuente única `src/core/undo.py` (`UndoManager` callback + `ClipSnapshotUndoManager`
+  push); `server/undo_manager.py` re-exporta, el editor Qt importa. 425 verde.
+- **Pendiente**: Fase 5 rendimiento (12-14: bisect en `get_active_events`, precalcular rms/flux,
+  `searchsorted` en `get_audio_context`), Fase 6 logging+recursos (17-18), Fase 7 core agnóstico +
+  split del editor (10,11,19). Detalle por fase en `ANALYSIS.md`. Progreso en el memory
+  `analysis_audit_progress.md`.
 
 ---
 

@@ -42,7 +42,9 @@ except ImportError:
 
 import numpy as np
 
-VIEWER_DIR = Path(__file__).parent / "viewer3d"
+# Fuente única del viewer (ANALYSIS hallazgo 7): web/public/v3d en la raíz del repo.
+# src/viewer3d/viewer3d_server.py → parents[2] = raíz del proyecto.
+VIEWER_DIR = Path(__file__).resolve().parents[2] / "web" / "public" / "v3d"
 HTTP_PORT = 8080
 WS_PORT = 9877
 

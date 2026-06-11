@@ -20,9 +20,9 @@ show-designer/
 │   ├── io/                   📦 loaders GDTF, OutputRouter, exporter, project_manager
 │   ├── mcp/                  🤖 mcp_bridge (WS :9876) + mcp_show_server (FastMCP stdio)
 │   ├── ui/                   🎨 UI PyQt5 LEGACY (dual_app, timeline_editor, patch, analyzer)
-│   ├── viewer3d/             3️⃣ viewer3d_server.py (Qt path; ver nota viewer 3D abajo)
+│   ├── core/undo.py          ↩ UndoManager FUENTE ÚNICA (server + editor Qt, hallazgo 9)
+│   ├── viewer3d/             3️⃣ solo viewer3d_server.py (Qt) — los .js viven en web/public/v3d
 │   ├── plugins/              🔌 (residuo histórico — los plugins activos están en /plugins)
-│   ├── projects/             (residuo histórico de el_taser — canónico es /projects)
 │   ├── utils/                🛠️ shortcuts.py
 │   └── _paths.py             PROJECT_DIR (raíz del repo)
 │
@@ -51,7 +51,6 @@ show-designer/
 │   └── el_taser/  himno_espana/
 ├── analizadas/               ← análisis cacheado por canción (analysis.json + curation.json;
 │                                 timeseries.npz y stems/ NO se versionan — ver .gitignore)
-├── viewer3d/                 ← copia histórica del viewer (divergente; canónico = web/public/v3d)
 ├── scripts/                  ← utilidades one-off (process_stems, create_himno_show, verify_*)
 ├── tests/                    ← ✅ 20 archivos, 416 tests verde (pytest)
 ├── docs/                     ← MkDocs (mkdocs.yml); detalle profundo en docs/advanced/
