@@ -8,12 +8,11 @@ divergencia), los **reutilizamos** tal cual:
     modelo SOLO vía atributos de `app` (timeline/show_engine/fixture_rig/
     analysis/library/audio). `ShowSession` expone exactamente esos atributos
     (+ shims `tl_view`/`props`/`_pm`/`_project`), así que es un `app` válido.
-  * El único acoplamiento Qt es `_qt_call(app, fn)` (marshalling a QTimer). Lo
-    parcheamos para ejecutar `fn()` inline (estamos en un único loop asyncio,
-    sin hilo Qt) y disparar `session.notify_changed()` para que el stream avise
-    al navegador.
-  * `_qt_call_dual` ya es no-op cuando `app._dual_window is None` (lo es en la
-    sesión headless); lo parcheamos además para notificar cambios de rig.
+  * El marshalling de mutaciones del bridge (`_qt_call`/`_qt_call_dual`) lo provee
+    la sesión vía `_qt_call_impl`/`_qt_call_dual_impl`: ejecuta `fn()` inline
+    (estamos en un único loop asyncio) y dispara `session.notify_changed()` para
+    que el stream avise al navegador (los `_dual` además notifican cambios de rig).
+    La rama Qt original (QTimer) se retiró en la Fase 8.
 
 Resultado: `Dispatcher.handle(msg)` procesa un mensaje JSON-RPC 2.0 idéntico al
 del bridge — el MISMO protocolo que ya habla `mcp_show_server.py` (Claude).

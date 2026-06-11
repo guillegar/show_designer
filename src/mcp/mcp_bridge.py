@@ -7,7 +7,7 @@ clientes externos (típicamente mcp_show_server.py que traduce a/desde protocolo
 
 Arquitectura:
    - Corre en un thread daemon con su propio event loop asyncio
-   - Mantiene referencias débiles a timeline_editor/audio/show_engine de la app
+   - Mantiene referencias a timeline/audio/show_engine de la sesión (ShowSession)
    - Cada request JSON-RPC se enrutea a un handler Python
    - Las mutaciones se serializan vía `_qt_call`, que delega en la política de la
      sesión (`_qt_call_impl` de ShowSession headless). La rama Qt se retiró en Fase 8.
@@ -51,7 +51,7 @@ PORT = 9876
 # ───────────────────────────────────────────────────────────────
 # Handlers — implementan cada método JSON-RPC.
 # Reciben (app, params) y devuelven un dict serializable.
-# `app` = TimelineEditorWindow (acceso a .audio, .timeline, .show_engine, .tl_view)
+# `app` = ShowSession headless (acceso a .audio, .timeline, .show_engine, .tl_view)
 # ───────────────────────────────────────────────────────────────
 
 def _h_ping(app, params):
@@ -115,7 +115,7 @@ def _h_set_blackout(app, params):
 
 
 def _h_open_3d_viewer(app, params):
-    """Abre el viewer 3D en el navegador del servidor (donde corre dual_app)."""
+    """Abre el viewer 3D en el navegador del servidor (donde corre el server)."""
     import webbrowser
     url = params.get("url", "http://localhost:8080/")
     try:
@@ -506,29 +506,21 @@ def _h_apply_channel_preset(app, params):
 
 
 def _qt_call_dual(app, method_name):
-    """Si dual_app está disponible, invoca un método en el thread Qt.
+    """Notifica un cambio "dual" (p. ej. refresco de la UI secundaria) según la
+    política de la sesión.
 
-    Desacople (B1): si `app` provee `_qt_call_dual_impl` (ShowSession headless),
-    se delega en él (típicamente notifica el cambio al stream del navegador)."""
+    Tras la retirada de Qt (Fase 8): si `app` provee `_qt_call_dual_impl`
+    (ShowSession headless) se delega en él — típicamente notifica el cambio al
+    stream del navegador. Si no hay política, es un no-op."""
     impl = getattr(app, '_qt_call_dual_impl', None)
     if impl is not None:
         impl(method_name)
-        return
-    try:
-        dual = getattr(app, '_dual_window', None)
-        if dual is None:
-            return
-        target = getattr(dual, method_name, None)
-        if target:
-            _qt_call(app, target)
-    except Exception:
-        pass
 
 
 # ─── Analyzer (Fase B v1.6) ─────────────────────────────────────
 #
 # Toda la API expuesta vía AnalysisService (analyzer_service.py). El servicio
-# vive en app.analysis (lo inyecta timeline_editor en __init__).
+# vive en app.analysis (lo inyecta ShowSession en __init__).
 
 def _get_svc(app):
     """Devuelve el AnalysisService del editor, o None si no está disponible."""
@@ -1023,7 +1015,7 @@ def _h_set_cue(app, params):
     cue.time_ms = int(t_sec * 1000)
     if name is not None:
         cue.name = name
-    # Refrescar UI en el thread de Qt
+    # Refrescar la UI vía _qt_call (política de la sesión)
     _qt_call(app, app._refresh_cue_buttons)
     return {"ok": True, "cue": cue.to_dict()}
 
@@ -1042,7 +1034,7 @@ def _h_clear_cue(app, params):
     if cue:
         cue.time_ms = -1
         cue.name = ""
-    # Refrescar la UI en el thread de Qt
+    # Refrescar la UI vía _qt_call (política de la sesión)
     _qt_call(app, app._refresh_cue_buttons)
     return {"ok": True}
 
@@ -1558,7 +1550,7 @@ async def _server_main(app_provider):
 
 
 # ───────────────────────────────────────────────────────────────
-# Public API: arrancar el bridge desde dual_app.py
+# Public API: arrancar el bridge desde el server (server/web.py)
 # ───────────────────────────────────────────────────────────────
 
 class MCPBridge:
@@ -1566,7 +1558,7 @@ class MCPBridge:
 
     def __init__(self, app_provider: Callable):
         """
-        app_provider: callable que devuelve la TimelineEditorWindow viva
+        app_provider: callable que devuelve la ShowSession viva
                       (o None si aún no está lista). Se llama en cada request.
         """
         self.app_provider = app_provider
@@ -1661,5 +1653,5 @@ if __name__ == "__main__":
         except KeyboardInterrupt:
             print("\n[mock] Cerrado")
     else:
-        print("Este módulo se importa desde dual_app.py.")
+        print("Este módulo se importa desde el server / mcp_show_server.")
         print("Para test standalone: python mcp_bridge.py --mock")

@@ -173,7 +173,6 @@ class ShowSession:
         self.props = _NullProps()
         self._pm = self.pm
         self._project = self.project
-        self._dual_window = None  # _qt_call_dual lo lee → None = no-op
 
         # ── Estado de transporte / render ────────────────────────────────────
         self.loop = False
