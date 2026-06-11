@@ -1,14 +1,14 @@
 # Show Designer Pro 🎨
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
-[![Tests: 363/363](https://img.shields.io/badge/tests-363%2F363-brightgreen)](#tests)
+[![Tests: 416/416](https://img.shields.io/badge/tests-416%2F416-brightgreen)](#tests)
 [![Coverage: 92.6%](https://img.shields.io/badge/coverage-92.6%25-green)](#testing)
 [![License: PPL 3.0](https://img.shields.io/badge/license-PPL%203.0-blue)](LICENSE)
 [![Docs: GitHub Pages](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://guillegar.github.io/show_designer/)
 
 > **Professional lighting control software**: Design light coreographies for LED strips + DMX fixtures in a visual timeline editor (Adobe/FL Studio style), or control via **Claude** with 50+ MCP tools.
 
-**Version**: v1.9 F2 | **Status**: Stable (363 tests passing) | **License**: Prosperity Public License 3.0.0
+**Version**: v1.10 (web) | **Status**: Stable (416 tests passing) | **License**: Prosperity Public License 3.0.0
 
 ---
 
@@ -44,7 +44,7 @@
 - **Requires**: Python 3.11+, Windows 10+ (Linux/macOS experimental)
 - **Hardware**: Optional WLED bars (Art-Net) + DMX fixtures
 - **License**: **PPL 3.0** — Free for personal/educational, requires license for commercial use
-- **Tests**: 363/363 passing, 92.6% coverage
+- **Tests**: 416/416 passing, 92.6% coverage
 
 ---
 
@@ -94,10 +94,10 @@ python src/ui/dual_app.py
 
 ## 🧪 Quality Assurance
 
-- **363 tests** — All passing ✅
+- **416 tests** — All passing ✅
 - **92.6% coverage** — Well-tested code
 - **GitHub Actions CI** — Automated testing on every push
-- **Stable v1.9 F2** — Production-ready
+- **Stable v1.10 (web)** — Production-ready
 
 **Testing guide**: [Development →](https://guillegar.github.io/show_designer/development/testing/)
 
@@ -133,7 +133,7 @@ show_designer/
 ├── src/analysis/          # Audio analysis
 ├── src/mcp/               # Claude control
 ├── src/viewer3d/          # 3D viewer
-├── tests/                 # 363 pytest tests
+├── tests/                 # 416 pytest tests
 ├── docs/                  # 20+ documentation pages
 ├── plugins/effects/       # Custom effect plugins
 ├── profiles/              # Fixture definitions
@@ -190,7 +190,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) or the [Contrib
 - **[CLAUDE.md](CLAUDE.md)** — Arquitectura profunda, decisiones de diseño, estado actual (v1.10+)
 - **[STRUCTURE.md](STRUCTURE.md)** — Organización de directorios y archivos
 - **[SETUP.md](SETUP.md)** — Instalación paso a paso
-- **[Checkpoints históricos](versions/)** — Rollback a versiones anteriores (cada fase con CHANGELOG + SHA-256)
+- **Checkpoints**: historial de `git` (un commit por fase/feature; sin carpeta `versions/`)
 
 ---
 

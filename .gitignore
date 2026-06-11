@@ -65,3 +65,16 @@ dist/
 # Build artifacts
 *.o
 *.a
+
+# Audio / media — regenerable o externo, no versionar (ANALYSIS hallazgo 22)
+*.mp3
+*.wav
+*.flac
+*.ogg
+
+# Análisis cacheado — regenerable con analyzer_pro / demucs (ANALYSIS hallazgo 22)
+*.npz
+analizadas/**/stems/
+
+# Datos de usuario legacy — migrado a projects/<slug>/show.json (ANALYSIS hallazgo 23)
+/show_timeline.json

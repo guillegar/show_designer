@@ -55,6 +55,7 @@ nav:
     - Projects: usage/projects.md
   - Advanced:
     - Architecture: advanced/architecture.md
+    - Project History: advanced/project-history.md
     - Plugins: advanced/plugins.md
     - Claude MCP: advanced/mcp.md
     - 3D Viewer: advanced/viewer3d.md
