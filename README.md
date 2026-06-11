@@ -1,14 +1,14 @@
 # Show Designer Pro 🎨
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
-[![Tests: 416/416](https://img.shields.io/badge/tests-416%2F416-brightgreen)](#tests)
+[![Tests: 434/434](https://img.shields.io/badge/tests-434%2F434-brightgreen)](#tests)
 [![Coverage: 92.6%](https://img.shields.io/badge/coverage-92.6%25-green)](#testing)
 [![License: PPL 3.0](https://img.shields.io/badge/license-PPL%203.0-blue)](LICENSE)
 [![Docs: GitHub Pages](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://guillegar.github.io/show_designer/)
 
 > **Professional lighting control software**: Design light coreographies for LED strips + DMX fixtures in a visual timeline editor (Adobe/FL Studio style), or control via **Claude** with 50+ MCP tools.
 
-**Version**: v1.10 (web) | **Status**: Stable (416 tests passing) | **License**: Prosperity Public License 3.0.0
+**Version**: v1.10 (web) | **Status**: Stable (434 tests passing) | **License**: Prosperity Public License 3.0.0
 
 ---
 
@@ -44,7 +44,7 @@
 - **Requires**: Python 3.11+, Windows 10+ (Linux/macOS experimental)
 - **Hardware**: Optional WLED bars (Art-Net) + DMX fixtures
 - **License**: **PPL 3.0** — Free for personal/educational, requires license for commercial use
-- **Tests**: 416/416 passing, 92.6% coverage
+- **Tests**: 434/434 passing, 92.6% coverage
 
 ---
 
@@ -94,7 +94,7 @@ python src/ui/dual_app.py
 
 ## 🧪 Quality Assurance
 
-- **416 tests** — All passing ✅
+- **434 tests** — All passing ✅
 - **92.6% coverage** — Well-tested code
 - **GitHub Actions CI** — Automated testing on every push
 - **Stable v1.10 (web)** — Production-ready
@@ -133,7 +133,7 @@ show_designer/
 ├── src/analysis/          # Audio analysis
 ├── src/mcp/               # Claude control
 ├── src/viewer3d/          # 3D viewer
-├── tests/                 # 416 pytest tests
+├── tests/                 # 434 pytest tests
 ├── docs/                  # 20+ documentation pages
 ├── plugins/effects/       # Custom effect plugins
 ├── profiles/              # Fixture definitions

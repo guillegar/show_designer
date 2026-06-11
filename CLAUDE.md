@@ -74,8 +74,15 @@ Estado a **2026-06-11** · **v1.10 (web)**: backend headless + frontend React, 4
   (Qt-free, testeable); el grueso (TimelineView 1455 LOC, paneles) es CONTINUO y queda diferido
   (Qt no es testeable sin PyQt5 aquí + se retira). +2 tests. 434 verde.
 - ✅ **AUDITORÍA `ANALYSIS.md` COMPLETA**: las 7 fases aplicadas (1→7), un commit por fase sobre
-  `timeline-fixes-2`. Continúan como trabajo incremental: barrido masivo `print`→logger (Fase 6) y
-  split mayor del editor Qt (Fase 7/19). Progreso en el memory `analysis_audit_progress.md`.
+  `timeline-fixes-2`. Continúa como trabajo incremental: barrido masivo `print`→logger (Fase 6).
+  El split del editor Qt (Fase 7/19) queda CANCELADO por la Fase 8. Progreso en el memory
+  `analysis_audit_progress.md`.
+- ⚠️ **PENDIENTE — Fase 8 (decisión del usuario, 2026-06-12): RETIRADA TOTAL del editor Qt.**
+  El PyQt5 deja de mantenerse congelado: se BORRA del repo. Pasos detallados en `ANALYSIS.md`
+  → sección "Fase 8" (hallazgo 26): tag `pre-qt-removal`, borrar `src/ui/` +
+  `src/utils/shortcuts.py` + `src/viewer3d/`, limpiar rama Qt de `_qt_call` en `mcp_bridge.py`,
+  quitar PyQt5 de requirements, actualizar docs y dejar la suite en verde. Al completarla,
+  actualizar este CLAUDE.md (quitar el entry point legacy del TL;DR).
 
 ---
 

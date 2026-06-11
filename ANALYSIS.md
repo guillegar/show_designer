@@ -142,5 +142,44 @@ README dice "363/363 tests" (hoy: 1 falla y hay 377 recolectables), STRUCTURE.md
 | 5. Rendimiento | 12, 13, 14 | 1 día |
 | 6. Logging + recursos | 17, 18 | 1 día |
 | 7. Core agnóstico + split del editor | 10, 11, 19 | continuo |
+| 8. Retirada total del editor Qt | 26 | ~½ día |
 
 Las fases 1-2 no tocan comportamiento y dejan la suite en verde. La 3 es la de mayor riesgo (protocolo JSON-RPC) — hacerla aislada y con tests de compat.
+
+---
+
+## Fase 8 — Retirada total del editor Qt (decisión del usuario, 2026-06-12)
+
+Decisión: el editor PyQt5 se ELIMINA del repo (no solo se congela). Sustituye al "split del
+editor" del hallazgo 19, que queda CANCELADO (no se trocea código que se borra).
+
+**Contexto**: el código Qt no ralentiza la app web en ejecución (`server/main.py` nunca importa
+`src/ui/`), pero sí cuesta: PyQt5 en requirements (instalación pesada), ~7.700 LOC de
+mantenimiento, y confusión sobre cuál es el camino soportado. Verificado (2026-06-12): PyQt5
+solo se importa en `src/ui/*`, `src/utils/shortcuts.py`, `src/viewer3d/viewer3d_server.py` y un
+import perezoso en `mcp_bridge.py:~1487` (rama Qt de `_qt_call` que el camino headless no ejecuta).
+Fuera de `src/ui/`, solo `tests/test_timeline_waveform.py` importa `src.ui` (el módulo Qt-free
+`waveform.py`).
+
+### 26. Pasos
+
+1. **Checkpoint**: commit limpio + tag `pre-qt-removal` (rollback trivial).
+2. **Borrar**: `src/ui/` completo, `src/utils/shortcuts.py` (solo Qt), y
+   `src/viewer3d/` (server 3D del modo Qt; la web sirve el viewer desde `web/public/v3d/`).
+   Revisar si `viewer3d/` raíz aún existe como residuo y borrarlo también.
+3. **Decidir `waveform.py`**: si ningún código web lo consume, borrar junto con
+   `tests/test_timeline_waveform.py`; si se prevé usarlo para pintar waveform en el server,
+   moverlo a `src/core/` o `src/analysis/` (es Qt-free).
+4. **mcp_bridge.py**: eliminar la rama Qt de `_qt_call`/`_qt_call_dual` (el import perezoso de
+   QTimer y el marshalling); queda solo la política headless (`_qt_call_impl` de ShowSession).
+   Revisar los shims `_NullView`/`_NullProps` de `server/session.py` por si se simplifican.
+5. **requirements.txt**: quitar `PyQt5==5.15.9`.
+6. **Launchers**: borrar `launch_show_designer.bat` si lanza `dual_app.py`; verificar que
+   `Luces.bat` / `Luces Espana.bat` / `Cerrar Luces.bat` solo usan `server.main`.
+7. **Docs**: actualizar CLAUDE.md (quitar entry point legacy y la decisión de retirada — ya
+   ejecutada), README, STRUCTURE.md, docs/ (ui-guide), y este archivo (marcar 11, 19 y 26).
+8. **Verificar**: `pytest tests/` en verde; arrancar `python -m server.main` y comprobar las
+   4 vistas + viewer 3D + MCP compat :9876.
+
+**Nota**: borrar del working tree no encoge el repo git (el historial conserva los archivos).
+Suficiente con el borrado normal; no hace falta reescribir historial.
