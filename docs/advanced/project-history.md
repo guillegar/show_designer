@@ -87,10 +87,14 @@
 - **F2 (CRÍTICA) — Estabilización anti-crash**: el bug del bridge (ver "errores famosos"),
   `loop.set_exception_handler`, modo reducido para channel clips, `sys.excepthook` global. **363 verdes**.
 
-## v1.10 "Migración a WEB" (en curso)
+## v1.10 "Migración a WEB"
 Backend headless (`server/`) + frontend React (`web/`), 4 vistas, reutiliza `src/core|analysis|io|mcp`
-sin cambios. Reloj maestro `HeadlessAudioPlayer`. **416 tests verdes** (+ session/dispatcher/web/
-validators/undo_manager/stream_hub/timeline_fixes). Ver §0.5 de `CLAUDE.md`.
+sin cambios. Reloj maestro `HeadlessAudioPlayer`. Ver §0.5 de `CLAUDE.md`.
+
+> **Fase 8 (2026-06-12): la UI PyQt5 se RETIRÓ del repo.** Todo lo de abajo sobre `dual_app`,
+> `timeline_editor`, los paneles Qt, las 4 *tabs* y `viewer3d_server` (:8080) es **historia**: ese
+> código ya no existe (borrados `src/ui/`, `src/utils/`, `src/viewer3d/`). La única UI es la web.
+> Rollback de la retirada: tag git `pre-qt-removal`.
 
 ## Próximos bloques candidatos (post-auditoría)
 - OSC support (TouchOSC/Lemur); editor de params de channel clips; MP4 export del viewer 3D;

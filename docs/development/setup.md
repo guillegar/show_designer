@@ -25,7 +25,7 @@ pip install -r requirements.txt
 show_designer/
 ├── src/                      # Source code
 │   ├── core/                 # Timeline, show engine, fixtures
-│   ├── ui/                   # PyQt5 UI (being deprecated)
+│   ├── (sin ui/ — la UI PyQt5 se retiró en la Fase 8)
 │   ├── analysis/             # Audio analysis
 │   ├── io/                   # Loaders, exporters, routing
 │   ├── mcp/                  # MCP bridge and server
@@ -43,10 +43,10 @@ show_designer/
 
 ## Running in Development
 
-### PyQt5 App (main development target)
+### Backend web (main development target)
 
 ```powershell
-python src/ui/dual_app.py
+python -m server.main
 ```
 
 ### Web Backend (v1.10+)
@@ -83,7 +83,7 @@ Then open http://localhost:5173
       "name": "Show Designer",
       "type": "python",
       "request": "launch",
-      "module": "src.ui.dual_app",
+      "module": "server.main",
       "console": "integratedTerminal",
       "justMyCode": false
     },
@@ -106,7 +106,7 @@ Then open http://localhost:5173
 1. Open project folder
 2. Configure interpreter: Settings → Python → Project Interpreter → Existing Environment
 3. Point to `.venv/Scripts/python.exe`
-4. Run → Run 'dual_app'
+4. Run → Run 'server.main'
 
 ## Useful Commands
 
@@ -179,7 +179,7 @@ autopep8 --in-place --aggressive src/core/show_engine.py
 
 5. **Test in the app**:
    ```powershell
-   python src/ui/dual_app.py
+   python -m server.main
    # Try your feature manually
    ```
 
@@ -274,7 +274,7 @@ stats.sort_stats('cumulative').print_stats(20)
 
 ```powershell
 pip install memory-profiler
-python -m memory_profiler src/ui/dual_app.py
+python -m memory_profiler -m server.main
 ```
 
 ---

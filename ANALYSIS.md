@@ -150,6 +150,12 @@ Las fases 1-2 no tocan comportamiento y dejan la suite en verde. La 3 es la de m
 
 ## Fase 8 — Retirada total del editor Qt (decisión del usuario, 2026-06-12)
 
+> ✅ **APLICADA (2026-06-12).** Borrados `src/ui/`, `src/utils/`, `src/viewer3d/`,
+> `launch_show_designer.bat` y `tests/test_timeline_waveform.py`; rama Qt de `_qt_call` eliminada;
+> PyQt5 fuera de requirements; `CREDITS.md` → `web/public/v3d/`. Tag `pre-qt-removal` = rollback.
+> Suite: 432 verde. Con esto el **hallazgo 11** queda resuelto (web = único camino) y el **19
+> CANCELADO** (no se trocea lo que se borra).
+
 Decisión: el editor PyQt5 se ELIMINA del repo (no solo se congela). Sustituye al "split del
 editor" del hallazgo 19, que queda CANCELADO (no se trocea código que se borra).
 

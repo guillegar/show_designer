@@ -59,7 +59,7 @@ pip install -r requirements.txt
 ```
 
 Esto instalará:
-- **PyQt5** — interfaz gráfica
+- **fastapi + uvicorn** — backend web headless
 - **NumPy + SciPy** — cálculos numéricos
 - **Librosa + Madmom** — análisis de audio (BPM, beats, onsets)
 - **pygdtf** — importación de fixtures GDTF
@@ -70,7 +70,7 @@ Esto instalará:
 ### 5. Arrancar la aplicación
 
 ```powershell
-python dual_app.py
+python -m server.main
 ```
 
 La app debería abrirse con la ventana principal. Deberías ver en la consola:
@@ -79,7 +79,7 @@ La app debería abrirse con la ventana principal. Deberías ver en la consola:
 [+] OutputRouter cargado: 11 universos enrutados
 [+] ShowEngine inicializado vía AnalysisService
 [+] MCP bridge arrancado en ws://127.0.0.1:9876
-[+] Viewer 3D arrancado: http://localhost:8080/
+[+] Viewer 3D arrancado: http://localhost:8000/
 [dual] ShowEngine compartido entre ambas pestañas
 ```
 
@@ -128,8 +128,8 @@ Si ves `PASSED` en varios tests, la instalación es correcta.
 
 ### Abrir el viewer 3D
 
-1. Arranca `dual_app.py`
-2. El servidor 3D estará en `http://localhost:8080/`
+1. Arranca `python -m server.main`
+2. El servidor 3D estará en `http://localhost:8000/`
 3. Abre esa URL en tu navegador (Chrome/Edge/Firefox)
 
 Deberías ver 10 barras WLED iluminadas (si hay un show cargado).
@@ -144,7 +144,7 @@ Deberías ver 10 barras WLED iluminadas (si hay un show cargado).
 Get-Process python | Stop-Process -Force
 ```
 
-Luego relanza `dual_app.py`.
+Luego relanza `python -m server.main`.
 
 ### `ModuleNotFoundError: No module named 'PyQt5'`
 
@@ -177,7 +177,7 @@ Show Designer Pro/
 ├── CLAUDE.md              ← Documentación profunda (arquitectura)
 ├── SETUP.md               ← Este archivo
 ├── requirements.txt       ← Dependencias Python
-├── dual_app.py            ← Entry point
+├── server/main.py          ← Entry point (web headless)
 ├── tests/                 ← Suite de tests (363 tests)
 ├── profiles/              ← Fixture profiles (JSON + GDTF)
 ├── projects/              ← Proyectos guardados (El Taser, etc.)
@@ -210,7 +210,7 @@ Show Designer Pro/
 
 - **GitHub Issues / Bugs:** Reporta en el repositorio
 - **Licencia:** Prosperity Public License 3.0.0 (PPL)
-- **Basado en:** Three.js, PyQt5
+- **Basado en:** Three.js (web), FastAPI
 
 ---
 

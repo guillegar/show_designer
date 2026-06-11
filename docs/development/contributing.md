@@ -132,7 +132,7 @@ Target: >= 60% coverage, ideally >= 92%.
 ### 7. Test manually in the app
 
 ```powershell
-python src/ui/dual_app.py
+python -m server.main
 # Try your feature
 ```
 

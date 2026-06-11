@@ -46,12 +46,12 @@ pip install -r requirements.txt
 ### 2️⃣ Run
 
 ```bash
-python src/ui/dual_app.py
+python -m server.main
 ```
 
 ### 3️⃣ Open 3D Viewer
 
-Open your browser: **http://localhost:8080/**
+Open your browser: **http://localhost:8000/**
 
 ## Features at a Glance
 

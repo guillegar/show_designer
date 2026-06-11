@@ -225,7 +225,7 @@ Want to add your own MCP tool? See [Architecture Guide](architecture.md#extensib
 
 **Q: Tools don't appear in Claude**
 A: Make sure:
-1. Show Designer is running (`python src/ui/dual_app.py`)
+1. Show Designer is running (`python -m server.main`)
 2. `.mcp.json` is in the repo root
 3. Claude Code was started after Show Designer
 

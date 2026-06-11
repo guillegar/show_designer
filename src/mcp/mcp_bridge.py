@@ -1,15 +1,16 @@
 """
-mcp_bridge.py — Servidor WebSocket JSON-RPC dentro de dual_app.
+mcp_bridge.py — Servidor WebSocket JSON-RPC (compat MCP :9876).
 
-Expone el estado del editor (timeline, clips, cues, audio) a clientes externos
-(típicamente mcp_show_server.py que traduce a/desde protocolo MCP).
+Lo usa el backend headless (`server/`); antes lo hospedaba la app Qt `dual_app`
+(retirada en Fase 8). Expone el estado del show (timeline, clips, cues, audio) a
+clientes externos (típicamente mcp_show_server.py que traduce a/desde protocolo MCP).
 
 Arquitectura:
    - Corre en un thread daemon con su propio event loop asyncio
    - Mantiene referencias débiles a timeline_editor/audio/show_engine de la app
    - Cada request JSON-RPC se enrutea a un handler Python
-   - Para operaciones que tocan Qt: usamos QTimer.singleShot(0, fn) para
-     asegurar que se ejecutan en el thread de Qt
+   - Las mutaciones se serializan vía `_qt_call`, que delega en la política de la
+     sesión (`_qt_call_impl` de ShowSession headless). La rama Qt se retiró en Fase 8.
 
 Protocolo (JSON-RPC 2.0):
     request:  {"jsonrpc":"2.0", "id":1, "method":"play", "params":{}}
@@ -1469,29 +1470,22 @@ HANDLERS: Dict[str, Callable] = {
 
 
 # ───────────────────────────────────────────────────────────────
-# Qt thread bridge
+# Marshalling de mutaciones al loop de la sesión (headless)
 # ───────────────────────────────────────────────────────────────
 
 def _qt_call(app, fn):
-    """Ejecuta `fn()` en el thread principal de Qt usando QTimer.singleShot(0).
+    """Ejecuta `fn()` según la política de marshalling de la sesión.
 
-    Desacople (B1): si `app` provee `_qt_call_impl` (lo hace ShowSession headless),
-    se delega en él en vez de tocar Qt. Antes esto se hacía parcheando el módulo
-    global desde el dispatcher; ahora cada sesión decide su propia política.
+    Tras la retirada del editor Qt (ANALYSIS Fase 8), el único caller es el camino
+    headless: `ShowSession` provee `_qt_call_impl` (que serializa la mutación en el
+    loop del tick) y aquí se delega. Si no hay política (no debería ocurrir), se
+    ejecuta directo.
     """
     impl = getattr(app, '_qt_call_impl', None)
     if impl is not None:
         impl(fn)
         return
-    try:
-        from PyQt5.QtCore import QTimer
-        QTimer.singleShot(0, fn)
-    except Exception:
-        # Fallback: ejecutar directamente (no thread-safe pero mejor que nada)
-        try:
-            fn()
-        except Exception as e:
-            print(f"[mcp_bridge] _qt_call fallback error: {e}")
+    fn()
 
 
 # ───────────────────────────────────────────────────────────────

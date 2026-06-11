@@ -1,14 +1,14 @@
 # Show Designer Pro 🎨
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
-[![Tests: 434/434](https://img.shields.io/badge/tests-434%2F434-brightgreen)](#tests)
+[![Tests: 432/432](https://img.shields.io/badge/tests-432%2F432-brightgreen)](#tests)
 [![Coverage: 92.6%](https://img.shields.io/badge/coverage-92.6%25-green)](#testing)
 [![License: PPL 3.0](https://img.shields.io/badge/license-PPL%203.0-blue)](LICENSE)
 [![Docs: GitHub Pages](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://guillegar.github.io/show_designer/)
 
 > **Professional lighting control software**: Design light coreographies for LED strips + DMX fixtures in a visual timeline editor (Adobe/FL Studio style), or control via **Claude** with 50+ MCP tools.
 
-**Version**: v1.10 (web) | **Status**: Stable (434 tests passing) | **License**: Prosperity Public License 3.0.0
+**Version**: v1.10 (web) | **Status**: Stable (432 tests passing) | **License**: Prosperity Public License 3.0.0
 
 ---
 
@@ -44,7 +44,7 @@
 - **Requires**: Python 3.11+, Windows 10+ (Linux/macOS experimental)
 - **Hardware**: Optional WLED bars (Art-Net) + DMX fixtures
 - **License**: **PPL 3.0** — Free for personal/educational, requires license for commercial use
-- **Tests**: 434/434 passing, 92.6% coverage
+- **Tests**: 432/432 passing, 92.6% coverage
 
 ---
 
@@ -61,20 +61,22 @@ pip install -r requirements.txt
 
 ### 2. Run
 ```powershell
-python src/ui/dual_app.py
-# Then open http://localhost:8080 in your browser
+python -m server.main
+# Then open http://localhost:8000 in your browser
 ```
 
 **Full guide**: [Installation →](https://guillegar.github.io/show_designer/installation/)
 
 ---
 
-## 🖥️ The UI (4 Tabs)
+## 🖥️ The UI (web, 4 views)
 
-1. **🎨 Timeline Editor** — Design your show with drag-drop effects
-2. **📊 Feedback + WLED** — Live preview of what hardware will display
-3. **🎯 Patch** — 2D top-down rig editor for fixtures
-4. **🎵 Analyzer** — Audio analysis with beats, drops, sections
+Runs in your browser at http://localhost:8000 (served by the headless backend):
+
+1. **🎨 Timeline** — Design your show with drag-drop effects
+2. **🟢 Live** — Live control + transport
+3. **🎵 Analyzer** — Audio analysis with beats, drops, sections
+4. **🎯 Patch** — Rig editor for fixtures (+ 3D viewer)
 
 **Learn more**: [UI Guide →](https://guillegar.github.io/show_designer/usage/ui-guide/)
 
@@ -94,7 +96,7 @@ python src/ui/dual_app.py
 
 ## 🧪 Quality Assurance
 
-- **434 tests** — All passing ✅
+- **432 tests** — All passing ✅
 - **92.6% coverage** — Well-tested code
 - **GitHub Actions CI** — Automated testing on every push
 - **Stable v1.10 (web)** — Production-ready
@@ -129,12 +131,12 @@ Result: Clips created automatically ✅
 ```
 show_designer/
 ├── src/core/              # Timeline, effects, show engine
-├── src/ui/                # PyQt5 UI (4 tabs)
 ├── src/analysis/          # Audio analysis
-├── src/mcp/               # Claude control
-├── src/viewer3d/          # 3D viewer
-├── tests/                 # 434 pytest tests
-├── docs/                  # 20+ documentation pages
+├── src/io/                # Loaders, exporters, output routing
+├── src/mcp/               # Claude control (JSON-RPC bridge)
+├── server/                # Headless backend (FastAPI + asyncio tick @ :8000)
+├── web/                   # React + TS frontend (+ public/v3d 3D viewer)
+├── tests/                 # 432 pytest tests
 ├── plugins/effects/       # Custom effect plugins
 ├── profiles/              # Fixture definitions
 └── projects/              # Your shows
@@ -202,11 +204,11 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) or the [Contrib
 - **Hardware DMX (opcional)**: nodo Art-Net→DMX + fixtures convencionales
 
 **Dependencias principales** (ver `requirements.txt`):
-- PyQt5 (UI desktop)
+- fastapi + uvicorn + websockets (backend web headless)
 - librosa + madmom (análisis de audio)
 - demucs (separación de stems)
 - pygdtf (soporte GDTF para fixtures)
-- websockets + fastapi (backend headless v1.10+)
+- pygame (reproducción de audio / reloj maestro)
 
 ---
 

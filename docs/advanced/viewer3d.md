@@ -4,8 +4,8 @@ Real-time visualization of your light show using Three.js.
 
 ## Opening the Viewer
 
-1. **Run Show Designer**: `python src/ui/dual_app.py`
-2. **Open browser**: http://localhost:8080/
+1. **Run Show Designer**: `python -m server.main`
+2. **Open browser**: http://localhost:8000/
 3. You should see 10 WLED bars + 4 moving heads
 
 ## Features

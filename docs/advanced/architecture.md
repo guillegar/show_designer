@@ -4,10 +4,10 @@ High-level overview of Show Designer Pro's architecture. For detailed technical 
 
 ## Design Principles
 
-1. **Low Coupling** — Modules are independent and composable
-2. **High Cohesion** — Related functionality stays together
-3. **Headless Backend** — Core logic separate from UI
-4. **Plugin-Friendly** — Custom effects and tools via plugins
+1. **Low Coupling** - Modules are independent and composable
+2. **High Cohesion** - Related functionality stays together
+3. **Headless Backend** - Core logic separate from UI
+4. **Plugin-Friendly** - Custom effects and tools via plugins
 
 ## Core Components
 
@@ -48,7 +48,7 @@ High-level overview of Show Designer Pro's architecture. For detailed technical 
 │   ├── Loaders (GDTF, JSON profiles)               │
 │   └── OutputRouter (WLED, Art-Net, sim)           │
 │                                                      │
-│ UI (PyQt5 — being deprecated)                       │
+│ Frontend web (React+TS) - la UI PyQt5 se retiro (Fase 8)                       │
 │   ├── Timeline Editor (drag-drop clips)            │
 │   ├── Feedback App (live preview)                  │
 │   ├── Patch Panel (2D rig editor)                  │
@@ -59,7 +59,7 @@ High-level overview of Show Designer Pro's architecture. For detailed technical 
 │   └── 50+ JSON-RPC tools for Claude               │
 │                                                      │
 │ 3D Viewer                                            │
-│   ├── Three.js scene (HTTP :8080)                  │
+│   ├── Three.js (servido en la web :8000)                  │
 │   └── Real-time fixture visualization             │
 └─────────────────────────────────────────────────────┘
 ```
@@ -173,10 +173,10 @@ class Fixture:
 
 Show Designer uses:
 
-- **Main thread** — Qt event loop (UI responsiveness)
-- **Render thread** — 30 FPS calculation of frames
-- **Background thread** — MCP WebSocket (external control)
-- **Async thread** — Audio playback (pygame.mixer)
+- **Main thread** - Qt event loop (UI responsiveness)
+- **Render thread** - 30 FPS calculation of frames
+- **Background thread** - MCP WebSocket (external control)
+- **Async thread** - Audio playback (pygame.mixer)
 
 All mutations go through `QTimer.singleShot(0, fn)` to serialize Qt calls.
 
@@ -285,9 +285,9 @@ def test_router_sends_correct_universes():
 | Pixel Effects | `src/core/effects_engine.py` |
 | Channel Effects | `src/core/channel_effects.py` |
 | Analysis | `src/analysis/analyzer_service.py` |
-| UI | `src/ui/{dual_app,timeline_editor}.py` |
+| Frontend web | `web/src/` + `server/` |
 | MCP | `src/mcp/{mcp_bridge,mcp_show_server}.py` |
-| 3D Viewer | `src/viewer3d/viewer3d_server.py` |
+| 3D Viewer | `web/public/v3d/` (iframe) |
 | Output Router | `src/io/outputs/router.py` |
 
 ---
@@ -297,7 +297,7 @@ def test_router_sends_correct_universes():
 See [CLAUDE.md Section 4](https://github.com/guillegar/show_designer/blob/master/CLAUDE.md#4-decisiones-tomadas-y-el-porqué) for detailed rationale on:
 
 - Low coupling between components
-- Python + PyQt5 (not Chromium)
+- Python headless + React web (no Chromium embebido)
 - Art-Net as primary output
 - Separate timeline/feedback stream
 - Plugin system architecture

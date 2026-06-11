@@ -17,10 +17,9 @@ Estado a **2026-06-11** · **v1.10 (web)**: backend headless + frontend React, 4
 
 - **Entry point (v1.10, web):** `python -m server.main` → http://localhost:8000. Dev frontend:
   `cd web && npm run dev` (Vite :5173 proxea WS a :8000). Rebuild: `cd web && npm run build`.
-- **Entry point legacy (PyQt5):** `python src/ui/dual_app.py`. **CONGELADO** (decisión ANALYSIS
-  hallazgo 11): la **web es el camino principal**; el Qt NO recibe features nuevas, se mantiene como
-  red de seguridad hasta su retirada. Todo lo nuevo va a `server/` + `web/`. (PyQt5 ni siquiera está
-  instalado en el venv headless → el editor Qt no es testeable aquí.)
+- **UI Qt RETIRADA** (Fase 8, 2026-06-12): se borró del repo toda la UI PyQt5 (`src/ui/`,
+  `src/utils/`, `src/viewer3d/`) y PyQt5 de requirements. **La web es el ÚNICO camino.** Rollback en
+  el tag git `pre-qt-removal`.
 - Software de iluminación profesional. El motor (Python) corre **headless** (sin Qt) y sirve una web
   React; el audio suena en el PC (reloj maestro) y el navegador es control + visualizador.
   Controlable por humano (web) y por Claude (MCP, compat en :9876).
@@ -73,23 +72,20 @@ Estado a **2026-06-11** · **v1.10 (web)**: backend headless + frontend React, 4
   explícita** (abajo). (19) primer paso del split: `WaveformData` → `src/ui/timeline/waveform.py`
   (Qt-free, testeable); el grueso (TimelineView 1455 LOC, paneles) es CONTINUO y queda diferido
   (Qt no es testeable sin PyQt5 aquí + se retira). +2 tests. 434 verde.
-- ✅ **AUDITORÍA `ANALYSIS.md` COMPLETA**: las 7 fases aplicadas (1→7), un commit por fase sobre
-  `timeline-fixes-2`. Continúa como trabajo incremental: barrido masivo `print`→logger (Fase 6).
-  El split del editor Qt (Fase 7/19) queda CANCELADO por la Fase 8. Progreso en el memory
-  `analysis_audit_progress.md`.
-- ⚠️ **PENDIENTE — Fase 8 (decisión del usuario, 2026-06-12): RETIRADA TOTAL del editor Qt.**
-  El PyQt5 deja de mantenerse congelado: se BORRA del repo. Pasos detallados en `ANALYSIS.md`
-  → sección "Fase 8" (hallazgo 26): tag `pre-qt-removal`, borrar `src/ui/` +
-  `src/utils/shortcuts.py` + `src/viewer3d/`, limpiar rama Qt de `_qt_call` en `mcp_bridge.py`,
-  quitar PyQt5 de requirements, actualizar docs y dejar la suite en verde. Al completarla,
-  actualizar este CLAUDE.md (quitar el entry point legacy del TL;DR).
+- **Fase 8 (retirada total del editor Qt) APLICADA** (2026-06-12): hallazgo 26 (sustituye y CANCELA
+  el split del 19). Borrados `src/ui/`, `src/utils/`, `src/viewer3d/` + `launch_show_designer.bat` +
+  `tests/test_timeline_waveform.py`; rama Qt de `_qt_call` (mcp_bridge) eliminada; PyQt5 fuera de
+  requirements; `CREDITS.md` movido a `web/public/v3d/`. Tag `pre-qt-removal` = rollback. 432 verde.
+- ✅ **AUDITORÍA `ANALYSIS.md` COMPLETA**: 8 fases aplicadas (1→8), un commit por fase sobre
+  `timeline-fixes-2`. Único trabajo incremental que queda: barrido masivo `print`→logger (Fase 6,
+  hecho en paths de red). Progreso en el memory `analysis_audit_progress.md`.
 
 ---
 
 ## 0.5 Arquitectura WEB (v1.10) — leer si tocas la web
 
-La UI PyQt5 se está jubilando en favor de una **web React + backend Python headless**. El backend
-reutiliza SIN CAMBIOS `src/core`, `src/analysis`, `src/io`, `src/mcp`. Lo nuevo vive en `server/`
+La UI PyQt5 se **retiró** (Fase 8) en favor de una **web React + backend Python headless**. El backend
+reutiliza SIN CAMBIOS `src/core`, `src/analysis`, `src/io`, `src/mcp`. Todo vive en `server/`
 (Python) y `web/` (React+TS+Vite).
 
 ```
@@ -157,7 +153,7 @@ Claves:
 
 ## 1. Arquitectura — bajo acoplamiento (lo que el usuario más valora)
 
-Núcleo reutilizado por la web (`server/`) y por Qt (`src/ui/`): `src/core` (show_engine,
+Núcleo que consume el backend web (`server/`): `src/core` (show_engine,
 timeline_model, fixtures, effects_engine, channel_effects), `src/analysis` (analyzer_service),
 `src/io` (loaders GDTF, OutputRouter, exporter, project_manager), `src/mcp` (bridge + FastMCP server).
 
@@ -182,8 +178,7 @@ cd C:\Users\guille\Documents\Claude\Projects\show-designer
 python -m venv venv311                 # si no existe
 .\venv311\Scripts\Activate.ps1
 pip install -r requirements.txt
-python -m server.main                  # web en http://localhost:8000  (entry point primario)
-# UI legacy Qt:  python src/ui/dual_app.py
+python -m server.main                  # web en http://localhost:8000  (único entry point)
 ```
 
 - Claude por MCP: `.mcp.json` ya configurado; los tools aparecen como `mcp__show-control__*`.

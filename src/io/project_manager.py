@@ -272,7 +272,7 @@ class ProjectManager:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Singleton conveniente para importar desde dual_app / timeline_editor
+# Singleton conveniente para importar desde el server / handlers MCP
 # ─────────────────────────────────────────────────────────────────────────────
 
 _MANAGER: Optional[ProjectManager] = None
