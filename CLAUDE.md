@@ -37,8 +37,13 @@ Estado a **2026-06-11** · **v1.10 (web)**: backend headless + frontend React, 4
 - **Fase 2 (higiene repo) APLICADA** (2026-06-11): hallazgos 22-25 (destrackeado ~112 MB de
   audio/stems/npz + `.gitignore`; `show_timeline.json` destrackeado; este CLAUDE.md partido;
   README/STRUCTURE.md sincronizados a 416 tests y arquitectura web).
-- **Pendiente**: Fase 3 (UUIDs de clips, hallazgo 2, mayor riesgo — toca protocolo JSON-RPC),
-  Fase 4 de-duplicación (7-9), Fase 5 rendimiento (12-14), Fase 6 logging+recursos (17-18),
+- **Fase 3 (UUIDs de clips) APLICADA** (2026-06-11): hallazgo 2. `Clip.uid` (uuid4 hex[:12])
+  reemplaza `id(self)`: persistido en `to_dict`/`from_dict` (clave `id`=uid string), lookup por
+  uid en `ShowSession.find_clip_by_id` y `mcp_bridge._find_clip_by_id` con **fallback int legacy**.
+  Firmas MCP `clip_id: int`→`str` (`mcp_show_server.py`); frontend tipa clip id como `string`
+  (store.ts/Timeline.tsx). +9 tests (`test_clip_uid.py`). 425 verde + TS typecheck limpio.
+- **Pendiente**: Fase 4 de-duplicación (7-9: viewer3d→`web/public/v3d`, el_taser→`projects/`,
+  dos UndoManager→`src/core/undo.py`), Fase 5 rendimiento (12-14), Fase 6 logging+recursos (17-18),
   Fase 7 core agnóstico + split del editor (10,11,19). Detalle por fase en `ANALYSIS.md`.
   Progreso vivo en el memory `analysis_audit_progress.md`.
 

@@ -7,7 +7,7 @@ import { control } from "./api/control";
 import { stream, TransportState } from "./api/stream";
 
 export type Clip = {
-  id: number; track: number; start_ms: number; end_ms: number;
+  id: string; track: number; start_ms: number; end_ms: number;
   effect_id: number; scope: string; color: string; layer: number;
   label: string; locked: boolean; muted: boolean; category: string;
   channel_effect_id: string | null; preset_id: string | null; params: Record<string, any>;
@@ -63,13 +63,13 @@ type Store = {
   markers: Marker[];
   groups: Group[];
   // selección compartida
-  selectedClipId: number | null;
+  selectedClipId: string | null;
   selectedFixtureId: string | null;
   clipboard: Clip | null;
 
   setTab: (t: Tab) => void;
   setTransport: (s: TransportState) => void;
-  selectClip: (id: number | null) => void;
+  selectClip: (id: string | null) => void;
   setClipboard: (c: Clip | null) => void;
   selectFixture: (id: string | null) => void;
   refreshAll: () => Promise<void>;

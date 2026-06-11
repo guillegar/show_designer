@@ -364,11 +364,23 @@ class ShowSession:
         self._clip_bucket_index_n = -1
         self.notify_changed('model')
 
-    def find_clip_by_id(self, clip_id: int | str):
-        """Busca un clip por su id (identidad en memoria Python)."""
-        clip_id = int(clip_id)
+    def find_clip_by_id(self, clip_id):
+        """Busca un clip por su `uid` (estable y persistido, ANALYSIS hallazgo 2).
+
+        Compat: durante la transición acepta también el `id(self)` entero legacy
+        (clientes que guardaron una referencia antigua).
+        """
+        key = str(clip_id)
         for c in self.timeline.clips:
-            if id(c) == clip_id:
+            if getattr(c, 'uid', None) == key:
+                return c
+        # Fallback legacy: clip_id numérico = id(objeto) en memoria
+        try:
+            legacy = int(clip_id)
+        except (TypeError, ValueError):
+            return None
+        for c in self.timeline.clips:
+            if id(c) == legacy:
                 return c
         return None
 

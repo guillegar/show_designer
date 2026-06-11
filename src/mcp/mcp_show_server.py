@@ -631,13 +631,13 @@ def add_clip(track: int, start_ms: int, end_ms: int, effect_id: int,
 
 
 @mcp.tool()
-def delete_clip(clip_id: int) -> dict:
-    """Borra un clip por su id (id(clip) entero). Devuelve error si está locked."""
+def delete_clip(clip_id: str) -> dict:
+    """Borra un clip por su uid (string). Devuelve error si está locked."""
     return _sync_rpc("delete_clip", {"clip_id": clip_id})
 
 
 @mcp.tool()
-def move_clip(clip_id: int, new_start_ms: Optional[int] = None,
+def move_clip(clip_id: str, new_start_ms: Optional[int] = None,
               new_end_ms: Optional[int] = None,
               new_track: Optional[int] = None) -> dict:
     """
@@ -652,13 +652,13 @@ def move_clip(clip_id: int, new_start_ms: Optional[int] = None,
 
 
 @mcp.tool()
-def set_clip_color(clip_id: int, color: str) -> dict:
+def set_clip_color(clip_id: str, color: str) -> dict:
     """Cambia el color de un clip (hex string ej '#ff4040')."""
     return _sync_rpc("set_clip_color", {"clip_id": clip_id, "color": color})
 
 
 @mcp.tool()
-def set_clip_params(clip_id: int, params: dict) -> dict:
+def set_clip_params(clip_id: str, params: dict) -> dict:
     """
     Actualiza parámetros del efecto del clip (hue, saturation, speed, etc.).
     Solo merge: los keys no incluidos se mantienen.
@@ -667,19 +667,19 @@ def set_clip_params(clip_id: int, params: dict) -> dict:
 
 
 @mcp.tool()
-def set_clip_mute(clip_id: int, muted: bool) -> dict:
+def set_clip_mute(clip_id: str, muted: bool) -> dict:
     """Activa/desactiva el mute individual de un clip."""
     return _sync_rpc("set_clip_mute", {"clip_id": clip_id, "muted": muted})
 
 
 @mcp.tool()
-def set_clip_lock(clip_id: int, locked: bool) -> dict:
+def set_clip_lock(clip_id: str, locked: bool) -> dict:
     """Bloquea/desbloquea un clip (los bloqueados no se mueven ni borran)."""
     return _sync_rpc("set_clip_lock", {"clip_id": clip_id, "locked": locked})
 
 
 @mcp.tool()
-def set_clip_scope(clip_id: int, scope: str) -> dict:
+def set_clip_scope(clip_id: str, scope: str) -> dict:
     """
     Cambia el scope de un clip.
     Valores: 'per_bar', 'global', 'group:IZQ', 'group_set:TODO', etc.

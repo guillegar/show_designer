@@ -748,13 +748,24 @@ def _dirty_timeline(app, refresh_props=False):
 
 
 def _find_clip_by_id(app, clip_id):
-    """Devuelve el clip cuyo id(clip) coincide con clip_id (entero)."""
-    # ShowSession (headless): use el método optimizado
+    """Devuelve el clip cuyo `uid` coincide con clip_id (ANALYSIS hallazgo 2).
+
+    Compat: acepta el `id(self)` entero legacy durante la transición.
+    """
+    # ShowSession (headless): usa el método optimizado
     if hasattr(app, 'find_clip_by_id'):
         return app.find_clip_by_id(clip_id)
-    # TimelineEditorWindow (legacy Qt): fallback a búsqueda manual
+    # TimelineEditorWindow (legacy Qt): búsqueda por uid + fallback int legacy
+    key = str(clip_id)
     for c in app.timeline.clips:
-        if id(c) == int(clip_id):
+        if getattr(c, 'uid', None) == key:
+            return c
+    try:
+        legacy = int(clip_id)
+    except (TypeError, ValueError):
+        return None
+    for c in app.timeline.clips:
+        if id(c) == legacy:
             return c
     return None
 
@@ -790,7 +801,7 @@ def _h_add_clip(app, params):
 
 
 def _h_delete_clip(app, params):
-    """Borra un clip por su id (id(clip))."""
+    """Borra un clip por su uid."""
     c = _find_clip_by_id(app, params["clip_id"])
     if c is None:
         return {"ok": False, "error": "clip_id no encontrado"}
@@ -1367,7 +1378,7 @@ def _h_apply_palette_to_range(app, params):
             return {"ok": False, "error": f"mode desconocido '{mode}'. Opciones: cycle, random, gradient"}
 
         c.params["hue"] = hue
-        updated.append({"clip_id": id(c), "hue": hue})
+        updated.append({"clip_id": c.uid, "hue": hue})
 
     if updated:
         _dirty_timeline(app)

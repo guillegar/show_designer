@@ -10,6 +10,7 @@ import json
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Dict, Any, List, Optional
+from uuid import uuid4
 
 from src._paths import PROJECT_DIR
 TIMELINE_FILE = PROJECT_DIR / 'show_timeline.json'
@@ -96,6 +97,9 @@ class Clip:
     # v1.10 — banco de presets: si está set, el clip RESUELVE su efecto+params
     # del preset (enlace vivo: editar el preset cambia todos sus clips).
     preset_id: Optional[str] = None
+    # v1.10 — ANALYSIS hallazgo 2: id ESTABLE y persistido. Reemplaza id(self),
+    # que no era estable entre sesiones y CPython puede reusar tras GC.
+    uid: str = field(default_factory=lambda: uuid4().hex[:12])
 
     @property
     def duration_ms(self) -> int:
@@ -105,9 +109,15 @@ class Clip:
         return self.start_ms <= time_ms < self.end_ms
 
     def to_dict(self):
-        """Serializa el clip a dict compatible con JSON-RPC (incluye id único)."""
+        """Serializa el clip a dict compatible con JSON-RPC.
+
+        `id` = `uid` (estable y persistido) → es la clave que usan los clientes
+        (Claude/web) para referenciar el clip en move_clip/delete_clip/etc.
+        Se incluye también `uid` explícito para claridad/persistencia.
+        """
         return {
-            "id": id(self),
+            "id": self.uid,
+            "uid": self.uid,
             "track": self.track,
             "start_ms": self.start_ms,
             "end_ms": self.end_ms,
@@ -141,6 +151,10 @@ class Clip:
             category=d.get('category', 'pixel'),
             channel_effect_id=d.get('channel_effect_id'),
             preset_id=d.get('preset_id'),
+            # Migración: usa el uid persistido; si no hay (shows viejos cuyo "id"
+            # era el int de id(self)), genera uno nuevo estable.
+            uid=d.get('uid') or (d['id'] if isinstance(d.get('id'), str)
+                                 else uuid4().hex[:12]),
         )
 
 

@@ -62,7 +62,7 @@ export function TimelineView() {
     const saved = localStorage.getItem("sd_lastEffectDuration");
     return saved ? parseInt(saved, 10) : 500;
   });
-  const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
+  const [selectedClipIds, setSelectedClipIds] = useState<Set<string>>(new Set());
   const [showHelp, setShowHelp] = useState(false);
   const lanesRef = useRef<HTMLDivElement>(null);
 
@@ -348,7 +348,7 @@ export function TimelineView() {
 
   const clipFromEl = (el: Element | null | undefined): Clip | undefined => {
     const id = el?.getAttribute?.("data-clip-id");
-    return id != null ? clips.find((c) => c.id === +id) : undefined;
+    return id != null ? clips.find((c) => c.id === id) : undefined;
   };
 
   const commitMoves = async (calls: Array<Record<string, any>>) => {
@@ -478,8 +478,8 @@ export function TimelineView() {
     }
     setMoveTargets(e.selected);
     const ids = (e.selected as HTMLElement[])
-      .map((el) => +(el.getAttribute("data-clip-id") || "-1"))
-      .filter((n) => n >= 0);
+      .map((el) => el.getAttribute("data-clip-id") || "")
+      .filter((s) => s !== "");
     setSelectedClipIds(new Set(ids));
     if (ids.length === 1) selectClip(ids[0]);
     else if (ids.length === 0) selectClip(null);
@@ -494,7 +494,7 @@ export function TimelineView() {
 
       if ((e.key === "Delete" || e.key === "Backspace") && (selectedClipIds.size > 0 || selectedClipId != null)) {
         e.preventDefault();
-        const ids = selectedClipIds.size > 0 ? [...selectedClipIds] : [selectedClipId as number];
+        const ids = selectedClipIds.size > 0 ? [...selectedClipIds] : [selectedClipId as string];
         (async () => {
           for (const id of ids) await control.call("delete_clip", { clip_id: id });
           setSelectedClipIds(new Set());
@@ -551,7 +551,7 @@ export function TimelineView() {
           const minStart = Math.min(...src.map((cl) => cl.start_ms));
           const anchor = Math.round(useStore.getState().t * 1000); // playhead actual
           (async () => {
-            const newIds: number[] = [];
+            const newIds: string[] = [];
             for (const cl of src) {
               const dur = cl.end_ms - cl.start_ms;
               const start = anchor + (cl.start_ms - minStart);
