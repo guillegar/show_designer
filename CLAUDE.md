@@ -17,8 +17,10 @@ Estado a **2026-06-11** · **v1.10 (web)**: backend headless + frontend React, 4
 
 - **Entry point (v1.10, web):** `python -m server.main` → http://localhost:8000. Dev frontend:
   `cd web && npm run dev` (Vite :5173 proxea WS a :8000). Rebuild: `cd web && npm run build`.
-- **Entry point legacy (PyQt5, deprecado pero funcional):** `python src/ui/dual_app.py`. Red de
-  seguridad durante la transición; la web es la UI primaria.
+- **Entry point legacy (PyQt5):** `python src/ui/dual_app.py`. **CONGELADO** (decisión ANALYSIS
+  hallazgo 11): la **web es el camino principal**; el Qt NO recibe features nuevas, se mantiene como
+  red de seguridad hasta su retirada. Todo lo nuevo va a `server/` + `web/`. (PyQt5 ni siquiera está
+  instalado en el venv headless → el editor Qt no es testeable aquí.)
 - Software de iluminación profesional. El motor (Python) corre **headless** (sin Qt) y sirve una web
   React; el audio suena en el PC (reloj maestro) y el navegador es control + visualizador.
   Controlable por humano (web) y por Claude (MCP, compat en :9876).
@@ -64,8 +66,16 @@ Estado a **2026-06-11** · **v1.10 (web)**: backend headless + frontend React, 4
   server; `Timeline.save()` **atómico** (`.tmp` + `os.replace`). +4 tests (`test_logging_resources.py`).
   432 verde. NOTA: el barrido mecánico de los ~251 `print()` restantes a logger es **incremental por
   módulos** (no se hizo en bloque por churn/riesgo); de momento migrados los paths de red + `router.py`.
-- **Pendiente**: Fase 7 core agnóstico + split del editor (10,11,19). Detalle en `ANALYSIS.md`.
-  Progreso en el memory `analysis_audit_progress.md`.
+- **Fase 7 (core agnóstico + split editor) APLICADA** (2026-06-12): hallazgos 10,11,19.
+  (10) `render_stub` + `BARS` (IPs de El Taser) + `_beat_env` + mapa de secciones → movidos a
+  **`src/legacy_show.py`** (import perezoso para evitar circular; el core ya NO tiene defaults de
+  canción; `ANALYSIS_FILE`/`TIMESERIES_FILE` muertos borrados). (11) **decisión de retirada
+  explícita** (abajo). (19) primer paso del split: `WaveformData` → `src/ui/timeline/waveform.py`
+  (Qt-free, testeable); el grueso (TimelineView 1455 LOC, paneles) es CONTINUO y queda diferido
+  (Qt no es testeable sin PyQt5 aquí + se retira). +2 tests. 434 verde.
+- ✅ **AUDITORÍA `ANALYSIS.md` COMPLETA**: las 7 fases aplicadas (1→7), un commit por fase sobre
+  `timeline-fixes-2`. Continúan como trabajo incremental: barrido masivo `print`→logger (Fase 6) y
+  split mayor del editor Qt (Fase 7/19). Progreso en el memory `analysis_audit_progress.md`.
 
 ---
 

@@ -144,26 +144,9 @@ from src.core.undo import ClipSnapshotUndoManager as UndoManager
 # ═══════════════════════════════════════════════════════════════
 # Waveform
 # ═══════════════════════════════════════════════════════════════
-class WaveformData:
-    def __init__(self, path: Path):
-        self.audio_path = Path(path)
-        self.duration_s = 0.0
-        self.peaks = np.zeros(1, dtype=np.float32)
-        self.sr = 22050
-        self._load()
-
-    def _load(self):
-        print(f"[waveform] {self.audio_path.name}...")
-        try:
-            y, sr = librosa.load(str(self.audio_path), sr=self.sr, mono=True)
-            self.duration_s = len(y) / sr
-            bs = int(sr * 0.010); nb = len(y) // bs
-            blk = y[:nb*bs].reshape(nb, bs)
-            self.peaks = np.max(np.abs(blk), axis=1).astype(np.float32)
-            self.peaks /= max(0.001, float(self.peaks.max()))
-            print(f"[waveform] {self.duration_s:.1f}s OK")
-        except Exception as e:
-            print(f"[waveform] error: {e}")
+# WaveformData extraída a src/ui/timeline/waveform.py (ANALYSIS hallazgo 19 — primer
+# paso del split del editor; el resto es continuo y supeditado a la retirada de Qt).
+from src.ui.timeline.waveform import WaveformData
 
 
 # ═══════════════════════════════════════════════════════════════
