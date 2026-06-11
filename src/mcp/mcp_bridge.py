@@ -38,7 +38,10 @@ logging.getLogger("websockets.asyncio.server").setLevel(logging.CRITICAL)
 try:
     import websockets
 except ImportError:
-    raise SystemExit("Falta dependencia: pip install websockets")
+    # No matar el proceso: el módulo debe ser importable sin websockets
+    # (p.ej. para que pytest colecte los handlers). El arranque del bridge
+    # (MCPBridge.start) comprueba este sentinel y se deshabilita si falta.
+    websockets = None
 
 HOST = "127.0.0.1"
 PORT = 9876
@@ -1567,6 +1570,10 @@ class MCPBridge:
 
     def start(self):
         if self._thread is not None:
+            return
+        if websockets is None:
+            print("[mcp_bridge] websockets no instalado; bridge deshabilitado "
+                  "(pip install websockets para habilitarlo)")
             return
 
         def _exc_handler(loop, ctx):

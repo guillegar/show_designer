@@ -83,7 +83,7 @@ def test_heartbeat_render():
 
 
 def test_plugin_render_no_audio_context():
-    """Plugins no crashean con audio_context=None o vacío."""
+    """Plugins no crashean con audio_context=None y respetan el contrato de shape."""
     from src.core.effects_engine import EffectLibrary
     lib = EffectLibrary()
     bars = _make_bars()
@@ -91,9 +91,13 @@ def test_plugin_render_no_audio_context():
         if eff_id >= 1000:
             try:
                 result = eff.render(0.0, bars, None)
-                assert result.shape == bars.shape
             except Exception as e:
                 pytest.fail(f"Plugin {eff.name} crashea con context=None: {e}")
+            # El shape válido lo fija el contrato derivado del scope (hallazgo 1):
+            # PER_BAR → (1, LEDS, 3); ALL_BARS/GLOBAL → (NUM_BARS, LEDS, 3).
+            assert result.shape == eff.expected_output_shape, (
+                f"Plugin {eff.name} (scope={eff.scope.value}) devolvió "
+                f"{result.shape}, se esperaba {eff.expected_output_shape}")
 
 
 # ── 3. Sistema de autodescubrimiento con módulos sintéticos ──────────────────

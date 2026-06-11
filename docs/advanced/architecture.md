@@ -146,10 +146,12 @@ class Effect:
     name: str             # Unique name
     family: str           # Grouping (flash, wave, etc.)
     duration_ms: int      # Default length
-    scope: EffectScope    # ALL_BARS or SINGLE_BAR
-    
+    scope: EffectScope    # ALL_BARS, PER_BAR or GLOBAL
+
     def render(self, elapsed_time, bars_state, audio_context, **params):
-        # Return RGB array or channel dict
+        # Returns an RGB array whose shape is fixed by `expected_output_shape`
+        # (derived from scope): PER_BAR -> (1, LEDS, 3) (engine assigns it to the
+        # clip's bar); ALL_BARS/GLOBAL -> (NUM_BARS, LEDS, 3) (full frame).
         ...
 ```
 

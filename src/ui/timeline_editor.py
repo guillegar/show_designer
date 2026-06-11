@@ -3747,9 +3747,20 @@ class TimelineEditorWindow(QMainWindow):
                 if r.shape==(1,LEDS,3) and 0<=clip.track<NUM_BARS:
                     frame[clip.track] = np.maximum(frame[clip.track], r[0]) if clip.layer>0 else r[0]
                 elif r.shape==(NUM_BARS,LEDS,3):
-                    frame = np.maximum(frame,r) if clip.scope=='global' else (
-                        frame.__setitem__((clip.track,), np.maximum(frame[clip.track],r[clip.track])) or frame)
-            except: pass
+                    if clip.scope == 'global':
+                        frame = np.maximum(frame, r)
+                    else:
+                        frame[clip.track] = np.maximum(frame[clip.track], r[clip.track])
+            except Exception as e:
+                # Un efecto roto NO debe matar el frame (barras negras sin pista).
+                # Log con throttle: 1 vez por effect_id para no saturar stdout.
+                logged = getattr(self, '_frame_err_logged', None)
+                if logged is None:
+                    logged = self._frame_err_logged = set()
+                if clip.effect_id not in logged:
+                    logged.add(clip.effect_id)
+                    print(f"[timeline] efecto {clip.effect_id} ({getattr(eff, 'name', '?')}) "
+                          f"falló en render: {type(e).__name__}: {e}")
         return frame
 
 

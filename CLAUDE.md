@@ -16,15 +16,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Show de prueba: `show_timeline.json` para "El Taser de Mamá Remix" (`El Taser de Mama Remix.mp3`, 273.3 s).
 - Plan maestro detallado en `C:\Users\guille\.claude\plans\mellow-rolling-cray.md`.
 - Licencia: **Prosperity Public License 3.0.0 (PPL)** — código original propio.
-- **⚠️ PENDIENTE (2026-06-11): auditoría técnica completa en `ANALYSIS.md`** (raíz del repo) —
-  25 hallazgos priorizados P0→P3 + plan de ataque en 7 fases. Estado: NINGUNA fase aplicada aún.
-  Empezar por Fase 1 (quick wins). Resumen P0: (1) test fallando `test_plugin_system.py::
-  test_plugin_render_no_audio_context` por contrato de shapes ambiguo en `Effect.render()`
-  (solid_color devuelve `(1,93,3)` por diseño, el test exige `(10,93,3)`); (2) IDs de clips =
-  `id(self)` → migrar a UUID persistido; (3) prints `[DEBUG] mover_wash_L_back` hardcodeados en
-  `show_engine.py:1014-1032`; (4) módulo `event_mapping` importado pero inexistente; (5)
-  `SystemExit` en import de `mcp_bridge.py:41`; (6) `except: pass` desnudo en
-  `timeline_editor.py:3752`. Leer `ANALYSIS.md` completo antes de empezar.
+- **⚠️ AUDITORÍA TÉCNICA en `ANALYSIS.md`** (raíz del repo) — 25 hallazgos P0→P3 + plan en 7 fases.
+  - **Fase 1 (quick wins) APLICADA** (2026-06-11, commit propio): hallazgos 1, 3, 4, 5, 6, 20, 21.
+    (1) contrato de shape formalizado en `Effect.expected_output_shape` (derivado del `scope`:
+    PER_BAR→`(1,93,3)`, ALL_BARS/GLOBAL→`(10,93,3)`) + test `test_plugin_render_no_audio_context`
+    arreglado; (3) prints `[DEBUG] mover_wash_L_back` eliminados del hot path de
+    `render_channels_for_fixture`; (4) métodos `schedule_from_mapping_file`/`maybe_reload_mapping`
+    borrados (el módulo `event_mapping` no existe); (5) `SystemExit` en import de `mcp_bridge.py`
+    → sentinel `websockets=None` + guard en `MCPBridge.start` (módulo importable sin websockets);
+    (6) `except: pass` de `_compute_frame` → `except Exception` con log throttled 1×/effect_id;
+    (20) one-liner ilegible → if/else equivalente; (21) código muerto limpiado
+    (`FADE_START/FADE_DUR`, `_find_local_maxima`, rama else vacía de `send_universe_via_router`).
+    **Suite: 416/416 verde.** Sin cambios de comportamiento observable, sin deps nuevas.
+  - **Pendiente (siguiente: Fase 2 higiene repo)**: hallazgos 22-25 (~110 MB de audio/stems en git,
+    datos de usuario sueltos en la raíz, este CLAUDE.md de 48 KB, docs desincronizadas). Después:
+    hallazgo 2 (UUIDs de clips, mayor riesgo), de-duplicación (7-9), rendimiento (12-14), logging
+    (17-18). Leer `ANALYSIS.md` para el detalle por fase.
 
 ---
 

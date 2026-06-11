@@ -100,9 +100,26 @@ class Effect(ABC):
             **params: Parámetros dinámicos del efecto
 
         Returns:
-            Frame RGB con forma (NUM_BARS, 93, 3) o (1, 93, 3)
+            Frame RGB. La forma la fija el contrato `expected_output_shape`,
+            derivado del `scope`:
+              • PER_BAR            → (1, LEDS_PER_BAR, 3): una fila; el motor la
+                                     asigna a la barra del clip.
+              • ALL_BARS / GLOBAL  → (NUM_BARS, LEDS_PER_BAR, 3): frame completo.
         """
         pass
+
+    @property
+    def expected_output_shape(self) -> Tuple[int, int, int]:
+        """Forma válida de salida de `render()`, derivada del `scope`.
+
+        PER_BAR devuelve una sola fila (1, LEDS_PER_BAR, 3) que el motor pinta
+        en la barra del clip; ALL_BARS/GLOBAL devuelven el frame completo
+        (NUM_BARS, LEDS_PER_BAR, 3). Formaliza el contrato que antes era
+        implícito (ver ANALYSIS.md hallazgo 1).
+        """
+        if self.scope == EffectScope.PER_BAR:
+            return (1, LEDS_PER_BAR, 3)
+        return (NUM_BARS, LEDS_PER_BAR, 3)
 
     def _normalize_time(self, elapsed_time: float) -> float:
         """Retorna tiempo normalizado 0.0 a 1.0"""

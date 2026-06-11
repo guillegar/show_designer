@@ -427,10 +427,6 @@ def render_stub(t, bar_idx, state, rms_val, flux_val, bpm_norm=1.0):
                 r, g, b_v = int(bright*255), 0, 0
             i = led * 3;  rgb[i] = r;  rgb[i+1] = g;  rgb[i+2] = b_v
 
-    # (fade final configurable por cancion — desactivado por defecto)
-    FADE_START = 9999.0
-    FADE_DUR   = 1.0
-
     return rgb
 
 
@@ -853,81 +849,6 @@ class ShowEngine:
             traceback.print_exc()
             return False
 
-    def schedule_from_mapping_file(self, mapping_path: Optional[str] = None) -> int:
-        """
-        Aplica un mapping JSON (event_mapping.json) al TimelineScheduler.
-
-        Si mapping_path es None, usa event_mapping.json en el dir del proyecto.
-        Retorna el número de eventos programados (0 si no aplicó nada).
-        """
-        if not self.timeline_scheduler:
-            return 0
-
-        try:
-            from event_mapping import (
-                discover_event_types, load_analysis,
-                load_or_default_profile, DEFAULT_MAPPING_FILE,
-            )
-        except ImportError as e:
-            print(f"[!] event_mapping no disponible: {e}")
-            return 0
-
-        path = Path(mapping_path) if mapping_path else DEFAULT_MAPPING_FILE
-        # Pedir el path del analysis.json al servicio (sin hardcoded)
-        analysis_path = (self.analysis._analysis_json_path
-                         if self.analysis is not None else None)
-        if not analysis_path or not analysis_path.is_file():
-            print(f"[!] No analysis.json disponible vía AnalysisService")
-            return 0
-
-        analysis = load_analysis(analysis_path)
-        event_types = discover_event_types(analysis)
-        profile = load_or_default_profile(path)
-
-        scheduled = profile.apply_to_scheduler(self.timeline_scheduler, event_types)
-        total = sum(scheduled.values())
-        print(f"[+] Mapping aplicado desde {Path(path).name if path else 'default'}: "
-              f"{len(scheduled)} tipos activos, {total} eventos")
-        for k, c in scheduled.items():
-            print(f"    {k}: {c} eventos")
-        return total
-
-    def maybe_reload_mapping(self) -> bool:
-        """Si existe un archivo .reload junto al mapping, recargar y borrar el flag.
-
-        Permite a event_mapping_panel.py disparar una recarga "en caliente":
-        guarda event_mapping.json + crea event_mapping.reload → este método lo
-        detecta en el próximo tick y recarga el scheduler.
-        """
-        try:
-            from event_mapping import DEFAULT_MAPPING_FILE
-        except ImportError:
-            return False
-        trigger = Path(DEFAULT_MAPPING_FILE).with_suffix('.reload')
-        if trigger.is_file():
-            try:
-                trigger.unlink()
-            except Exception:
-                pass
-            self.schedule_from_mapping_file()
-            return True
-        return False
-
-    @staticmethod
-    def _find_local_maxima(array: List[float], min_distance: int = 3) -> List[int]:
-        """Encuentra índices de máximos locales en un array."""
-        peaks = []
-        if len(array) <= 2:
-            return peaks
-
-        for i in range(1, len(array) - 1):
-            if array[i] > array[i-1] and array[i] > array[i+1]:
-                # Verificar distancia mínima del último peak
-                if not peaks or i - peaks[-1] >= min_distance:
-                    peaks.append(i)
-
-        return peaks
-
     def get_scheduler(self) -> Optional[TimelineScheduler]:
         """Retorna el scheduler para acceso externo."""
         return self.timeline_scheduler
@@ -1011,8 +932,6 @@ class ShowEngine:
             clips_here = self._collect_channel_clips_at(
                 timeline, fixture, t * 1000.0,
             )
-            if len(clips_here) == 0 and fixture.fixture_id == 'mover_wash_L_back':
-                print(f"[DEBUG] No clips found for {fixture.fixture_id} at t={t}s, timeline has {len(timeline.clips)} clips")
             # Ordenar por layer ascendente (LTP entre layers)
             clips_here.sort(key=lambda c: (getattr(c, 'layer', 0),
                                             c.start_ms))
@@ -1021,15 +940,11 @@ class ShowEngine:
                 channels = self._render_clip_channels(
                     clip, fixture, t, audio_context,
                 )
-                if fixture.fixture_id == 'mover_wash_L_back' and not channels:
-                    print(f"[DEBUG] _render_clip_channels returned empty for {clip.label}")
                 if not channels:
                     continue
                 for ch_name, val in channels.items():
                     offset = profile.channel_map.get(ch_name)
                     if offset is None or offset >= len(buf):
-                        if fixture.fixture_id == 'mover_wash_L_back':
-                            print(f"[DEBUG] Channel {ch_name}: offset={offset}, buf_len={len(buf)}, channel_map_size={len(profile.channel_map)}")
                         continue
                     buf[offset] = max(0, min(255, int(val)))
 
@@ -1167,9 +1082,7 @@ class ShowEngine:
         """
         if self.router is not None:
             self.router.send(universe_id, dmx_bytes)
-        else:
-            # Fallback poco útil pero no rompe nada
-            pass
+        # Sin router no hay destino (sim_only): no-op silencioso.
 
     def get_fixture_dmx_states(self, t: float,
                                 audio_context: Optional[Dict] = None,
