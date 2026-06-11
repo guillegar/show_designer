@@ -48,10 +48,16 @@ Estado a **2026-06-11** · **v1.10 (web)**: backend headless + frontend React, 4
   los residuos `src/projects/`, `src/io/projects/`, `data/projects/` (canónico = `projects/`).
   UndoManager: fuente única `src/core/undo.py` (`UndoManager` callback + `ClipSnapshotUndoManager`
   push); `server/undo_manager.py` re-exporta, el editor Qt importa. 425 verde.
-- **Pendiente**: Fase 5 rendimiento (12-14: bisect en `get_active_events`, precalcular rms/flux,
-  `searchsorted` en `get_audio_context`), Fase 6 logging+recursos (17-18), Fase 7 core agnóstico +
-  split del editor (10,11,19). Detalle por fase en `ANALYSIS.md`. Progreso en el memory
-  `analysis_audit_progress.md`.
+- **Fase 5 (rendimiento) APLICADA** (2026-06-12): hallazgos 12,13,14, todos **parity-exactos**.
+  (12) `TimelineScheduler.get_active_events` O(n)→O(log n+k) con bisect sobre eventos ordenados +
+  ventana `[t-max_dur, t]`; (13) `rms_norm`/`flux_norm` precalculados (cache por id del timeseries)
+  en `_compute_frame_legacy`; (14) `AnalysisService.get_audio_context` usa UN `searchsorted` + lerp
+  vectorizado para las ~46 curvas (antes un `np.interp` por coeficiente). +3 tests de parity
+  (`test_perf_parity.py`). 428 verde. (Nota: la ruta web `session.compute_frame` usa `_cached_actx`,
+  así que el mayor beneficio es para Qt/analyzer/legacy.)
+- **Pendiente**: Fase 6 logging+recursos (17-18: `src/log.py` + `print`→logger + cierre sockets +
+  `Timeline.save` atómico), Fase 7 core agnóstico + split del editor (10,11,19). Detalle por fase en
+  `ANALYSIS.md`. Progreso en el memory `analysis_audit_progress.md`.
 
 ---
 

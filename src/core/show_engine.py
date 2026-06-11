@@ -119,6 +119,11 @@ class TimelineScheduler:
 
     def __init__(self):
         self.events: List[TemporalEvent] = []
+        # ANALYSIS hallazgo 12: índice ordenado para get_active_events con bisect.
+        # Se reconstruye cuando cambia el nº de eventos (add_* / clear).
+        self._sorted_n: int = -1
+        self._times: List[float] = []
+        self._max_dur_sec: float = 2.0
 
     def add_beat_events(self, beats_times: List[float], effect_id: int,
                         scope: str = "global", **parameters):
@@ -182,9 +187,29 @@ class TimelineScheduler:
 
     def get_active_events(self, current_time: float, effect_library: 'EffectLibrary',
                          window_ms: float = 100) -> List[TemporalEvent]:
-        """Retorna eventos activos en current_time (considerando su duración)."""
+        """Retorna eventos activos en current_time (considerando su duración).
+
+        ANALYSIS hallazgo 12: en vez de recorrer TODOS los eventos cada frame
+        (O(n)), mantiene `self.events` ordenado por `time_sec` y usa bisect para
+        mirar solo la ventana [current_time - max_dur, current_time] (O(log n + k)).
+        Un evento solo puede estar activo si disparó como mucho `max_dur` atrás;
+        dentro de la ventana se aplica el filtro `is_active` exacto (mismos
+        resultados que el barrido lineal).
+        """
+        n = len(self.events)
+        if n != self._sorted_n:
+            self.events.sort(key=lambda e: e.time_sec)
+            self._times = [e.time_sec for e in self.events]
+            self._max_dur_sec = max(
+                (eff.duration_ms for eff in effect_library.effects.values()),
+                default=2000) / 1000.0
+            self._sorted_n = n
+        if n == 0:
+            return []
+        lo = bisect_left(self._times, current_time - self._max_dur_sec)
+        hi = bisect_right(self._times, current_time)
         active = []
-        for event in self.events:
+        for event in self.events[lo:hi]:
             effect = effect_library.get_effect(event.effect_id)
             if effect and event.is_active(current_time, effect.duration_ms):
                 active.append(event)
@@ -757,10 +782,16 @@ class ShowEngine:
         """Computador de frames legacy usando render_stub."""
         try:
             ts_times = self.timeseries['times']
-            rms  = self.timeseries['rms']
-            flux = self.timeseries['flux']
-            rms_norm  = np.clip((rms  - rms.min())  / (rms.max()  - rms.min()  + 0.001), 0, 1)
-            flux_norm = np.clip((flux - flux.min()) / (flux.max() - flux.min() + 0.001), 0, 1)
+            # ANALYSIS hallazgo 13: precalcular rms_norm/flux_norm UNA vez (no por
+            # frame). Cache keyeada por identidad del timeseries (recarga -> recalc).
+            if (getattr(self, '_norm_cache_id', None) != id(self.timeseries)):
+                rms  = self.timeseries['rms']
+                flux = self.timeseries['flux']
+                self._rms_norm_cache  = np.clip((rms  - rms.min())  / (rms.max()  - rms.min()  + 0.001), 0, 1)
+                self._flux_norm_cache = np.clip((flux - flux.min()) / (flux.max() - flux.min() + 0.001), 0, 1)
+                self._norm_cache_id = id(self.timeseries)
+            rms_norm  = self._rms_norm_cache
+            flux_norm = self._flux_norm_cache
 
             section  = self.state.section_at(elapsed_time)
             rms_val  = float(np.interp(elapsed_time, ts_times, rms_norm))

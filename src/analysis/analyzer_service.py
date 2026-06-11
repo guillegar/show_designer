@@ -787,15 +787,31 @@ class AnalysisService:
             return ctx
         ts_times = self._timeseries['times']
 
+        # ANALYSIS hallazgo 14: un solo searchsorted + lerp vectorizado para TODAS
+        # las curvas (46+: mfcc/chroma/tonnetz/contrast/mel + escalares), en vez de
+        # un np.interp por coeficiente. Replica np.interp(..., left=0.0, right=0.0).
+        _n = len(ts_times)
+        _oor = (_n == 0 or time_sec < ts_times[0] or time_sec > ts_times[-1])
+        if not _oor:
+            _idx = int(np.searchsorted(ts_times, time_sec))
+            if _idx <= 0:
+                _i0 = _i1 = 0; _w = 0.0
+            elif _idx >= _n:
+                _i0 = _i1 = _n - 1; _w = 0.0
+            else:
+                _i0, _i1 = _idx - 1, _idx
+                _t0 = float(ts_times[_i0]); _t1 = float(ts_times[_i1])
+                _w = 0.0 if _t1 == _t0 else (time_sec - _t0) / (_t1 - _t0)
+
         def interp_1d(arr):
-            return float(np.interp(time_sec, ts_times, arr, left=0.0, right=0.0))
+            if _oor:
+                return 0.0
+            return float(float(arr[_i0]) * (1.0 - _w) + float(arr[_i1]) * _w)
 
         def interp_2d(arr):
-            n = arr.shape[0]
-            out = np.zeros(n, dtype=np.float32)
-            for i in range(n):
-                out[i] = np.interp(time_sec, ts_times, arr[i], left=0.0, right=0.0)
-            return out
+            if _oor:
+                return np.zeros(arr.shape[0], dtype=np.float32)
+            return (arr[:, _i0] * (1.0 - _w) + arr[:, _i1] * _w).astype(np.float32)
 
         ts = self._timeseries
         for name in ('rms', 'centroid', 'flux', 'zcr', 'rolloff', 'bandwidth', 'flatness'):
