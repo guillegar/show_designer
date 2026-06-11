@@ -55,9 +55,17 @@ Estado a **2026-06-11** · **v1.10 (web)**: backend headless + frontend React, 4
   vectorizado para las ~46 curvas (antes un `np.interp` por coeficiente). +3 tests de parity
   (`test_perf_parity.py`). 428 verde. (Nota: la ruta web `session.compute_frame` usa `_cached_actx`,
   así que el mayor beneficio es para Qt/analyzer/legacy.)
-- **Pendiente**: Fase 6 logging+recursos (17-18: `src/log.py` + `print`→logger + cierre sockets +
-  `Timeline.save` atómico), Fase 7 core agnóstico + split del editor (10,11,19). Detalle por fase en
-  `ANALYSIS.md`. Progreso en el memory `analysis_audit_progress.md`.
+- **Fase 6 (logging+recursos) APLICADA** (2026-06-12): hallazgos 17,18. **`src/log.py`**: logging
+  estándar (consola + archivo rotativo opcional vía `LUCES_LOG_FILE`, nivel vía `LUCES_LOG_LEVEL`) +
+  `log_throttled()` (1/s por clave) para paths calientes. (17) los `except Exception: pass` MUDOS de
+  los sends de red (`WledTarget`/`ArtnetNodeTarget.send`, `ShowEngine.send_artnet*`) ahora **loguean
+  throttled** (el bug "IP mal configurada y no dice nada"). (18) `ShowEngine.close()` +
+  `OutputRouter.close()` (cierran sockets, idempotentes) cableados al `@app.on_event("shutdown")` del
+  server; `Timeline.save()` **atómico** (`.tmp` + `os.replace`). +4 tests (`test_logging_resources.py`).
+  432 verde. NOTA: el barrido mecánico de los ~251 `print()` restantes a logger es **incremental por
+  módulos** (no se hizo en bloque por churn/riesgo); de momento migrados los paths de red + `router.py`.
+- **Pendiente**: Fase 7 core agnóstico + split del editor (10,11,19). Detalle en `ANALYSIS.md`.
+  Progreso en el memory `analysis_audit_progress.md`.
 
 ---
 

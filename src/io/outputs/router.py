@@ -21,10 +21,15 @@ Uso:
 from __future__ import annotations
 
 import json
+import logging
 import socket
 import struct
 from pathlib import Path
 from typing import Dict, Optional
+
+from src.log import get_logger, log_throttled
+
+_log = get_logger(__name__)
 
 
 # ───────────────────────────────────────────────────────────────
@@ -73,8 +78,18 @@ class WledTarget(OutputTarget):
         try:
             pkt = build_artnet_packet(universe, dmx_bytes)
             self._sock.sendto(pkt, (self.ip, 6454))
+        except Exception as e:
+            # No matar el render loop, pero NO silenciar (ANALYSIS hallazgo 17):
+            # log throttled 1/s por IP. Antes era `pass` mudo → "no funciona y no
+            # dice nada" cuando la IP estaba mal configurada.
+            log_throttled(_log, logging.ERROR, f"wled:{self.ip}",
+                          f"Art-Net a WLED {self.ip} falló: {e}")
+
+    def close(self) -> None:
+        try:
+            self._sock.close()
         except Exception:
-            pass   # los errores de red no deben matar el render loop
+            pass
 
     def describe(self) -> Dict:
         return {"type": "wled", "ip": self.ip}
@@ -98,6 +113,13 @@ class ArtnetNodeTarget(OutputTarget):
         try:
             pkt = build_artnet_packet(universe, dmx_bytes)
             self._sock.sendto(pkt, (self.ip, 6454))
+        except Exception as e:
+            log_throttled(_log, logging.ERROR, f"artnet_node:{self.ip}",
+                          f"Art-Net a nodo {self.ip} falló: {e}")
+
+    def close(self) -> None:
+        try:
+            self._sock.close()
         except Exception:
             pass
 
@@ -147,13 +169,13 @@ class OutputRouter:
         """
         path = Path(path)
         if not path.is_file():
-            print(f"[router] {path} no existe, fallback total a sim_only")
+            _log.warning("%s no existe, fallback total a sim_only", path)
             return cls()
         try:
             with open(path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
         except Exception as e:
-            print(f"[router] error leyendo {path}: {e}")
+            _log.error("error leyendo %s: %s", path, e)
             return cls()
 
         # Compartir socket entre WLED/ArtnetNode targets para evitar saturar
@@ -173,8 +195,8 @@ class OutputRouter:
             elif ttype == "sim_only":
                 targets[uni] = SimOnlyTarget()
             else:
-                print(f"[router] tipo desconocido {ttype!r} en univ {uni}, "
-                      f"fallback sim_only")
+                _log.warning("tipo desconocido %r en univ %s, fallback sim_only",
+                             ttype, uni)
                 targets[uni] = SimOnlyTarget()
         return cls(targets)
 
@@ -185,6 +207,15 @@ class OutputRouter:
             self._sim_fallback.send(universe, dmx_bytes)
         else:
             target.send(universe, dmx_bytes)
+
+    def close(self) -> None:
+        """Cierra los sockets de los targets (ANALYSIS hallazgo 18). Idempotente
+        (cerrar un socket ya cerrado es no-op; targets que comparten socket no
+        rompen)."""
+        for target in self.targets.values():
+            closer = getattr(target, "close", None)
+            if callable(closer):
+                closer()
 
     def last_sent_for(self, universe: int) -> Optional[bytes]:
         """Para tests/viewer3d: devuelve el último bytes(512) enviado a este

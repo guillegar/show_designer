@@ -12,11 +12,16 @@ import socket
 import struct
 import math
 import colorsys
+import logging
 from bisect import bisect_left, bisect_right
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 from enum import Enum
+
+from src.log import get_logger, log_throttled
+
+_log = get_logger(__name__)
 
 try:
     from src.core.effects_engine import EffectLibrary, Effect
@@ -896,8 +901,10 @@ class ShowEngine:
         try:
             pkt = self._build_artnet_packet(universe, dmx_payload)
             self.sock.sendto(pkt, (ip, 6454))
-        except Exception:
-            pass
+        except Exception as e:
+            # No silenciar (ANALYSIS hallazgo 17): log throttled 1/s por IP.
+            log_throttled(_log, logging.ERROR, f"artnet:{ip}",
+                          f"send Art-Net a {ip} (univ {universe}) falló: {e}")
 
     def send_artnet(self, bar_idx, rgb_data):
         """
@@ -913,8 +920,25 @@ class ShowEngine:
             # Fallback legacy: lista BARS hard-coded
             ip, universe = BARS[bar_idx]
             self.send_artnet_to(ip, universe, rgb_data)
+        except Exception as e:
+            log_throttled(_log, logging.ERROR, f"send_artnet:{bar_idx}",
+                          f"send_artnet(bar={bar_idx}) falló: {e}")
+
+    def close(self) -> None:
+        """Libera recursos (ANALYSIS hallazgo 18): cierra el socket Art-Net y el
+        OutputRouter. Llamar desde el shutdown del server / closeEvent de Qt.
+        Idempotente."""
+        try:
+            if getattr(self, "sock", None) is not None:
+                self.sock.close()
         except Exception:
             pass
+        router = getattr(self, "router", None)
+        if router is not None and hasattr(router, "close"):
+            try:
+                router.close()
+            except Exception:
+                pass
 
     def send_frame(self, rgb_frames):
         """Envía todos los RGB frames a las barras vía Art-Net."""

@@ -7,6 +7,7 @@ temporal con parámetros propios. Persiste a JSON.
 Esto es el modelo subyacente del editor estilo Adobe.
 """
 import json
+import os
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -216,8 +217,13 @@ class Timeline:
             'groups': [g.to_dict() for g in self.groups],
             'cue_points': [c.to_dict() for c in self.cue_points],
         }
-        with open(path, 'w', encoding='utf-8') as f:
+        # Guardado atómico (ANALYSIS hallazgo 18): escribir a .tmp y os.replace,
+        # para que un crash a mitad de json.dump no corrompa el archivo real.
+        path = Path(path)
+        tmp = path.with_suffix(path.suffix + '.tmp')
+        with open(tmp, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2)
+        os.replace(tmp, path)
 
     @classmethod
     def load(cls, path=TIMELINE_FILE) -> 'Timeline':

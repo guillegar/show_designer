@@ -82,6 +82,14 @@ def create_app() -> FastAPI:
     async def _shutdown():
         if app.state.tick:
             app.state.tick.stop()
+        # Liberar recursos: socket Art-Net + OutputRouter (ANALYSIS hallazgo 18).
+        sess = app.state.session
+        eng = getattr(sess, "show_engine", None) if sess else None
+        if eng is not None and hasattr(eng, "close"):
+            try:
+                eng.close()
+            except Exception:
+                pass
 
     # ── WS control (JSON-RPC) ────────────────────────────────────────────────
     @app.websocket("/ws/control")
