@@ -61,7 +61,9 @@ def create_app() -> FastAPI:
     async def _startup():
         hub: StreamHub = app.state.hub
         # on_change: marca un rev; el tick ya difunde rev en cada 'state'
-        session = ShowSession(on_change=lambda kind: None)
+        # Proyecto de arranque: LUCES_PROJECT (slug) si está definido, si no el default.
+        startup_slug = os.environ.get("LUCES_PROJECT") or None
+        session = ShowSession(slug=startup_slug, on_change=lambda kind: None)
         dispatcher = Dispatcher(session)
         app.state.session = session
         app.state.dispatcher = dispatcher

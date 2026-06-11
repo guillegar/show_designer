@@ -16,6 +16,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Show de prueba: `show_timeline.json` para "El Taser de Mamá Remix" (`El Taser de Mama Remix.mp3`, 273.3 s).
 - Plan maestro detallado en `C:\Users\guille\.claude\plans\mellow-rolling-cray.md`.
 - Licencia: **Prosperity Public License 3.0.0 (PPL)** — código original propio.
+- **⚠️ PENDIENTE (2026-06-11): auditoría técnica completa en `ANALYSIS.md`** (raíz del repo) —
+  25 hallazgos priorizados P0→P3 + plan de ataque en 7 fases. Estado: NINGUNA fase aplicada aún.
+  Empezar por Fase 1 (quick wins). Resumen P0: (1) test fallando `test_plugin_system.py::
+  test_plugin_render_no_audio_context` por contrato de shapes ambiguo en `Effect.render()`
+  (solid_color devuelve `(1,93,3)` por diseño, el test exige `(10,93,3)`); (2) IDs de clips =
+  `id(self)` → migrar a UUID persistido; (3) prints `[DEBUG] mover_wash_L_back` hardcodeados en
+  `show_engine.py:1014-1032`; (4) módulo `event_mapping` importado pero inexistente; (5)
+  `SystemExit` en import de `mcp_bridge.py:41`; (6) `except: pass` desnudo en
+  `timeline_editor.py:3752`. Leer `ANALYSIS.md` completo antes de empezar.
 
 ---
 
@@ -66,6 +75,36 @@ Claves:
 - **Launchers Windows (1 clic)**: `Luces.bat` = reinicio limpio (mata puertos
   8000/9876/5173, arranca `python -m server.main`, espera al :8000 y abre el
   navegador). `Cerrar Luces.bat` = apaga (mata esos puertos).
+- **Proyecto de arranque (NUEVO)**: `ShowSession` arranca con el proyecto que indique
+  la env var **`LUCES_PROJECT`** (slug); si no está, usa el default de
+  `ProjectManager.ensure_migrated()` = **`projects[0]` por orden alfabético** (= `el_taser`).
+  Por eso, sin la var, NUNCA arranca en otro proyecto aunque hagas `load_show` por MCP
+  (ese handler solo intercambia `timeline.clips`, no el audio ni la sesión). El cambio
+  vive en `server/web.py` (`_startup`: `ShowSession(slug=os.environ.get("LUCES_PROJECT") or None)`).
+  Lanzador `Luces Espana.bat` = `Luces.bat` + `set LUCES_PROJECT=himno_espana`.
+- **Proyecto `himno_espana`** (bandera de España): 10 clips (uno por barra,
+  `scope="per_bar"`, `layer=0`) → ROJO en barras 0,1,2,7,8,9 y AMARILLO en 3,4,5,6.
+  Efecto activo = **`waving_color` (id 1005)** = color base por barra con onda de brillo
+  que viaja por el escenario (bandera ONDEANDO); cada clip pasa `params.bar_index` (=track)
+  para desfasar la onda entre barras. Guardados `muted` como alternativas: `solid_color`
+  (1004, fijo sin onda) y `spanish_flag_wave` (1002, franjas horizontales dentro de cada
+  barra). `analysis_slug=""` (usa `default_service()` de El Taser; si lo pones a un slug sin
+  `analizadas/<slug>/analysis.json`, `session.summary` lanza FileNotFoundError NO capturado
+  y el arranque casca). Audio = `Himno_Espana.mp3` (Marcha Real, ~145 s, descargado con
+  yt-dlp). OJO: la duración del timeline sale del análisis (=273 s de El Taser), no del mp3.
+- **Patrón para COLOR SÓLIDO ESTABLE**: usa el plugin `plugins/effects/solid_color.py`
+  (`SolidColorEffect`, id **1004**, params `r,g,b`). Devuelve forma `(1, LEDS, 3)`
+  CONSTANTE → con `scope="per_bar"` + `layer=0`, `compute_frame` hace
+  `frame[clip.track]=r[0]` (overwrite estable). NO uses efectos *flash* (0/5/...): su
+  `_normalize_time` los apaga tras su `duration_ms` (50-100 ms) → la barra queda negra el
+  resto del clip. Un clip por barra targetea la barra vía `track` (índice 0..9).
+- **Patrón para COLOR CON ONDA (ondeante)**: `plugins/effects/waving_flag.py`
+  (`WavingColorEffect`, id **1005**, params `r,g,b,bar_index,speed,amplitude,bar_k,led_k`).
+  Igual que el sólido pero modula el brillo con `sin(w·t - bar_index·bar_k - led·led_k)`
+  (usa el `elapsed_time` REAL, onda continua). Pasa `bar_index` distinto por clip para que
+  la onda viaje entre barras. Verificación: leer 2 frames separados ~0.6 s del stream y
+  comprobar (a) rango espacial del canal sobre los 93 LEDs y (b) cambio temporal medio por
+  LED — OJO al muestrear un solo LED en una cresta: derivada ~0 → falso negativo.
 
 ### Timeline web — capa de interacción (IMPORTANTE si tocas `web/src/views/Timeline.tsx`)
 

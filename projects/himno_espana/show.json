@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "duration_ms": 60000,
+  "clips": [
+    { "id": 1801000000000, "track": 0, "start_ms": 0, "end_ms": 600000, "effect_id": 1005, "scope": "per_bar", "label": "Rojo 0 (onda)", "color": "#CE1126", "layer": 0, "locked": false, "muted": false, "params": { "r": 206, "g": 17, "b": 38, "bar_index": 0 }, "category": "pixel", "channel_effect_id": null, "preset_id": null },
+    { "id": 1801000000001, "track": 1, "start_ms": 0, "end_ms": 600000, "effect_id": 1005, "scope": "per_bar", "label": "Rojo 1 (onda)", "color": "#CE1126", "layer": 0, "locked": false, "muted": false, "params": { "r": 206, "g": 17, "b": 38, "bar_index": 1 }, "category": "pixel", "channel_effect_id": null, "preset_id": null },
+    { "id": 1801000000002, "track": 2, "start_ms": 0, "end_ms": 600000, "effect_id": 1005, "scope": "per_bar", "label": "Rojo 2 (onda)", "color": "#CE1126", "layer": 0, "locked": false, "muted": false, "params": { "r": 206, "g": 17, "b": 38, "bar_index": 2 }, "category": "pixel", "channel_effect_id": null, "preset_id": null },
+    { "id": 1801000000003, "track": 3, "start_ms": 0, "end_ms": 600000, "effect_id": 1005, "scope": "per_bar", "label": "Amarillo 3 (onda)", "color": "#FFC400", "layer": 0, "locked": false, "muted": false, "params": { "r": 255, "g": 196, "b": 0, "bar_index": 3 }, "category": "pixel", "channel_effect_id": null, "preset_id": null },
+    { "id": 1801000000004, "track": 4, "start_ms": 0, "end_ms": 600000, "effect_id": 1005, "scope": "per_bar", "label": "Amarillo 4 (onda)", "color": "#FFC400", "layer": 0, "locked": false, "muted": false, "params": { "r": 255, "g": 196, "b": 0, "bar_index": 4 }, "category": "pixel", "channel_effect_id": null, "preset_id": null },
+    { "id": 1801000000005, "track": 5, "start_ms": 0, "end_ms": 600000, "effect_id": 1005, "scope": "per_bar", "label": "Amarillo 5 (onda)", "color": "#FFC400", "layer": 0, "locked": false, "muted": false, "params": { "r": 255, "g": 196, "b": 0, "bar_index": 5 }, "category": "pixel", "channel_effect_id": null, "preset_id": null },
+    { "id": 1801000000006, "track": 6, "start_ms": 0, "end_ms": 600000, "effect_id": 1005, "scope": "per_bar", "label": "Amarillo 6 (onda)", "color": "#FFC400", "layer": 0, "locked": false, "muted": false, "params": { "r": 255, "g": 196, "b": 0, "bar_index": 6 }, "category": "pixel", "channel_effect_id": null, "preset_id": null },
+    { "id": 1801000000007, "track": 7, "start_ms": 0, "end_ms": 600000, "effect_id": 1005, "scope": "per_bar", "label": "Rojo 7 (onda)", "color": "#CE1126", "layer": 0, "locked": false, "muted": false, "params": { "r": 206, "g": 17, "b": 38, "bar_index": 7 }, "category": "pixel", "channel_effect_id": null, "preset_id": null },
+    { "id": 1801000000008, "track": 8, "start_ms": 0, "end_ms": 600000, "effect_id": 1005, "scope": "per_bar", "label": "Rojo 8 (onda)", "color": "#CE1126", "layer": 0, "locked": false, "muted": false, "params": { "r": 206, "g": 17, "b": 38, "bar_index": 8 }, "category": "pixel", "channel_effect_id": null, "preset_id": null },
+    { "id": 1801000000009, "track": 9, "start_ms": 0, "end_ms": 600000, "effect_id": 1005, "scope": "per_bar", "label": "Rojo 9 (onda)", "color": "#CE1126", "layer": 0, "locked": false, "muted": false, "params": { "r": 206, "g": 17, "b": 38, "bar_index": 9 }, "category": "pixel", "channel_effect_id": null, "preset_id": null },
+    { "id": 1801000099998, "track": -1, "start_ms": 0, "end_ms": 600000, "effect_id": 1004, "scope": "per_bar", "label": "Solido fijo (alternativa)", "color": "#888888", "layer": 0, "locked": false, "muted": true, "params": { "r": 206, "g": 17, "b": 38 }, "category": "pixel", "channel_effect_id": null, "preset_id": null },
+    { "id": 1801000099999, "track": -1, "start_ms": 0, "end_ms": 600000, "effect_id": 1002, "scope": "per_bar", "label": "Bandera franjas ondeante (alternativa)", "color": "#3a7acc", "layer": 0, "locked": false, "muted": true, "params": { "wave_speed": 2.0, "wave_amplitude": 0.15 }, "category": "pixel", "channel_effect_id": null, "preset_id": null }
+  ],
+  "groups": [],
+  "cue_points": [
+    { "slot": 1, "time_ms": 0, "name": "Inicio", "color": "#CE1126" }
+  ],
+  "markers": []
+}
