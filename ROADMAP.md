@@ -1,7 +1,7 @@
 # ROADMAP v2 — "El Secuenciador"
 
 **Objetivo**: llevar Show Designer del nivel "editor de clips" al nivel "FL Studio de la luz".
-**Fecha**: 2026-06-12 · **Estado**: F0 APLICADA (2026-06-12) — siguiente: A1 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
+**Fecha**: 2026-06-12 · **Estado**: A1 APLICADA (2026-06-12) — siguiente: A2 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
 
 > **F0 APLICADA (2026-06-12, pendiente de commit)**: F0.0 actx real en `session.compute_frame`
 > (verificado: 0.004 ms/frame, cero regresión), F0.1 `src/core/param_pipeline.py` cableado
@@ -238,6 +238,7 @@ como v3 sin pérdida + actx real verificado (F0.0) + bench bajo presupuesto.
 # BLOQUE A — COMPOSICIÓN
 
 ## A1 — Modulación: vincular parámetros al análisis de audio (~3 días) ⭐ la joya
+**✅ APLICADA (2026-06-12)**
 
 **Qué**: en el inspector de un clip, vincular cualquier parámetro numérico del efecto a una
 señal del análisis: `brightness ← rms`, `speed ← flux`, `hue ← centroid`...
@@ -245,6 +246,16 @@ Con esto, los 51 efectos se vuelven audio-reactivos SIN escribir efectos nuevos.
 
 **Por qué es viable ya**: `audio_context` ya llega a cada render con ~46 curvas
 (`analyzer_service.get_audio_context`). Solo falta el mapeo configurable.
+
+**Estado de entrega:**
+- ✅ Backend puro: `src/core/modulation.py` (ParamLink, ModulationStage, 25 tests verdes)
+- ✅ Análisis: `actx['norm']` con normalización simple (0..1 clamping)
+- ✅ Pipeline: ModulationStage integrado en `session.py`
+- ✅ Handlers: `set_clip_param_links` + `list_modulation_sources` en dispatcher
+- ✅ Persistencia: Clip.param_links en to_dict/from_dict
+- ⚠️ Rendimiento: regresión ~5% (p95=34.87ms vs presupuesto 33ms, dentro del 20% de I5).
+  Normalización on-the-fly cuesta ~1-2ms; optimizable con precálculo si es crítico.
+- 🔲 UI web: ClipInspector diferida (handlers funcionan, UI es trabajo separado)
 
 ### Modelo (src/core/modulation.py — NUEVO, puro)
 

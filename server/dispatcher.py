@@ -371,6 +371,61 @@ def _h_export_qlc(session, params):
     return export_to_memory(session, _exporter, ".qxw", "{slug}.qxw")
 
 
+# A1 — Modulación: vinculación parámetro ← señal
+def _h_set_clip_param_links(session, params):
+    """Establece los param_links de un clip (modulación de audio)."""
+    try:
+        clip_id = require_key(params, "clip_id")
+        links = require_key(params, "links")  # lista de {param, source, gain, offset, curve, min_v, max_v}
+    except ValidationError as e:
+        return {"ok": False, "error": str(e)}
+    c = session.find_clip_by_id(clip_id)
+    if c is None:
+        return {"ok": False, "error": "clip_id no encontrado"}
+    if not isinstance(links, list):
+        return {"ok": False, "error": "links debe ser una lista"}
+    # Validación básica de links
+    from src.core.modulation import ParamLink
+    try:
+        parsed_links = []
+        for link_dict in links:
+            link = ParamLink.from_dict(link_dict)
+            parsed_links.append(link.to_dict())
+        c.param_links = parsed_links
+    except Exception as e:
+        return {"ok": False, "error": f"Link inválido: {e}"}
+    session.invalidate_caches()
+    return {"ok": True, "clip": c.to_dict()}
+
+
+def _h_list_modulation_sources(session, params):
+    """Devuelve el catálogo de señales disponibles para modulación."""
+    sources = [
+        # Escalares
+        {"name": "rms", "description": "Energy (RMS) del audio"},
+        {"name": "centroid", "description": "Spectral centroid (Hz)"},
+        {"name": "flux", "description": "Spectral flux (delta)"},
+        {"name": "zcr", "description": "Zero crossing rate"},
+        {"name": "rolloff", "description": "Spectral rolloff"},
+        {"name": "bandwidth", "description": "Spectral bandwidth"},
+        {"name": "flatness", "description": "Spectral flatness"},
+        {"name": "dtempo", "description": "Tempo derivado"},
+        # Vectores con índice: mfcc (13), chroma (12), tonnetz (6), contrast (7), mel_bands (8)
+    ]
+    # Añadir elementos vectoriales
+    for i in range(13):
+        sources.append({"name": f"mfcc.{i}", "description": f"MFCC coeficiente {i}"})
+    for i in range(12):
+        sources.append({"name": f"chroma.{i}", "description": f"Chroma bin {i}"})
+    for i in range(6):
+        sources.append({"name": f"tonnetz.{i}", "description": f"Tonnetz componente {i}"})
+    for i in range(7):
+        sources.append({"name": f"contrast.{i}", "description": f"Spectral contrast {i}"})
+    for i in range(8):
+        sources.append({"name": f"mel_bands.{i}", "description": f"Mel band {i}"})
+    return {"ok": True, "sources": sources}
+
+
 _LOCAL = {
     "undo": _h_undo,
     "redo": _h_redo,
@@ -394,6 +449,8 @@ _LOCAL = {
     "set_clip_preset": _h_set_clip_preset,
     "duplicate_clip": _h_duplicate_clip,
     "split_clip": _h_split_clip,
+    "set_clip_param_links": _h_set_clip_param_links,
+    "list_modulation_sources": _h_list_modulation_sources,
 }
 
 

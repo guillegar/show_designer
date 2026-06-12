@@ -207,7 +207,8 @@ class ShowSession:
         # F0.1: pipeline de parámetros — punto de extensión único (ROADMAP v2).
         # Orden canónico: modulación (A1) → automatización (A2) → micro-eventos
         # (A4) → macros (C2). Vacío = comportamiento idéntico al anterior.
-        self.param_stages: list = []
+        from src.core.modulation import ModulationStage
+        self.param_stages: list = [ModulationStage()]
 
     # ── Sync del layout del visor 3D desde el FixtureRig ─────────────────────
     def sync_rig_layout(self):

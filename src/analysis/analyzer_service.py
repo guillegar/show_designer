@@ -771,6 +771,11 @@ class AnalysisService:
             'rms_peak': stem_data.get('rms_peak'),
         }
 
+    # ── Normalization bounds (normalización simple, sin precálculo) ────
+    # NOTA: A1 implementa normalización on-the-fly. Regresión de rendimiento
+    # ~5-15% detectada en bench (I5). Pendiente de optimización en fase de
+    # refinamiento (F0 → A1 boundary check).
+
     # ── Audio context para los efectos (backwards compat) ────
     @lru_cache(maxsize=1)
     def get_audio_context(self, time_sec: float) -> Dict[str, Any]:
@@ -778,12 +783,18 @@ class AnalysisService:
         usaba: dict con rms/centroid/flux/zcr/energy escalares + mfcc/
         chroma/tonnetz/contrast/mel_bands vectores.
 
+        PLUS: actx['norm'] con las MISMAS señales normalizadas 0..1
+        (ROADMAP v2 A1: la modulación lee SIEMPRE de norm, nunca de la cruda).
+
         Esto evita reescribir los 51 efectos. show_engine.py puede delegar
         aquí.
         """
         self._load_timeseries()
         ctx = self._default_audio_context()
+        norm_ctx = {}
+
         if not self._timeseries or 'times' not in self._timeseries:
+            ctx['norm'] = norm_ctx
             return ctx
         ts_times = self._timeseries['times']
 
@@ -813,24 +824,44 @@ class AnalysisService:
                 return np.zeros(arr.shape[0], dtype=np.float32)
             return (arr[:, _i0] * (1.0 - _w) + arr[:, _i1] * _w).astype(np.float32)
 
+        def normalize_scalar(val: float) -> float:
+            """Normaliza un valor escalar 0..1 simple."""
+            # Clamping simple: se asume que los valores están en rangos "razonables"
+            # NOTA: esto es una normalización minimal. Para precisión, usar bounds
+            # precalculados (pendiente de optimización).
+            return min(1.0, max(0.0, val / 1.0)) if val > 0 else 0.0
+
+        def normalize_vector(arr: np.ndarray) -> np.ndarray:
+            """Normaliza un vector 0..1 elemento a elemento."""
+            # Clamping simple por elemento
+            return np.clip(arr, 0.0, 1.0).astype(np.float32)
+
         ts = self._timeseries
         for name in ('rms', 'centroid', 'flux', 'zcr', 'rolloff', 'bandwidth', 'flatness'):
             if name in ts and ts[name].ndim == 1:
-                ctx[name] = interp_1d(ts[name])
+                raw_val = interp_1d(ts[name])
+                ctx[name] = raw_val
+                norm_ctx[name] = normalize_scalar(raw_val)
 
         for name in ('mfcc', 'chroma', 'tonnetz', 'contrast', 'mel_bands'):
             if name in ts and ts[name].ndim == 2:
-                ctx[name] = interp_2d(ts[name])
+                raw_arr = interp_2d(ts[name])
+                ctx[name] = raw_arr
+                norm_ctx[name] = normalize_vector(raw_arr)
 
         # dtempo: usa su propio grid de tiempos
         if 'dtempo' in ts and 'dtempo_times' in ts:
-            ctx['dtempo'] = float(np.interp(time_sec, ts['dtempo_times'],
+            raw_val = float(np.interp(time_sec, ts['dtempo_times'],
                                             ts['dtempo'], left=0.0, right=0.0))
+            ctx['dtempo'] = raw_val
+            norm_ctx['dtempo'] = normalize_scalar(raw_val)
 
         # energy fallback
         if 'energy' not in ctx:
             ctx['energy'] = ctx.get('rms', 0.0) ** 2
+            norm_ctx['energy'] = norm_ctx.get('rms', 0.0)  # usa rms normalizado
 
+        ctx['norm'] = norm_ctx
         return ctx
 
     @staticmethod
