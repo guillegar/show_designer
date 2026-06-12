@@ -208,7 +208,17 @@ class ShowSession:
         # Orden canónico: modulación (A1) → automatización (A2) → micro-eventos
         # (A4) → macros (C2). Vacío = comportamiento idéntico al anterior.
         from src.core.modulation import ModulationStage
-        self.param_stages: list = [ModulationStage()]
+        from src.core.automation import AutomationStage
+        self.param_stages: list = [
+            ModulationStage(),
+            AutomationStage(get_automation_lanes=self._get_automation_lanes)
+        ]
+
+    # ── Helpers para el pipeline de parámetros ───────────────────────────────
+    def _get_automation_lanes(self):
+        """Devuelve las lanes de automatización del timeline (para AutomationStage)."""
+        from src.core.automation import AutomationLane
+        return [AutomationLane.from_dict(d) for d in self.timeline.automation]
 
     # ── Sync del layout del visor 3D desde el FixtureRig ─────────────────────
     def sync_rig_layout(self):

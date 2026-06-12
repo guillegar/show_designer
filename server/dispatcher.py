@@ -371,6 +371,73 @@ def _h_export_qlc(session, params):
     return export_to_memory(session, _exporter, ".qxw", "{slug}.qxw")
 
 
+# A2 — Automatización: curvas de parámetro sobre timeline
+def _h_add_automation_lane(session, params):
+    """Añade una nueva lane de automatización."""
+    try:
+        target = require_key(params, "target")
+    except ValidationError as e:
+        return {"ok": False, "error": str(e)}
+    from src.core.automation import AutomationLane
+    from uuid import uuid4
+    lane = AutomationLane(uid=uuid4().hex[:12], target=target, points=[], enabled=True)
+    session.timeline.automation.append(lane.to_dict())
+    session.invalidate_caches()
+    return {"ok": True, "lane": lane.to_dict()}
+
+
+def _h_delete_automation_lane(session, params):
+    """Borra una lane de automatización por uid."""
+    try:
+        uid = require_key(params, "uid")
+    except ValidationError as e:
+        return {"ok": False, "error": str(e)}
+    automation = [d for d in session.timeline.automation if d.get('uid') != uid]
+    if len(automation) == len(session.timeline.automation):
+        return {"ok": False, "error": "lane uid no encontrada"}
+    session.timeline.automation = automation
+    session.invalidate_caches()
+    return {"ok": True}
+
+
+def _h_set_automation_points(session, params):
+    """Reemplaza todos los puntos de una lane."""
+    try:
+        uid = require_key(params, "uid")
+        points = require_key(params, "points")
+    except ValidationError as e:
+        return {"ok": False, "error": str(e)}
+    if not isinstance(points, list):
+        return {"ok": False, "error": "points debe ser una lista"}
+    # Buscar la lane
+    lane_dict = None
+    for d in session.timeline.automation:
+        if d.get('uid') == uid:
+            lane_dict = d
+            break
+    if lane_dict is None:
+        return {"ok": False, "error": "lane uid no encontrada"}
+    # Validar y setear puntos (son dicts con t_ms, value, shape)
+    from src.core.automation import AutomationPoint
+    try:
+        validated_points = []
+        for pt_dict in points:
+            pt = AutomationPoint.from_dict(pt_dict)
+            validated_points.append(pt.to_dict())
+        # Ordenar por t_ms
+        validated_points.sort(key=lambda p: p['t_ms'])
+        lane_dict['points'] = validated_points
+    except Exception as e:
+        return {"ok": False, "error": f"Punto inválido: {e}"}
+    session.invalidate_caches()
+    return {"ok": True, "lane": lane_dict}
+
+
+def _h_list_automation_lanes(session, params):
+    """Lista todas las lanes de automatización."""
+    return {"ok": True, "lanes": list(session.timeline.automation)}
+
+
 # A1 — Modulación: vinculación parámetro ← señal
 def _h_set_clip_param_links(session, params):
     """Establece los param_links de un clip (modulación de audio)."""
@@ -451,6 +518,10 @@ _LOCAL = {
     "split_clip": _h_split_clip,
     "set_clip_param_links": _h_set_clip_param_links,
     "list_modulation_sources": _h_list_modulation_sources,
+    "add_automation_lane": _h_add_automation_lane,
+    "delete_automation_lane": _h_delete_automation_lane,
+    "set_automation_points": _h_set_automation_points,
+    "list_automation_lanes": _h_list_automation_lanes,
 }
 
 
