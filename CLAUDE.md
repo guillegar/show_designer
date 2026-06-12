@@ -10,7 +10,7 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
 Estado a **2026-06-12** · **v1.10 (web)**: backend headless + frontend React, 4 vistas funcionando.
-**A1+A2 APLICADAS (2026-06-12)**: modulación (brightness←rms) + automatización (curvas de parámetro).
+**A1+A2+A3 APLICADAS (2026-06-12)**: modulación (brightness←rms) + automatización (curvas de parámetro) + patterns (bloques reutilizables con instancias vinculadas).
 
 ---
 
@@ -26,7 +26,13 @@ Estado a **2026-06-12** · **v1.10 (web)**: backend headless + frontend React, 4
     25 tests. Regresión ~5% (I5).
   - ✅ **A2 APLICADA (2026-06-12)**: automatización (curvas). AutomationLane, shapes (linear/hold/smooth).
     Handlers `add_automation_lane`, `delete_automation_lane`, `set_automation_points`. 23 tests.
-    **Siguiente: A3 (patterns)**.
+  - ✅ **A3 APLICADA (2026-06-12)**: patterns (bloques reutilizables). Pattern+PatternInstance
+    en timeline_model.py. Expansión efímera cacheada (_pattern_rev). UndoManager extendido con
+    get_extra/restore_extra (invariante I1). 9 handlers: `create_pattern_from_clips`,
+    `add/move/delete_pattern_instance`, `update/delete_pattern`, `list_patterns`,
+    `list_pattern_instances`, `dissolve_instance`. Frontend: tab Patterns en Browser, render de
+    instancias en Timeline, applyPatternMovesOptimistic. 39 tests. 534 verdes.
+    **Siguiente: A4 (editor de detalle del clip)**.
   - Pasos pendientes del usuario: `cd web && npm install` (vitest), `pytest tests/` completo
     en Windows, y el commit: `roadmap-v2 fase F0: actx real + param pipeline + schema v3 + bench`.
 

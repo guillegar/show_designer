@@ -24,33 +24,59 @@ from src.core.timeline_model import Clip
 # ── Canónica (callbacks, sin Qt) — la consume el server headless ─────────────
 
 class UndoManager:
-    """Undo/redo por snapshots de clips, desacoplado vía callbacks.
+    """Undo/redo por snapshots del timeline, desacoplado vía callbacks.
 
     `snapshot()` se llama ANTES de cada mutación y guarda el estado previo;
     `undo()`/`redo()` intercambian entre las pilas. Coste O(nº clips) por edición
     (no por frame). Profundidad limitada a `max_depth`.
+
+    A3 (ROADMAP v2): se añaden `get_extra`/`restore_extra` opcionales para
+    incluir patterns y pattern_instances en el snapshot (invariante I1).
+    La extensión es backward-compatible: las instancias sin extras siguen
+    funcionando igual y los stacks legacy (listas de dicts) se restauran
+    correctamente.
     """
 
     def __init__(
         self,
         get_clips: Callable[[], list],
         restore_clips: Callable[[list], None],
+        get_extra: Optional[Callable[[], dict]] = None,
+        restore_extra: Optional[Callable[[dict], None]] = None,
         max_depth: int = 60,
     ):
         """
         Args:
             get_clips: devuelve la lista de Clip actual del timeline.
-            restore_clips: aplica una lista de dicts (restaura el timeline).
+            restore_clips: aplica una lista de dicts (restaura los clips).
+            get_extra: (A3) devuelve dict con entidades extra a snapshotear
+                       (p.ej. {"patterns": [...], "pattern_instances": [...]}).
+            restore_extra: (A3) restaura las entidades extra del snapshot.
             max_depth: tope de niveles de undo en memoria.
         """
         self._get_clips = get_clips
         self._restore_clips = restore_clips
+        self._get_extra = get_extra
+        self._restore_extra = restore_extra
         self._max = max_depth
-        self._undo: List[list] = []
-        self._redo: List[list] = []
+        self._undo: List = []
+        self._redo: List = []
 
-    def _snapshot_current(self) -> list:
-        return [c.to_dict() for c in self._get_clips()]
+    def _snapshot_current(self):
+        snap: dict = {"clips": [c.to_dict() for c in self._get_clips()]}
+        if self._get_extra is not None:
+            snap["extra"] = self._get_extra()
+        return snap
+
+    def _do_restore(self, snap) -> None:
+        """Restaura un snapshot, compatible con el formato antiguo (lista directa)."""
+        if isinstance(snap, list):
+            # Formato legacy: sólo lista de clip dicts
+            self._restore_clips(snap)
+        else:
+            self._restore_clips(snap["clips"])
+            if self._restore_extra is not None and "extra" in snap:
+                self._restore_extra(snap["extra"])
 
     def snapshot(self) -> None:
         """Guarda el estado actual (llamar ANTES de mutar)."""
@@ -63,14 +89,14 @@ class UndoManager:
         if not self._undo:
             return False
         self._redo.append(self._snapshot_current())
-        self._restore_clips(self._undo.pop())
+        self._do_restore(self._undo.pop())
         return True
 
     def redo(self) -> bool:
         if not self._redo:
             return False
         self._undo.append(self._snapshot_current())
-        self._restore_clips(self._redo.pop())
+        self._do_restore(self._redo.pop())
         return True
 
     def clear(self) -> None:

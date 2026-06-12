@@ -3,6 +3,7 @@ import Moveable from "react-moveable";
 import Selecto from "react-selecto";
 import { control } from "../api/control";
 import { useStore, famColor, EffectInfo, Clip, Preset } from "../store";
+import type { Pattern, PatternInstance } from "../api/types";
 import { fmtTime } from "../icons";
 import { ContextMenu, MenuState } from "../components/ContextMenu";
 import { Browser } from "../components/Browser";
@@ -37,6 +38,13 @@ export function TimelineView() {
   const refreshClips = useStore((s) => s.refreshClips);
   const clipboard = useStore((s) => s.clipboard);
   const setClipboard = useStore((s) => s.setClipboard);
+  const patterns = useStore((s) => s.patterns);
+  const patternInstances = useStore((s) => s.patternInstances);
+  const selectedPatternInstanceId = useStore((s) => s.selectedPatternInstanceId);
+  const selectPatternInstance = useStore((s) => s.selectPatternInstance);
+  const refreshPatternInstances = useStore((s) => s.refreshPatternInstances);
+  const refreshPatterns = useStore((s) => s.refreshPatterns);
+  const applyPatternMovesOptimistic = useStore((s) => s.applyPatternMovesOptimistic);
 
   const MIN_ZOOM = 2;
   const MAX_ZOOM = 50;
@@ -121,6 +129,22 @@ export function TimelineView() {
   const clipsForLane = (lane: Lane) => lane.kind === "bar"
     ? clips.filter((c) => (c.category ?? "pixel") === "pixel" && c.track === lane.bar)
     : clips.filter((c) => c.scope === `fixture:${lane.fixtureId}`);
+
+  // A3: instancias de pattern cuyo track_offset coincide con esta barra
+  const patternInstancesForLane = (lane: Lane): PatternInstance[] => {
+    if (lane.kind !== "bar") return [];
+    return patternInstances.filter((inst) => inst.track_offset === lane.bar);
+  };
+
+  // Ancho visual de una instancia = suma de duraciones de sus clips relativos
+  const instWidth = (inst: PatternInstance): number => {
+    const pat = patterns.find((p) => p.uid === inst.pattern_uid);
+    if (!pat) return 60;
+    const clips_ = pat.clips as Array<{ start_ms: number; end_ms: number }>;
+    if (!clips_ || clips_.length === 0) return 60;
+    const maxEnd = Math.max(...clips_.map((c) => c.end_ms));
+    return (maxEnd / 1000) * zoom;
+  };
   const laneHeight = (lane: Lane) => {
     const cs = clipsForLane(lane);
     const maxLayer = Math.max(0, ...cs.map((c) => c.layer));
@@ -704,14 +728,27 @@ export function TimelineView() {
     }).then(afterEdit);
   };
 
+  const createPatternFromSelection = (anchorClip: Clip) => {
+    const ids = selectedClipIds.size > 1 ? [...selectedClipIds] : [anchorClip.id];
+    const name = window.prompt("Nombre del pattern:", "Pattern") ?? "";
+    if (!name) return;
+    control.call("create_pattern_from_clips", { clip_ids: ids, name })
+      .then(() => { refreshClips(); refreshPatterns(); refreshPatternInstances(); });
+  };
+
   const openClipMenu = (e: React.MouseEvent, c: Clip) => {
     e.preventDefault(); e.stopPropagation();
     selectClip(c.id);
     const inside = c.start_ms < t * 1000 && t * 1000 < c.end_ms;
+    const multiSel = selectedClipIds.size > 1;
     setMenu({
       x: e.clientX, y: e.clientY, items: [
         { label: "Propiedades…", onClick: () => setInspector(true) },
         { type: "sep" },
+        ...(multiSel ? [
+          { label: `Crear pattern (${selectedClipIds.size} clips)…`, onClick: () => createPatternFromSelection(c) },
+          { type: "sep" as const },
+        ] : []),
         { label: "Duplicar", onClick: () => dup(c) },
         ...(c.track >= 0 ? [
           { label: "Duplicar a todas las barras", onClick: () => dupToAllBars(c) },
@@ -777,6 +814,14 @@ export function TimelineView() {
         activePresetId={activePreset?.preset_id ?? null}
         onPickEffect={(fx) => { setActiveFx(fx); setActivePreset(null); setTool("draw"); }}
         onPickPreset={(p) => { setActivePreset(p); setActiveFx(null); setTool("draw"); }}
+        onPickPattern={(pat) => {
+          // Seleccionar pattern en la lista (feedback visual en el banco)
+          // En una versión futura, podría iniciar un drag para instanciar
+          const tMs = Math.round(t * 1000);
+          control.call("add_pattern_instance", {
+            pattern_uid: pat.uid, start_ms: tMs, track_offset: 0,
+          }).then(() => refreshPatternInstances());
+        }}
       />
 
       {/* RIGHT — timeline */}
@@ -919,6 +964,65 @@ export function TimelineView() {
                     {dropLayersHere.map((ly) => (
                       <div key={"dl" + ly} className="drop-layer" style={{ top: 7 + ly * LANE_H, height: LANE_H - 4 }} />
                     ))}
+                    {/* A3: PatternInstances como contenedores visuales */}
+                    {patternInstancesForLane(lane).map((inst) => {
+                      const pat = patterns.find((p) => p.uid === inst.pattern_uid);
+                      const col = pat?.color ?? "#8855cc";
+                      const w = instWidth(inst);
+                      const isSel = selectedPatternInstanceId === inst.uid;
+                      return (
+                        <div key={inst.uid}
+                          data-inst-id={inst.uid}
+                          className={"pattern-inst" + (isSel ? " sel" : "")}
+                          title={pat?.name ?? "pattern"}
+                          style={{
+                            position: "absolute",
+                            left: (inst.start_ms / 1000) * zoom,
+                            width: Math.max(16, w - 2),
+                            top: 2, height: LANE_H - 4,
+                            border: `2px dashed ${col}`,
+                            borderRadius: 3,
+                            background: isSel
+                              ? `color-mix(in oklab, ${col} 18%, var(--bg-2))`
+                              : `color-mix(in oklab, ${col} 8%, var(--bg-2))`,
+                            cursor: "grab",
+                            boxSizing: "border-box",
+                            overflow: "hidden",
+                            zIndex: 1,
+                            pointerEvents: "all",
+                          }}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            if (tool !== "select") return;
+                            selectPatternInstance(inst.uid);
+                            selectClip(null);
+                          }}
+                          onContextMenu={(e) => {
+                            e.preventDefault(); e.stopPropagation();
+                            selectPatternInstance(inst.uid);
+                            setMenu({ x: e.clientX, y: e.clientY, items: [
+                              { label: "Disolver en clips", onClick: () => {
+                                control.call("dissolve_instance", { instance_uid: inst.uid })
+                                  .then(() => { refreshClips(); refreshPatternInstances(); });
+                              }},
+                              { type: "sep" },
+                              { label: "Borrar instancia", danger: true, onClick: () => {
+                                control.call("delete_pattern_instance", { instance_uid: inst.uid })
+                                  .then(() => refreshPatternInstances());
+                              }},
+                            ]});
+                          }}>
+                          <span style={{
+                            display: "inline-block", width: 4, height: "100%",
+                            background: col, marginRight: 4, verticalAlign: "top",
+                          }} />
+                          <span style={{ fontSize: 10, lineHeight: "16px", color: col, fontWeight: 600 }}>
+                            {pat?.name ?? "pattern"}
+                          </span>
+                        </div>
+                      );
+                    })}
+
                     {clipsForLane(lane).map((c) => {
                       const col = c.color || famColor(famName(c.effect_id));
                       return (

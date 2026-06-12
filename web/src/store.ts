@@ -5,9 +5,12 @@
 import { create } from "zustand";
 import { control } from "./api/control";
 import { stream, TransportState } from "./api/stream";
+import type { Pattern, PatternInstance } from "./api/types";
 
-// Contador de peticiones de list_clips para descartar respuestas desordenadas.
+// Contadores de peticiones para descartar respuestas desordenadas.
 let _clipsReqToken = 0;
+let _patternsReqToken = 0;
+let _patternInstancesReqToken = 0;
 
 export type Clip = {
   id: string; track: number; start_ms: number; end_ms: number;
@@ -69,12 +72,17 @@ type Store = {
   selectedClipId: string | null;
   selectedFixtureId: string | null;
   clipboard: Clip | null;
+  // A3 — Patterns
+  patterns: Pattern[];
+  patternInstances: PatternInstance[];
+  selectedPatternInstanceId: string | null;
 
   setTab: (t: Tab) => void;
   setTransport: (s: TransportState) => void;
   selectClip: (id: string | null) => void;
   setClipboard: (c: Clip | null) => void;
   selectFixture: (id: string | null) => void;
+  selectPatternInstance: (id: string | null) => void;
   refreshAll: () => Promise<void>;
   refreshClips: () => Promise<void>;
   refreshFixtures: () => Promise<void>;
@@ -83,6 +91,11 @@ type Store = {
   refreshMarkers: () => Promise<void>;
   refreshSections: () => Promise<void>;
   refreshGroups: () => Promise<void>;
+  refreshPatterns: () => Promise<void>;
+  refreshPatternInstances: () => Promise<void>;
+  applyPatternMovesOptimistic: (
+    calls: Array<{ instance_uid: string; new_start_ms?: number; new_track_offset?: number }>
+  ) => void;
 };
 
 export const useStore = create<Store>((set, get) => ({
@@ -92,6 +105,7 @@ export const useStore = create<Store>((set, get) => ({
   song: { title: "—", bpm: 120, key: "", duration: 0 },
   clips: [], fixtures: [], effects: [], channelEffects: [], sections: [], presets: [], cues: [], markers: [], groups: [],
   selectedClipId: null, selectedFixtureId: null, clipboard: null,
+  patterns: [], patternInstances: [], selectedPatternInstanceId: null,
 
   setTab: (tab) => set({ tab }),
   setClipboard: (c) => set({ clipboard: c }),
@@ -111,12 +125,15 @@ export const useStore = create<Store>((set, get) => ({
         get().refreshPresets();
         get().refreshCues();
         get().refreshMarkers();
+        get().refreshPatterns();
+        get().refreshPatternInstances();
       }
     }
   },
 
   selectClip: (id) => set({ selectedClipId: id }),
   selectFixture: (id) => set({ selectedFixtureId: id }),
+  selectPatternInstance: (id) => set({ selectedPatternInstanceId: id }),
 
   refreshAll: async () => {
     const [summary, clips, fixtures, effects, chEffects, sections, presets] = await Promise.all([
@@ -187,6 +204,32 @@ export const useStore = create<Store>((set, get) => ({
   refreshGroups: async () => {
     const r = await control.call("list_groups").catch(() => null);
     if (r) set({ groups: r.groups ?? [] });
+  },
+
+  // A3 — Patterns
+  refreshPatterns: async () => {
+    const token = ++_patternsReqToken;
+    const r = await control.call("list_patterns").catch(() => null);
+    if (r && token === _patternsReqToken) set({ patterns: r.patterns ?? [] });
+  },
+  refreshPatternInstances: async () => {
+    const token = ++_patternInstancesReqToken;
+    const r = await control.call("list_pattern_instances").catch(() => null);
+    if (r && token === _patternInstancesReqToken) set({ patternInstances: r.instances ?? [] });
+  },
+  applyPatternMovesOptimistic: (calls) => {
+    const byId = new Map(calls.map((p) => [p.instance_uid, p]));
+    useStore.setState((s) => ({
+      patternInstances: s.patternInstances.map((inst) => {
+        const p = byId.get(inst.uid);
+        if (!p) return inst;
+        return {
+          ...inst,
+          ...(p.new_start_ms != null ? { start_ms: Math.max(0, Math.round(p.new_start_ms)) } : {}),
+          ...(p.new_track_offset != null ? { track_offset: p.new_track_offset } : {}),
+        };
+      }),
+    }));
   },
 }));
 

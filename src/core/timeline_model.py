@@ -184,6 +184,69 @@ class CuePoint:
                    name=d.get('name', ''), color=d.get('color', '#4a90e2'))
 
 
+@dataclass
+class Pattern:
+    """Bloque reutilizable de clips (A3, ROADMAP v2).
+
+    Los clips almacenan tiempos y tracks RELATIVOS:
+      - start_ms / end_ms  → relativos al inicio del pattern (start_ms=0)
+      - track              → offset relativo al track del primer clip del grupo original
+
+    Las PatternInstances los expanden a tiempos/tracks absolutos en render time.
+    """
+    uid: str = field(default_factory=lambda: uuid4().hex[:12])
+    name: str = ""
+    color: str = "#8855cc"
+    clips: List['Clip'] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "uid": self.uid,
+            "name": self.name,
+            "color": self.color,
+            "clips": [c.to_dict() for c in self.clips],
+        }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> 'Pattern':
+        return cls(
+            uid=d.get("uid") or uuid4().hex[:12],
+            name=d.get("name", ""),
+            color=d.get("color", "#8855cc"),
+            clips=[Clip.from_dict(c) for c in d.get("clips", [])],
+        )
+
+
+@dataclass
+class PatternInstance:
+    """Referencia a un Pattern colocada en el timeline (A3, ROADMAP v2).
+
+    start_ms y track_offset son ABSOLUTOS: la expansión aplica
+    start_ms + clip.start_ms  y  track_offset + clip.track.
+    """
+    uid: str = field(default_factory=lambda: uuid4().hex[:12])
+    pattern_uid: str = ""
+    start_ms: int = 0
+    track_offset: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "uid": self.uid,
+            "pattern_uid": self.pattern_uid,
+            "start_ms": self.start_ms,
+            "track_offset": self.track_offset,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> 'PatternInstance':
+        return cls(
+            uid=d.get("uid") or uuid4().hex[:12],
+            pattern_uid=d.get("pattern_uid", ""),
+            start_ms=int(d.get("start_ms", 0)),
+            track_offset=int(d.get("track_offset", 0)),
+        )
+
+
 class Timeline:
     """Conjunto de clips + persistencia.
 

@@ -181,12 +181,22 @@ class ShowSession:
         self.solo_tracks: set[int] = set()
         self._clip_bucket_index: Dict[int, list] = {}
         self._clip_bucket_index_n = -1
-        # Undo/redo extraído a UndoManager (SRP). Accede a los clips de forma
-        # perezosa (lambda) para tolerar recargas de timeline (load_show).
+        # A3: cache de clips efímeros expandidos de PatternInstances.
+        # _pattern_rev se incrementa al mutar patterns/instances, forzando re-expansión.
+        self._pattern_rev: int = 0
+        self._pattern_expanded: list = []
+        self._pattern_expanded_rev: int = -1
+        # Undo/redo extraído a UndoManager (SRP). A3: se añaden get_extra/restore_extra
+        # para que patterns y pattern_instances entren en el snapshot (invariante I1).
         from server.undo_manager import UndoManager
         self.undo_manager = UndoManager(
             get_clips=lambda: self.timeline.clips,
             restore_clips=self._restore_clips,
+            get_extra=lambda: {
+                "patterns": list(self.timeline.patterns),
+                "pattern_instances": list(self.timeline.pattern_instances),
+            },
+            restore_extra=self._restore_pattern_state,
         )
         # Desacople (B1): política headless de `_qt_call` del bridge. Antes el
         # dispatcher parcheaba el módulo global; ahora la sesión la provee a nivel
@@ -361,8 +371,13 @@ class ShowSession:
         return []
 
     def _build_clip_bucket_index(self):
+        # A3: re-expandir instancias si cambió _pattern_rev
+        if self._pattern_expanded_rev != self._pattern_rev:
+            self._pattern_expanded = self._expand_all_pattern_instances()
+            self._pattern_expanded_rev = self._pattern_rev
+
         buckets: Dict[int, list] = {}
-        for c in self.timeline.clips:
+        for c in self.timeline.clips + self._pattern_expanded:
             b_lo = max(0, c.start_ms // _BUCKET_MS)
             b_hi = max(b_lo, c.end_ms // _BUCKET_MS)
             for b in range(b_lo, b_hi + 1):
@@ -370,7 +385,47 @@ class ShowSession:
         for b in buckets:
             buckets[b].sort(key=lambda c: c.layer)
         self._clip_bucket_index = buckets
+        # Sólo cuenta clips reales para detectar cambios (efímeros no se editan)
         self._clip_bucket_index_n = len(self.timeline.clips)
+
+    def _expand_all_pattern_instances(self) -> list:
+        """Expande todas las PatternInstances a Clips efímeros con tiempos absolutos.
+
+        Los clips efímeros tienen uid con '::' (marcador) para distinguirlos
+        de los clips reales. NO aparecen en list_clips ni son editables.
+        Sólo se usan para el render (bucket index).
+        """
+        from src.core.timeline_model import Pattern, PatternInstance, Clip
+        result = []
+        for inst_d in self.timeline.pattern_instances:
+            inst = PatternInstance.from_dict(inst_d)
+            pat_d = next(
+                (p for p in self.timeline.patterns if p.get("uid") == inst.pattern_uid),
+                None,
+            )
+            if pat_d is None:
+                continue
+            pat = Pattern.from_dict(pat_d)
+            for clip in pat.clips:
+                result.append(Clip(
+                    track=max(0, min(9, clip.track + inst.track_offset)),
+                    start_ms=inst.start_ms + clip.start_ms,
+                    end_ms=inst.start_ms + clip.end_ms,
+                    effect_id=clip.effect_id,
+                    scope=clip.scope,
+                    params=dict(clip.params),
+                    color=clip.color,
+                    label=clip.label,
+                    layer=clip.layer,
+                    locked=False,
+                    muted=clip.muted,
+                    category=clip.category,
+                    channel_effect_id=clip.channel_effect_id,
+                    preset_id=clip.preset_id,
+                    uid=f"{inst.uid}::{clip.uid}",  # marcador de clip efímero
+                    param_links=list(clip.param_links),
+                ))
+        return result
 
     def invalidate_clip_index(self):
         """Forzar reconstrucción del índice (tras editar clips)."""
@@ -378,6 +433,16 @@ class ShowSession:
 
     def invalidate_caches(self):
         """Invalidar cachés tras edición de clips. Puro, sin Qt."""
+        self._clip_bucket_index_n = -1
+        self.notify_changed('model')
+
+    def invalidate_pattern_cache(self) -> None:
+        """Llamar tras mutar patterns o pattern_instances (A3).
+
+        Incrementa _pattern_rev para que _build_clip_bucket_index re-expanda
+        las instancias en el próximo frame.
+        """
+        self._pattern_rev += 1
         self._clip_bucket_index_n = -1
         self.notify_changed('model')
 
@@ -426,6 +491,13 @@ class ShowSession:
         self.timeline.clips = [Clip.from_dict(d) for d in dicts]
         self.invalidate_clip_index()
         self.notify_changed("undo")
+
+    def _restore_pattern_state(self, extra: dict) -> None:
+        """Restaura patterns y pattern_instances desde un snapshot de undo (I1)."""
+        self.timeline.patterns = list(extra.get("patterns", []))
+        self.timeline.pattern_instances = list(extra.get("pattern_instances", []))
+        self._pattern_rev += 1
+        self._clip_bucket_index_n = -1
 
     def snapshot(self):
         self.undo_manager.snapshot()

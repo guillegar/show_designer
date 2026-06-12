@@ -1,24 +1,31 @@
 import { useMemo, useState } from "react";
 import { control } from "../api/control";
 import { useStore, famColor, EffectInfo, Preset, ChannelEffectInfo } from "../store";
+import type { Pattern } from "../api/types";
 import { ContextMenu, MenuState } from "./ContextMenu";
 
 type EditState = { create: boolean; preset: Partial<Preset> } | null;
 
 export function Browser({
-  activeFxId, activePresetId, onPickEffect, onPickPreset,
+  activeFxId, activePresetId, onPickEffect, onPickPreset, onPickPattern,
 }: {
   activeFxId: number | null;
   activePresetId: string | null;
   onPickEffect: (e: EffectInfo) => void;
   onPickPreset: (p: Preset) => void;
+  onPickPattern?: (p: Pattern) => void;
 }) {
   const effects = useStore((s) => s.effects);
   const channelEffects = useStore((s) => s.channelEffects);
   const presets = useStore((s) => s.presets);
+  const patterns = useStore((s) => s.patterns);
+  const patternInstances = useStore((s) => s.patternInstances);
   const refreshPresets = useStore((s) => s.refreshPresets);
+  const refreshPatterns = useStore((s) => s.refreshPatterns);
+  const refreshPatternInstances = useStore((s) => s.refreshPatternInstances);
+  const t = useStore((s) => s.t);
 
-  const [tab, setTab] = useState<"bank" | "base">("bank");
+  const [tab, setTab] = useState<"bank" | "base" | "patterns">("bank");
   const [fam, setFam] = useState<string>("");
   const [menu, setMenu] = useState<MenuState>(null);
   const [edit, setEdit] = useState<EditState>(null);
@@ -86,6 +93,7 @@ export function Browser({
       <div className="bk-tabs">
         <button className={"bk-tab" + (tab === "bank" ? " on" : "")} onClick={() => setTab("bank")}>Banco</button>
         <button className={"bk-tab" + (tab === "base" ? " on" : "")} onClick={() => setTab("base")}>Efectos base</button>
+        <button className={"bk-tab" + (tab === "patterns" ? " on" : "")} onClick={() => setTab("patterns")}>Patterns</button>
       </div>
 
       {tab === "bank" && (
@@ -135,6 +143,62 @@ export function Browser({
             ))}
           </div>
           <div className="fx-foot"><span className="kbd">B</span> dibujar · click derecho → crear preset</div>
+        </>
+      )}
+
+      {tab === "patterns" && (
+        <>
+          <div className="fx-list">
+            {patterns.length === 0 && (
+              <div className="muted" style={{ padding: 12, fontSize: 12 }}>
+                Sin patterns. Selecciona clips → clic derecho → "Crear pattern…"
+              </div>
+            )}
+            {patterns.map((pat) => {
+              const instCount = patternInstances.filter((i) => i.pattern_uid === pat.uid).length;
+              return (
+                <button key={pat.uid}
+                  className="fx-item preset-item"
+                  title={`${instCount} instancia${instCount !== 1 ? "s" : ""}`}
+                  onClick={() => onPickPattern?.(pat)}
+                  onDoubleClick={() => {
+                    // Doble clic = añadir instancia en el t actual del transporte
+                    const tMs = Math.round(t * 1000);
+                    control.call("add_pattern_instance", {
+                      pattern_uid: pat.uid, start_ms: tMs, track_offset: 0,
+                    }).then(() => refreshPatternInstances());
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setMenu({ x: e.clientX, y: e.clientY, items: [
+                      { label: "Añadir instancia aquí", onClick: () => {
+                        const tMs = Math.round(t * 1000);
+                        control.call("add_pattern_instance", {
+                          pattern_uid: pat.uid, start_ms: tMs, track_offset: 0,
+                        }).then(() => refreshPatternInstances());
+                      }},
+                      { type: "sep" },
+                      {
+                        label: "Borrar" + (instCount > 0 ? ` (borra ${instCount} inst.)` : ""),
+                        danger: true,
+                        onClick: () => {
+                          if (instCount > 0 && !confirm(`Borrar "${pat.name}" y sus ${instCount} instancias?`)) return;
+                          control.call("delete_pattern", { pattern_uid: pat.uid })
+                            .then(() => { refreshPatterns(); refreshPatternInstances(); });
+                        },
+                      },
+                    ] });
+                  }}>
+                  <span className="sw" style={{ background: pat.color }} />
+                  <span className="nm">{pat.name || "(sin nombre)"}</span>
+                  <span className="scope" style={{ color: "var(--txt-3)" }}>{instCount}×</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="fx-foot" style={{ fontSize: 11, color: "var(--txt-3)" }}>
+            Clic = seleccionar · doble clic = instanciar en t actual
+          </div>
         </>
       )}
 

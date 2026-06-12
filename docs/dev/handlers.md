@@ -47,3 +47,55 @@ def _h_set_clip_param_links(session, params):
 
 `<verbo>_<sustantivo>`: `set_`, `add_`, `delete_`, `list_`, `move_`. Listas devuelven
 `{"ok": True, "<plural>": [...]}`.
+
+---
+
+## Catálogo de handlers A1–A3 (dispatcher.py)
+
+### A1 — Modulación
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `set_clip_param_links` | `clip_id`, `links: [{param, source, gain, offset, curve, min_v, max_v}]` | `{ok, clip}` |
+| `list_modulation_sources` | — | `{ok, sources: [{key, label, description}]}` |
+
+### A2 — Automatización
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `add_automation_lane` | `target` (ej. `"clip:<uid>:brightness"`), `uid?` | `{ok, lane}` |
+| `delete_automation_lane` | `uid` | `{ok}` |
+| `set_automation_points` | `uid`, `points: [{t_ms, value, shape}]` | `{ok, lane}` |
+| `list_automation_lanes` | — | `{ok, lanes: [...]}` |
+
+Targets: `"clip:<uid>:<param>"` | `"track:<n>:<param>"` | `"master:<param>"`.
+
+### A3 — Patterns
+
+Los handlers de patterns llaman `session.snapshot()` internamente (NO están en
+`_TIMELINE_MUTATORS`; si lo estuvieran, se haría un doble snapshot).
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `create_pattern_from_clips` | `clip_ids: [str]`, `name?: str`, `color?: str` | `{ok, pattern, instance}` |
+| `add_pattern_instance` | `pattern_uid: str`, `start_ms: int`, `track_offset?: int` | `{ok, instance}` |
+| `move_pattern_instance` | `instance_uid: str`, `new_start_ms?: int`, `new_track_offset?: int` | `{ok, instance}` |
+| `delete_pattern_instance` | `instance_uid: str` | `{ok}` |
+| `update_pattern` | `pattern_uid: str`, `name?: str`, `color?: str`, `clips?: [clip_dict]` | `{ok, pattern}` |
+| `delete_pattern` | `pattern_uid: str` | `{ok, deleted_instances: int}` |
+| `list_patterns` | — | `{ok, patterns: [...]}` |
+| `list_pattern_instances` | — | `{ok, instances: [...]}` |
+| `dissolve_instance` | `instance_uid: str` | `{ok, clips: [...]}` |
+
+**`create_pattern_from_clips`**: calcula tiempos/tracks relativos (start_ref = mín start_ms,
+track_ref = mín track), crea el Pattern con clips relativos, borra los clips originales de
+`timeline.clips`, y crea la PatternInstance en start_ref/track_ref.
+
+**`dissolve_instance`**: convierte la instancia en clips reales (UIDs nuevos, posiciones
+absolutas) en `timeline.clips` y la elimina de `timeline.pattern_instances`.
+
+**`delete_pattern`**: borra el pattern Y todas sus instancias (invariante I2 cascada).
+
+**Clips efímeros** (expansión en render): tienen `uid = f"{inst.uid}::{clip.uid}"`. NO
+aparecen en `list_clips`. La expansión se cachea con `_pattern_rev`; se invalida al mutar
+patterns o instancias mediante `session.invalidate_pattern_cache()`.

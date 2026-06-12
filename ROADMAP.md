@@ -1,7 +1,7 @@
 # ROADMAP v2 — "El Secuenciador"
 
 **Objetivo**: llevar Show Designer del nivel "editor de clips" al nivel "FL Studio de la luz".
-**Fecha**: 2026-06-12 · **Estado**: A2 APLICADA (2026-06-12) — siguiente: A3 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
+**Fecha**: 2026-06-12 · **Estado**: A3 APLICADA (2026-06-12) — siguiente: A4 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
 
 > **F0 APLICADA (2026-06-12, pendiente de commit)**: F0.0 actx real en `session.compute_frame`
 > (verificado: 0.004 ms/frame, cero regresión), F0.1 `src/core/param_pipeline.py` cableado
@@ -381,6 +381,20 @@ ve en las barras. Undo/redo funciona (snapshot tras cada `set_automation_points`
 **Commit**: `roadmap-v2 fase A2: automatización por curvas`.
 
 ## A3 — Patterns: bloques reutilizables de clips (~4 días)
+**✅ APLICADA (2026-06-12)**
+
+**Estado de entrega:**
+- ✅ Backend puro: `Pattern` + `PatternInstance` dataclasses en `src/core/timeline_model.py`
+- ✅ UndoManager extendido con `get_extra`/`restore_extra` (backward-compat, invariante I1)
+- ✅ Expansión efímera cacheada: `_expand_all_pattern_instances`, `_pattern_rev`, bucket index unificado
+- ✅ Handlers (9): `create_pattern_from_clips`, `add_pattern_instance`, `move_pattern_instance`,
+  `delete_pattern_instance`, `update_pattern`, `delete_pattern` (cascada I2), `list_patterns`,
+  `list_pattern_instances`, `dissolve_instance`
+- ✅ Frontend: store.ts (refreshPatterns/refreshPatternInstances, optimistic applyPatternMovesOptimistic),
+  Browser.tsx (tab Patterns con context menu), Timeline.tsx (render instancias + createPatternFromSelection)
+- ✅ Persistencia: `patterns` + `pattern_instances` en snapshot de undo; save/load v3
+- ✅ Tests: 39 tests en `tests/test_patterns.py` — expansión, undo, persistencia, handlers, render parity
+- 🔲 UI avanzada: edición inline del pattern con clips atenuados (diferida)
 
 **Qué**: seleccionás N clips → "Crear pattern". El pattern va a un banco con nombre y color.
 Lo arrastrás al timeline cuantas veces quieras como INSTANCIA. Editás el pattern → cambian
