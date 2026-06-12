@@ -1,7 +1,7 @@
 # ROADMAP v2 — "El Secuenciador"
 
 **Objetivo**: llevar Show Designer del nivel "editor de clips" al nivel "FL Studio de la luz".
-**Fecha**: 2026-06-12 · **Estado**: A1 APLICADA (2026-06-12) — siguiente: A2 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
+**Fecha**: 2026-06-12 · **Estado**: A2 APLICADA (2026-06-12) — siguiente: A3 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
 
 > **F0 APLICADA (2026-06-12, pendiente de commit)**: F0.0 actx real en `session.compute_frame`
 > (verificado: 0.004 ms/frame, cero regresión), F0.1 `src/core/param_pipeline.py` cableado
@@ -306,9 +306,21 @@ barra respira con la música. Guardo, recargo, sigue. Suite verde, build web ok.
 **Commit**: `roadmap-v2 fase A1: motor de modulación (param links)`.
 
 ## A2 — Automatización: curvas de parámetro sobre el timeline (~4 días)
+**✅ APLICADA (2026-06-12)**
 
 **Qué**: pistas de automatización tipo FL/Ableton: dibujás una curva de `hue` (o cualquier
 param) a lo largo del tiempo con puntos, y el valor se aplica a los clips que cubra.
+
+**Estado de entrega:**
+- ✅ Backend puro: `src/core/automation.py` (AutomationPoint, AutomationLane, parse_target)
+  Shapes: linear, hold, smooth (cosine interpolation)
+- ✅ Análisis: parse_target robusto ('clip:<uid>:<param>', 'track:n:param', 'master:param')
+- ✅ Pipeline: AutomationStage integrado en `session.py` (orden: después de A1)
+- ✅ Handlers: `add_automation_lane`, `delete_automation_lane`, `set_automation_points`, `list_automation_lanes`
+- ✅ Persistencia: Timeline.automation (contenedor v3)
+- ✅ Tests: 23 tests verdes (interpolación, shapes, targets, stage)
+- 🔲 UI web: dibujado de curvas diferida (componente SVG complejo)
+- 🔲 Cascada (I2): delete_clip borra lanes con target en ese clip, diferida
 
 ### Modelo (src/core/automation.py — NUEVO, puro)
 

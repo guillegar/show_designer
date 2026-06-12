@@ -10,7 +10,7 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
 Estado a **2026-06-12** · **v1.10 (web)**: backend headless + frontend React, 4 vistas funcionando.
-**A1 APLICADA (2026-06-12)**: modulación de parámetros por audio (brightness←rms, etc.).
+**A1+A2 APLICADAS (2026-06-12)**: modulación (brightness←rms) + automatización (curvas de parámetro).
 
 ---
 
@@ -21,12 +21,12 @@ Estado a **2026-06-12** · **v1.10 (web)**: backend headless + frontend React, 4
   commit por fase (`roadmap-v2 fase <ID>: ...`), doc actualizada en el mismo commit, core
   sin imports de red/UI, handlers JSON-RPC existentes no cambian de firma, invariantes
   I1-I5 (§0.5 del ROADMAP), checklist de cierre al final del ROADMAP.
-  - ✅ **F0 APLICADA (2026-06-12)**: actx real en la web, `src/core/param_pipeline.py` (stages),
-    schema v3, ADRs 001-003, bench I5. 448 verdes.
-  - ✅ **A1 APLICADA (2026-06-12)**: modulación de parámetros (`brightness ← rms`, etc.).
-    `src/core/modulation.py` (ParamLink, ModulationStage), `actx['norm']` (señales normalizadas),
-    handlers web `set_clip_param_links` + `list_modulation_sources`. 25 tests. Regresión
-    rendimiento ~5% (dentro de I5). **Siguiente: A2 (automatización)**.
+  - ✅ **F0 APLICADA (2026-06-12)**: actx real, param_pipeline (stages), schema v3, ADRs. 448→495 verdes.
+  - ✅ **A1 APLICADA (2026-06-12)**: modulación (`brightness ← rms`). ParamLink, ModulationStage, actx['norm'].
+    25 tests. Regresión ~5% (I5).
+  - ✅ **A2 APLICADA (2026-06-12)**: automatización (curvas). AutomationLane, shapes (linear/hold/smooth).
+    Handlers `add_automation_lane`, `delete_automation_lane`, `set_automation_points`. 23 tests.
+    **Siguiente: A3 (patterns)**.
   - Pasos pendientes del usuario: `cd web && npm install` (vitest), `pytest tests/` completo
     en Windows, y el commit: `roadmap-v2 fase F0: actx real + param pipeline + schema v3 + bench`.
 
