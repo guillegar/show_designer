@@ -765,6 +765,71 @@ def _h_dissolve_instance(session, params):
     return {"ok": True, "clips": [c.to_dict() for c in new_clips]}
 
 
+# ── A4 — Micro-eventos ──────────────────────────────────────────────────────
+
+def _h_add_micro_event(session, params):
+    """Añade un micro-evento al clip. Devuelve el clip actualizado (I3)."""
+    from src.core.micro_events import MicroEvent
+    clip = session.find_clip_by_id(require_key(params, "clip_id"))
+    if clip is None:
+        return {"ok": False, "error": "clip_id no encontrado"}
+    t_ms_rel = int(params.get("t_ms_rel", 0))
+    duration_ms = int(params.get("duration_ms", 100))
+    if duration_ms < 1:
+        return {"ok": False, "error": "duration_ms debe ser >= 1"}
+    ev = MicroEvent(
+        t_ms_rel=max(0, t_ms_rel),
+        duration_ms=duration_ms,
+        params_override=dict(params.get("params_override") or {}),
+    )
+    session.snapshot()
+    clip.events = list(clip.events) + [ev.to_dict()]
+    session.invalidate_caches()
+    return {"ok": True, "clip": clip.to_dict()}
+
+
+def _h_delete_micro_event(session, params):
+    """Elimina un micro-evento del clip por event_uid."""
+    clip = session.find_clip_by_id(require_key(params, "clip_id"))
+    if clip is None:
+        return {"ok": False, "error": "clip_id no encontrado"}
+    event_uid = require_key(params, "event_uid")
+    before = len(clip.events)
+    session.snapshot()
+    clip.events = [e for e in clip.events if e.get("uid") != event_uid]
+    if len(clip.events) == before:
+        return {"ok": False, "error": "event_uid no encontrado"}
+    session.invalidate_caches()
+    return {"ok": True, "clip": clip.to_dict()}
+
+
+def _h_update_micro_event(session, params):
+    """Actualiza campos de un micro-evento (t_ms_rel, duration_ms, params_override)."""
+    clip = session.find_clip_by_id(require_key(params, "clip_id"))
+    if clip is None:
+        return {"ok": False, "error": "clip_id no encontrado"}
+    event_uid = require_key(params, "event_uid")
+    ev_list = list(clip.events)
+    idx = next((i for i, e in enumerate(ev_list) if e.get("uid") == event_uid), None)
+    if idx is None:
+        return {"ok": False, "error": "event_uid no encontrado"}
+    ev = dict(ev_list[idx])
+    if "t_ms_rel" in params:
+        ev["t_ms_rel"] = max(0, int(params["t_ms_rel"]))
+    if "duration_ms" in params:
+        dur = int(params["duration_ms"])
+        if dur < 1:
+            return {"ok": False, "error": "duration_ms debe ser >= 1"}
+        ev["duration_ms"] = dur
+    if "params_override" in params:
+        ev["params_override"] = dict(params["params_override"])
+    session.snapshot()
+    ev_list[idx] = ev
+    clip.events = ev_list
+    session.invalidate_caches()
+    return {"ok": True, "clip": clip.to_dict()}
+
+
 _LOCAL = {
     "undo": _h_undo,
     "redo": _h_redo,
@@ -804,6 +869,10 @@ _LOCAL = {
     "list_patterns": _h_list_patterns,
     "list_pattern_instances": _h_list_pattern_instances,
     "dissolve_instance": _h_dissolve_instance,
+    # A4 — Micro-eventos
+    "add_micro_event": _h_add_micro_event,
+    "delete_micro_event": _h_delete_micro_event,
+    "update_micro_event": _h_update_micro_event,
 }
 
 

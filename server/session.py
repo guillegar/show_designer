@@ -219,9 +219,11 @@ class ShowSession:
         # (A4) → macros (C2). Vacío = comportamiento idéntico al anterior.
         from src.core.modulation import ModulationStage
         from src.core.automation import AutomationStage
+        from src.core.micro_events import MicroEventStage
         self.param_stages: list = [
             ModulationStage(),
-            AutomationStage(get_automation_lanes=self._get_automation_lanes)
+            AutomationStage(get_automation_lanes=self._get_automation_lanes),
+            MicroEventStage(),
         ]
 
     # ── Helpers para el pipeline de parámetros ───────────────────────────────

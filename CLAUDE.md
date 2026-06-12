@@ -10,7 +10,7 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
 Estado a **2026-06-12** · **v1.10 (web)**: backend headless + frontend React, 4 vistas funcionando.
-**A1+A2+A3 APLICADAS (2026-06-12)**: modulación (brightness←rms) + automatización (curvas de parámetro) + patterns (bloques reutilizables con instancias vinculadas).
+**A1+A2+A3+A4 APLICADAS (2026-06-12)**: modulación + automatización + patterns + editor de detalle (micro-eventos + curvas A2 en modal).
 
 ---
 
@@ -32,7 +32,12 @@ Estado a **2026-06-12** · **v1.10 (web)**: backend headless + frontend React, 4
     `add/move/delete_pattern_instance`, `update/delete_pattern`, `list_patterns`,
     `list_pattern_instances`, `dissolve_instance`. Frontend: tab Patterns en Browser, render de
     instancias en Timeline, applyPatternMovesOptimistic. 39 tests. 534 verdes.
-    **Siguiente: A4 (editor de detalle del clip)**.
+  - ✅ **A4 APLICADA (2026-06-12)**: editor de detalle del clip. `MicroEvent` + `MicroEventStage`
+    (src/core/micro_events.py, fast path si clip.events vacío). `Clip.events` en timeline_model.
+    3 handlers: `add/delete/update_micro_event`. `ClipDetailModal` (Alt+dblclick): beat grid,
+    micro-eventos SVG arrastrables, curvas de automatización editables (A2 deferred aquí).
+    23 tests. 557 verdes. Bench +3.5% (dentro I5).
+    **Siguiente: A5 (ergonomía de composición)**.
   - Pasos pendientes del usuario: `cd web && npm install` (vitest), `pytest tests/` completo
     en Windows, y el commit: `roadmap-v2 fase F0: actx real + param pipeline + schema v3 + bench`.
 

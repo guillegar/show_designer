@@ -99,3 +99,20 @@ absolutas) en `timeline.clips` y la elimina de `timeline.pattern_instances`.
 **Clips efímeros** (expansión en render): tienen `uid = f"{inst.uid}::{clip.uid}"`. NO
 aparecen en `list_clips`. La expansión se cachea con `_pattern_rev`; se invalida al mutar
 patterns o instancias mediante `session.invalidate_pattern_cache()`.
+
+### A4 — Micro-eventos
+
+Los handlers de micro-eventos llaman `session.snapshot()` internamente (misma razón que A3).
+Devuelven el clip completo (invariante I3) para que el frontend actualice el store optimistamente.
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `add_micro_event` | `clip_id: str`, `t_ms_rel: int`, `duration_ms?: int (def 100)`, `params_override?: dict` | `{ok, clip}` |
+| `delete_micro_event` | `clip_id: str`, `event_uid: str` | `{ok, clip}` |
+| `update_micro_event` | `clip_id: str`, `event_uid: str`, `t_ms_rel?: int`, `duration_ms?: int`, `params_override?: dict` | `{ok, clip}` |
+
+**Micro-evento**: override puntual de `params_override` activo durante `duration_ms` ms
+(default 100ms ≈ 3 frames @30FPS) a partir de `t_ms_rel` desde `clip.start_ms`.
+`MicroEventStage` es el 3er stage del pipeline (orden: modulación→automatización→micro-eventos).
+Fast path: si `clip.events == []`, devuelve `params` sin copiar (cero allocs).
+Los `events` van en `clip.to_dict()`, por lo que el undo por snapshot (I1) los cubre automáticamente.

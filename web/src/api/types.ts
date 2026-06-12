@@ -28,6 +28,14 @@ export type AutomationLane = {
   enabled: boolean;
 };
 
+/** Micro-evento: override puntual de parámetros dentro de un clip (fase A4). */
+export type MicroEvent = {
+  uid: string;
+  t_ms_rel: number;     // tiempo relativo a clip.start_ms
+  duration_ms: number;  // ventana de activación (default 100ms ≈ 3 frames @30FPS)
+  params_override: Record<string, number | string | boolean>;
+};
+
 /** Pattern reutilizable (fase A3). Tiempos/tracks RELATIVOS al origen del pattern. */
 export type Pattern = {
   uid: string;

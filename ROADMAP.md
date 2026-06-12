@@ -1,7 +1,7 @@
 # ROADMAP v2 — "El Secuenciador"
 
 **Objetivo**: llevar Show Designer del nivel "editor de clips" al nivel "FL Studio de la luz".
-**Fecha**: 2026-06-12 · **Estado**: A3 APLICADA (2026-06-12) — siguiente: A4 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
+**Fecha**: 2026-06-12 · **Estado**: A4 APLICADA (2026-06-12) — siguiente: A5 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
 
 > **F0 APLICADA (2026-06-12, pendiente de commit)**: F0.0 actx real en `session.compute_frame`
 > (verificado: 0.004 ms/frame, cero regresión), F0.1 `src/core/param_pipeline.py` cableado
@@ -458,6 +458,21 @@ Expansión correcta (tiempos absolutos, tracks con offset, clamp a pistas 0-9); 
 **Commit**: `roadmap-v2 fase A3: patterns con instancias vinculadas`.
 
 ## A4 — Editor de detalle del clip (piano-roll lite) (~3 días)
+**✅ APLICADA (2026-06-12)**
+
+**Estado de entrega:**
+- ✅ Backend puro: `src/core/micro_events.py` (MicroEvent, MicroEventStage)
+- ✅ `Clip.events` en `timeline_model.py` (default `[]`, migración automática)
+- ✅ `MicroEventStage` registrado 3er stage en `session.py` (orden: mod→auto→micro)
+- ✅ Handlers (3): `add_micro_event`, `delete_micro_event`, `update_micro_event`
+- ✅ Frontend: `ClipDetailModal.tsx` — Alt+dblclick abre modal con beat grid,
+  fila SVG de micro-eventos (◆ arrastrables), curvas de automatización editables (A2 deferred),
+  inspector de evento seleccionado (params_override + duration_ms)
+- ✅ `store.ts`: `Clip` type con `uid`, `param_links`, `events`
+- ✅ Persistencia: `Clip.events` en snapshot undo vía `clip.to_dict()` (I1)
+- ✅ Tests: 23 tests en `tests/test_micro_events.py` — modelo, stage, persistencia, handlers, undo
+- ✅ Bench: p95=36.37ms (vs 35.13ms A3, +3.5% — dentro del 20% de I5; fast path sin micro-eventos)
+- 🔲 Franja tenue de curvas en el timeline principal (diferida A5)
 
 **Qué**: doble clic (con modificador, ej. Alt+doble clic, para no pisar el inspector) abre
 el clip ampliado a pantalla: sus lanes de automatización (A2) en grande + micro-eventos.

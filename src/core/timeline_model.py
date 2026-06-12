@@ -103,6 +103,8 @@ class Clip:
     uid: str = field(default_factory=lambda: uuid4().hex[:12])
     # A1 — Modulación: vínculos param ← señal del análisis
     param_links: List[Dict[str, Any]] = field(default_factory=list)
+    # A4 — Micro-eventos: overrides puntuales en instantes relativos al clip
+    events: List[Dict[str, Any]] = field(default_factory=list)
 
     @property
     def duration_ms(self) -> int:
@@ -136,6 +138,7 @@ class Clip:
             "channel_effect_id": self.channel_effect_id,
             "preset_id": self.preset_id,
             "param_links": list(self.param_links) if self.param_links else [],
+            "events": list(self.events) if self.events else [],
         }
 
     @classmethod
@@ -160,6 +163,7 @@ class Clip:
             uid=d.get('uid') or (d['id'] if isinstance(d.get('id'), str)
                                  else uuid4().hex[:12]),
             param_links=list(d.get('param_links', [])),
+            events=list(d.get('events', [])),
         )
 
 

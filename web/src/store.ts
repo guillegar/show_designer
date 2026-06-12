@@ -13,10 +13,11 @@ let _patternsReqToken = 0;
 let _patternInstancesReqToken = 0;
 
 export type Clip = {
-  id: string; track: number; start_ms: number; end_ms: number;
+  id: string; uid: string; track: number; start_ms: number; end_ms: number;
   effect_id: number; scope: string; color: string; layer: number;
   label: string; locked: boolean; muted: boolean; category: string;
   channel_effect_id: string | null; preset_id: string | null; params: Record<string, any>;
+  param_links: Record<string, any>[]; events: Record<string, any>[];
 };
 export type Fixture = {
   fixture_id: string; profile_id: string; universe: number; dmx_start: number;

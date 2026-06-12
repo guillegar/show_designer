@@ -8,6 +8,7 @@ import { fmtTime } from "../icons";
 import { ContextMenu, MenuState } from "../components/ContextMenu";
 import { Browser } from "../components/Browser";
 import { ClipInspector } from "../components/ClipInspector";
+import { ClipDetailModal } from "../components/ClipDetailModal";
 import { ToastContainer, useToast } from "../components/Toast";
 import { HelpOverlay } from "../components/HelpOverlay";
 import { xToMs, msToX } from "./timelineGeometry";
@@ -62,6 +63,7 @@ export function TimelineView() {
   const [solo, setSolo] = useState<Record<number, boolean>>({});
   const [menu, setMenu] = useState<MenuState>(null);
   const [inspector, setInspector] = useState(false);
+  const [detailClipId, setDetailClipId] = useState<string | null>(null);
   const [genOpen, setGenOpen] = useState(false);
   const [genSec, setGenSec] = useState(0);
   const [genTrig, setGenTrig] = useState("on_beat");
@@ -580,6 +582,10 @@ export function TimelineView() {
       const tag = el?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) return;
 
+      if (e.key === "Escape") {
+        setDetailClipId(null);
+        return;
+      }
       if ((e.key === "Delete" || e.key === "Backspace") && (selectedClipIds.size > 0 || selectedClipId != null)) {
         e.preventDefault();
         const ids = selectedClipIds.size > 0 ? [...selectedClipIds] : [selectedClipId as string];
@@ -1058,7 +1064,11 @@ export function TimelineView() {
                             }
                           }}
                           onContextMenu={(e) => openClipMenu(e, c)}
-                          onDoubleClick={(e) => { e.stopPropagation(); selectClip(c.id); setInspector(true); }}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            if (e.altKey) { selectClip(c.id); setDetailClipId(c.id); return; }
+                            selectClip(c.id); setInspector(true);
+                          }}
                           title={tool === "draw" ? "Click para pintar el efecto" : `${c.label || effectById.get(c.effect_id)?.name || "clip"} · ${((c.end_ms - c.start_ms) / 1000).toFixed(2)}s`}
                           style={{
                             left: (c.start_ms / 1000) * zoom, width: ((c.end_ms - c.start_ms) / 1000) * zoom - 2,
@@ -1160,6 +1170,18 @@ export function TimelineView() {
           </div>
         </div>
       )}
+
+      {detailClipId && (() => {
+        const detailClip = clips.find((c) => c.id === detailClipId);
+        return detailClip ? (
+          <ClipDetailModal
+            clip={detailClip}
+            effects={effects}
+            onClose={() => setDetailClipId(null)}
+            onClipUpdate={afterEdit}
+          />
+        ) : null;
+      })()}
 
       <ContextMenu state={menu} onClose={() => setMenu(null)} />
 

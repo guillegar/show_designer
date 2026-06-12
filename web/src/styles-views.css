@@ -347,3 +347,69 @@
   border-radius: 0 4px 4px 0; white-space: nowrap; cursor: pointer;
 }
 .lane-marker { position: absolute; top: 0; bottom: 0; width: 1px; opacity: 0.5; pointer-events: none; z-index: 3; }
+
+/* ---------- CLIP DETAIL MODAL (A4) ---------- */
+.clip-detail-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: oklch(0 0 0 / 0.55);
+  display: flex; align-items: center; justify-content: center;
+}
+.clip-detail-modal {
+  background: var(--bg-1); border: 1px solid var(--line);
+  border-radius: var(--r); box-shadow: var(--sh-2);
+  width: min(960px, calc(100vw - 48px));
+  max-height: calc(100vh - 64px);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.cdm-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; border-bottom: 1px solid var(--line);
+  background: var(--bg-2); flex: none;
+}
+.cdm-title { display: flex; align-items: center; gap: 10px; }
+.cdm-clip-bar { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.cdm-title strong { font-size: 13px; color: var(--txt); }
+.cdm-meta { font-size: 11px; color: var(--txt-3); font-family: var(--mono); }
+.cdm-body {
+  display: flex; gap: 0; overflow: auto; flex: 1; min-height: 0;
+}
+.cdm-svg-col {
+  flex: 1; padding: 16px; overflow-y: auto; min-width: 0;
+}
+.cdm-section-label {
+  font-size: 10px; font-weight: 700; color: var(--txt-3); text-transform: uppercase;
+  letter-spacing: .06em; margin-bottom: 6px; display: flex; align-items: center; gap: 10px;
+}
+.cdm-hint { font-size: 9.5px; font-weight: 400; color: var(--txt-4); text-transform: none; letter-spacing: 0; }
+.cdm-add-lane {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  margin-top: 8px;
+}
+.cdm-lane-btn {
+  padding: 2px 8px; border-radius: var(--r-sm);
+  border: 1px solid var(--line); background: var(--bg-2);
+  color: var(--txt-2); font-size: 11px; font-family: var(--mono);
+  cursor: pointer;
+}
+.cdm-lane-btn:hover:not(:disabled) { background: var(--bg-3); }
+.cdm-lane-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.cdm-ev-inspector {
+  width: 220px; flex: none; border-left: 1px solid var(--line);
+  padding: 16px 14px; background: var(--bg-2); overflow-y: auto;
+}
+.cdm-ev-row {
+  display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px;
+}
+.cdm-ev-row label { font-size: 10px; color: var(--txt-3); font-family: var(--mono); }
+.cdm-ev-row input {
+  background: var(--bg-inset); border: 1px solid var(--line);
+  border-radius: var(--r-sm); color: var(--txt); font-family: var(--mono);
+  font-size: 12px; padding: 3px 7px; width: 100%; box-sizing: border-box;
+}
+.cdm-ev-row input:focus { outline: none; border-color: var(--acc); }
+.cdm-delete-btn {
+  margin-top: 12px; width: 100%; padding: 5px;
+  background: oklch(0.4 0.18 25 / 0.2); border: 1px solid oklch(0.6 0.18 25 / 0.5);
+  border-radius: var(--r-sm); color: oklch(0.75 0.16 25); font-size: 11px; cursor: pointer;
+}
+.cdm-delete-btn:hover { background: oklch(0.4 0.18 25 / 0.35); }
