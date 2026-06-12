@@ -9,7 +9,8 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > documentación** para que refleje el estado real — este `CLAUDE.md` (arquitectura/estado) y los
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
-Estado a **2026-06-11** · **v1.10 (web)**: backend headless + frontend React, 4 vistas funcionando.
+Estado a **2026-06-12** · **v1.10 (web)**: backend headless + frontend React, 4 vistas funcionando.
+**A1 APLICADA (2026-06-12)**: modulación de parámetros por audio (brightness←rms, etc.).
 
 ---
 
@@ -20,11 +21,12 @@ Estado a **2026-06-11** · **v1.10 (web)**: backend headless + frontend React, 4
   commit por fase (`roadmap-v2 fase <ID>: ...`), doc actualizada en el mismo commit, core
   sin imports de red/UI, handlers JSON-RPC existentes no cambian de firma, invariantes
   I1-I5 (§0.5 del ROADMAP), checklist de cierre al final del ROADMAP.
-  - ✅ **F0 APLICADA (2026-06-12, PENDIENTE DE COMMIT)**: actx real en la web (el render ya
-    NO usa `_cached_actx` salvo fallback), `src/core/param_pipeline.py` (stages, fast path),
-    schema v3 con migración, `docs/dev/handlers.md`, ADRs 001-003, bench I5
-    (`pytest -m bench`), vitest (falta `cd web && npm install` UNA vez). 388 verdes en CI
-    Linux. **Siguiente fase: A1 (modulación) con Sonnet** según la asignación de modelos.
+  - ✅ **F0 APLICADA (2026-06-12)**: actx real en la web, `src/core/param_pipeline.py` (stages),
+    schema v3, ADRs 001-003, bench I5. 448 verdes.
+  - ✅ **A1 APLICADA (2026-06-12)**: modulación de parámetros (`brightness ← rms`, etc.).
+    `src/core/modulation.py` (ParamLink, ModulationStage), `actx['norm']` (señales normalizadas),
+    handlers web `set_clip_param_links` + `list_modulation_sources`. 25 tests. Regresión
+    rendimiento ~5% (dentro de I5). **Siguiente: A2 (automatización)**.
   - Pasos pendientes del usuario: `cd web && npm install` (vitest), `pytest tests/` completo
     en Windows, y el commit: `roadmap-v2 fase F0: actx real + param pipeline + schema v3 + bench`.
 
