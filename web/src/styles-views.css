@@ -93,6 +93,11 @@
 .lane-sec { position: absolute; top: 0; bottom: 0; pointer-events: none; }
 .tl-row { position: relative; border-bottom: 1px solid var(--line-soft); }
 .tl-row.drop-target { background: color-mix(in oklab, var(--acc) 16%, transparent); outline: 1px dashed var(--acc); outline-offset: -1px; }
+/* Banda de la capa (layer) destino bajo el cursor durante el arrastre: más marcada
+   que el tinte del track, detrás de los clips (left:0/right:0 = ancho de la fila). */
+.tl-row .drop-layer { position: absolute; left: 0; right: 0; z-index: 0; pointer-events: none;
+  background: color-mix(in oklab, var(--acc) 30%, transparent);
+  border: 1px solid var(--acc); border-radius: 3px; }
 
 .clip {
   position: absolute; border: 1px solid; border-radius: 5px; cursor: pointer;

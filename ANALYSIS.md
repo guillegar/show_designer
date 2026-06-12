@@ -189,3 +189,56 @@ Fuera de `src/ui/`, solo `tests/test_timeline_waveform.py` importa `src.ui` (el 
 
 **Nota**: borrar del working tree no encoge el repo git (el historial conserva los archivos).
 Suficiente con el borrado normal; no hace falta reescribir historial.
+
+---
+
+## Fase 9 — UX del timeline web: el clip no se queda al soltarlo (✅ RESUELTO 2026-06-12)
+
+### 27. Síntoma reportado (aclarado por el usuario)
+
+El usuario aclaró el síntoma real: **al agarrar un clip SÍ se arrastra, pero al soltarlo NO se
+queda donde lo dejas** — vuelve a su sitio. (No es drag&drop desde el banco; es mover/redimensionar
+clips YA creados.)
+
+### Diagnóstico preliminar (DESCARTADO tras reproducir en vivo)
+
+La hipótesis estática inicial era "el drag requiere DOS gestos" por el `e.stopPropagation()` del
+`onMouseDown` del clip rompiendo la delegación Selecto→Moveable. **Reproducido en vivo (con
+instrumentación + drag sintético): FALSO.** La delegación Selecto→Moveable funciona en un solo
+gesto, y el `move_clip` del backend persiste correctamente (muta el clip in-place en
+`app.timeline.clips`, que es de donde lee `list_clips`). El gesto no estaba roto.
+
+### Diagnóstico final (reproducido en vivo en :8000 con la app real, 1358 clips)
+
+**Causa raíz: NO había update optimista.** Al soltar, `onClipDragEnd` (Timeline.tsx) limpiaba el
+`transform` del drag de inmediato → el clip saltaba a su `left` controlado por React, que seguía
+siendo el VIEJO porque `clips` solo se actualizaba al terminar el round-trip
+`move_clip → snapshot → refreshClips`. Medido: el clip se quedaba ~**456 ms** en su posición vieja
+tras soltar antes de saltar a la nueva. Con audio/stream activos y 1358 clips, ese "salta atrás y
+medio segundo después aparece adelante" es justo lo que el usuario lee como "no se queda donde lo
+dejas". La persistencia siempre fue correcta; el problema era puramente de feedback visual.
+
+### Fix aplicado (frontend; ningún cambio de backend)
+
+1. **Update optimista** (`commitMoves`/`applyMovesOptimistic` en Timeline.tsx): al soltar se
+   parchea el clip en el store (start/end/track/layer) ANTES del round-trip → el render coincide
+   con la posición soltada. `refreshClips` reconcilia luego con la verdad del backend.
+2. **Pin imperativo** (`pinClipEl`): además, se fija el elemento (left/top/width, limpiando el
+   transform) en el acto, reutilizando `msToX`/`LANE_H` igual que el render, para que el clip se
+   quede SIN esperar al re-render de ~1.3k clips (que en dev tardaba ~200 ms). Resultado medido en
+   :8000: el clip está en su sitio en t=0 ms (antes 456 ms). En cambio de fila se fija la X al
+   instante y la fila la recoloca el re-render.
+3. **Guardia `draggingRef`**: salta el rebuild de `moveTargets` y el `updateRect` mientras hay un
+   gesto activo, para que un `refreshClips` (rev del stream) no aborte el drag a mitad.
+4. **Token monótono en `refreshClips`** (store.ts): descarta respuestas `list_clips` desordenadas
+   para que una vieja no pise la posición recién movida.
+
+### Verificación (todo en vivo sobre :8000, build de producción)
+- Drag horizontal: instantáneo, se queda. Cambio de layer: instantáneo. Cambio de bar: X al
+  instante, fila recolocada. Resize (ambos bordes): se queda. Multi-selección por rubber-band +
+  drag de grupo: todos se mueven juntos y se quedan. Draw: pintar sobre un clip NO crea clip en la
+  lane (count estable). Cut: divide. Sin errores de consola.
+- `npx tsc --noEmit` limpio · `npm run build` OK · `pytest tests/` → **432 verde**.
+
+**Criterio de aceptación cumplido**: arrastrar un clip y soltarlo lo deja exactamente donde se
+suelta, fluido con 1358 clips, sin errores; handles pegados tras mover/redimensionar.

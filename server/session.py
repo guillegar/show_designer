@@ -194,6 +194,8 @@ class ShowSession:
         # y notifica el cambio al stream para que el navegador refresque.
         self._qt_call_impl = self._headless_qt_call
         self._qt_call_dual_impl = self._headless_qt_call_dual
+        # F0.0: _cached_actx es SOLO el fallback para proyectos sin análisis.
+        # El render usa el contexto REAL de AnalysisService (ver _get_audio_context).
         self._cached_actx = {
             'rms': 0.5, 'energy': 0.5, 'flux': 0.3, 'centroid': 4000, 'zcr': 0.2,
             'mfcc': np.zeros(13, dtype=np.float32),
@@ -202,6 +204,10 @@ class ShowSession:
             'contrast': np.full(7, 30, dtype=np.float32),
             'mel_bands': np.full(8, -25, dtype=np.float32),
         }
+        # F0.1: pipeline de parámetros — punto de extensión único (ROADMAP v2).
+        # Orden canónico: modulación (A1) → automatización (A2) → micro-eventos
+        # (A4) → macros (C2). Vacío = comportamiento idéntico al anterior.
+        self.param_stages: list = []
 
     # ── Sync del layout del visor 3D desde el FixtureRig ─────────────────────
     def sync_rig_layout(self):
@@ -429,12 +435,33 @@ class ShowSession:
                 return p.base_effect_id, p.params
         return clip.effect_id, clip.params
 
+    def _get_audio_context(self, t_s: float) -> dict:
+        """Audio context REAL en t (F0.0, ROADMAP v2).
+
+        Delegado en AnalysisService.get_audio_context: tras la Fase 5 de la
+        auditoría cuesta UN searchsorted + lerp vectorizado por frame — barato.
+        Fallback al contexto estático SOLO si el proyecto no tiene timeseries
+        (sin esto, la modulación de A1 vería señales congeladas y las luces
+        no reaccionarían a la música — ver ANALYSIS/ROADMAP F0.0).
+        """
+        svc = self.analysis
+        try:
+            if svc is not None and getattr(svc, 'has_timeseries', False):
+                return svc.get_audio_context(t_s)
+        except Exception as e:
+            import logging
+            from src.log import get_logger, log_throttled
+            log_throttled(get_logger(__name__), logging.WARNING,
+                          'session.actx', f"get_audio_context({t_s:.2f}) error: {e}")
+        return self._cached_actx
+
     # ── compute_frame: port Qt-free de TimelineEditorWindow._compute_frame ───
     def compute_frame(self, t_s: float) -> np.ndarray:
         """Renderiza los clips activos en t a un array (NUM_BARS, LEDS, 3) uint8."""
+        from src.core.param_pipeline import resolve_params
         frame = np.zeros((NUM_BARS, LEDS, 3), dtype=np.uint8)
         t_ms = int(t_s * 1000)
-        actx = self._cached_actx
+        actx = self._get_audio_context(t_s)
 
         # Robusto frente a la invalidación del bridge (_dirty_timeline hace
         # `del app._clip_bucket_index` / `_clip_bucket_index_n`).
@@ -454,6 +481,9 @@ class ShowSession:
             eff = self.library.get_effect(effect_id)
             if not eff:
                 continue
+            # F0.1: params efectivos vía pipeline (fast path sin stages = mismo dict)
+            params = resolve_params(clip, t_ms, actx, self.param_stages,
+                                    base_params=params)
             try:
                 r = eff.render(elapsed_time=t_ms - clip.start_ms, bars_state=frame,
                                audio_context=actx, **params)
@@ -479,3 +509,4 @@ class ShowSession:
             except Exception:
                 pass
         return frame
+# (F0 aplicada — ROADMAP v2)

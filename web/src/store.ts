@@ -6,6 +6,9 @@ import { create } from "zustand";
 import { control } from "./api/control";
 import { stream, TransportState } from "./api/stream";
 
+// Contador de peticiones de list_clips para descartar respuestas desordenadas.
+let _clipsReqToken = 0;
+
 export type Clip = {
   id: string; track: number; start_ms: number; end_ms: number;
   effect_id: number; scope: string; color: string; layer: number;
@@ -151,8 +154,13 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   refreshClips: async () => {
+    // Token monótono: si llegan varias respuestas de list_clips desordenadas
+    // (p.ej. una disparada por `rev` del stream mientras se comitea un move),
+    // solo aplica la última pedida. Evita que una respuesta vieja pise una
+    // posición recién movida.
+    const token = ++_clipsReqToken;
     const r = await control.call("list_clips").catch(() => null);
-    if (r) set({ clips: r.clips ?? [] });
+    if (r && token === _clipsReqToken) set({ clips: r.clips ?? [] });
   },
   refreshFixtures: async () => {
     const r = await control.call("list_fixtures").catch(() => null);

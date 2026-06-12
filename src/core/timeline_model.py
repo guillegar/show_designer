@@ -181,12 +181,30 @@ class CuePoint:
 
 
 class Timeline:
-    """Conjunto de clips + persistencia."""
+    """Conjunto de clips + persistencia.
+
+    Schema v3 (ROADMAP v2, F0.2): añade contenedores para las fases del
+    secuenciador. Nacen VACÍOS y cada fase los rellena:
+      automation          → lanes de automatización (A2)
+      patterns            → patterns reutilizables (A3)
+      pattern_instances   → instancias de patterns en el timeline (A3)
+      mixer               → estado de master + cadenas por pista (B2)
+
+    Regla de versionado: añadir un CAMPO a una entidad existente con default
+    tolerante en from_dict NO sube la versión; solo cambios ESTRUCTURALES
+    (contenedores nuevos, renombres) la suben.
+    """
+
+    SCHEMA_VERSION = 3
 
     def __init__(self, clips: Optional[List[Clip]] = None,
                  duration_ms: int = 165_000,
                  groups: Optional[List[BarGroup]] = None,
-                 cue_points: Optional[List[CuePoint]] = None):
+                 cue_points: Optional[List[CuePoint]] = None,
+                 automation: Optional[List[Dict]] = None,
+                 patterns: Optional[List[Dict]] = None,
+                 pattern_instances: Optional[List[Dict]] = None,
+                 mixer: Optional[Dict] = None):
         self.clips: List[Clip] = clips or []
         self.duration_ms = duration_ms
         self.groups: List[BarGroup] = groups or []
@@ -194,6 +212,12 @@ class Timeline:
         self.cue_points: List[CuePoint] = cue_points or [
             CuePoint(slot=i) for i in range(1, 10)
         ]
+        # v3: contenedores del secuenciador (dicts crudos hasta que su fase
+        # los modele — A2/A3/B2 los convertirán en dataclasses propias).
+        self.automation: List[Dict] = automation or []
+        self.patterns: List[Dict] = patterns or []
+        self.pattern_instances: List[Dict] = pattern_instances or []
+        self.mixer: Dict = mixer or {}
 
     def add(self, clip: Clip):
         self.clips.append(clip)
@@ -211,11 +235,15 @@ class Timeline:
 
     def save(self, path=TIMELINE_FILE):
         data = {
-            'version': 2,  # v2: incluye cue_points
+            'version': self.SCHEMA_VERSION,  # v3: contenedores del secuenciador
             'duration_ms': self.duration_ms,
             'clips': [c.to_dict() for c in self.clips],
             'groups': [g.to_dict() for g in self.groups],
             'cue_points': [c.to_dict() for c in self.cue_points],
+            'automation': list(self.automation),
+            'patterns': list(self.patterns),
+            'pattern_instances': list(self.pattern_instances),
+            'mixer': dict(self.mixer),
         }
         # Guardado atómico (ANALYSIS hallazgo 18): escribir a .tmp y os.replace,
         # para que un crash a mitad de json.dump no corrompa el archivo real.
@@ -227,6 +255,12 @@ class Timeline:
 
     @classmethod
     def load(cls, path=TIMELINE_FILE) -> 'Timeline':
+        """Carga un show.json de CUALQUIER versión (v1/v2/v3).
+
+        Migración tolerante (F0.2): los campos que falten reciben su default
+        vacío — cargar un show viejo NUNCA falla ni pierde datos. Al guardar,
+        sale como v3.
+        """
         p = Path(path)
         if not p.is_file():
             return cls()
@@ -236,7 +270,11 @@ class Timeline:
         groups = [BarGroup.from_dict(d) for d in data.get('groups', [])]
         cues_raw = data.get('cue_points', [])
         cues = [CuePoint.from_dict(d) for d in cues_raw] if cues_raw else None
-        return cls(clips, int(data.get('duration_ms', 165_000)), groups, cues)
+        return cls(clips, int(data.get('duration_ms', 165_000)), groups, cues,
+                   automation=list(data.get('automation', [])),
+                   patterns=list(data.get('patterns', [])),
+                   pattern_instances=list(data.get('pattern_instances', [])),
+                   mixer=dict(data.get('mixer', {})))
 
 
 def make_default_groups() -> List[BarGroup]:

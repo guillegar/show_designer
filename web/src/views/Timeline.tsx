@@ -313,10 +313,21 @@ export function TimelineView() {
   // ── Interacción de clips: Moveable (mover/redimensionar) + Selecto (multi-sel) ──
   const moveableRef = useRef<any>(null);
   const selectoRef = useRef<any>(null);
+  const draggingRef = useRef(false); // un gesto Moveable activo (mover/resize/grupo)
   const rowRefs = useRef<Map<string, HTMLElement>>(new Map());
   const [moveTargets, setMoveTargets] = useState<(HTMLElement | SVGElement)[]>([]);
-  const [dropBar, setDropBar] = useState<number | null>(null);
-  const dropPosRef = useRef<{ bar: number; layer: number } | null>(null); // destino bajo el cursor
+  // Celdas (bar+layer) destino resaltadas bajo el cursor durante el arrastre. Es una
+  // lista para soportar el drag de GRUPO (cada clip aterriza en su propia celda).
+  const [dropCells, setDropCells] = useState<{ bar: number; layer: number }[]>([]);
+  const dropCellsKeyRef = useRef(""); // evita re-render si el conjunto de celdas no cambia
+  const dropPosRef = useRef<{ bar: number; layer: number } | null>(null); // destino bajo el cursor (1 clip)
+  // Aplica dropCells solo si el conjunto cambió (en cada mousemove llegaría un array
+  // nuevo → re-render de ~1.3k clips; el guard lo evita salvo al cruzar bar/layer).
+  const setDropCellsIfChanged = (cells: { bar: number; layer: number }[]) => {
+    const key = [...new Set(cells.map((c) => `${c.bar}:${c.layer}`))].sort().join(",");
+    if (key !== dropCellsKeyRef.current) { dropCellsKeyRef.current = key; setDropCells(cells); }
+  };
+  const clearDropCells = () => { if (dropCellsKeyRef.current !== "") { dropCellsKeyRef.current = ""; setDropCells([]); } };
   const [clipboardClips, setClipboardClips] = useState<Clip[]>([]); // portapapeles multi-clip
 
   // Líneas-guía de snap (rejilla BPM) como posiciones X en píxeles para Moveable.
@@ -351,19 +362,59 @@ export function TimelineView() {
     return id != null ? clips.find((c) => c.id === id) : undefined;
   };
 
+  // Fija un clip imperativamente en su geometría final (igual que el render: left/top/
+  // width) y limpia el transform del drag. Así el clip se queda donde se suelta en el
+  // acto, sin esperar al re-render del store (con ~1.3k clips tarda ~70 ms). El update
+  // optimista hace que el render posterior coincida → sin salto. `layer=null` cuando el
+  // clip cambia de fila (el re-render lo moverá al nuevo lane).
+  const pinClipEl = (el: HTMLElement, startMs: number, endMs: number | null, layer: number | null) => {
+    el.style.left = `${msToX(startMs, zoom)}px`;
+    if (endMs != null) el.style.width = `${msToX(endMs - startMs, zoom) - 2}px`;
+    if (layer != null) el.style.top = `${7 + layer * LANE_H}px`;
+    el.style.transform = "";
+    el.style.zIndex = "";
+  };
+
+  // Aplica el movimiento al store ANTES del round-trip para que el clip se quede
+  // donde se suelta en el MISMO frame (sin el flash de ~0.5s en que volvía a su sitio
+  // viejo mientras esperaba move_clip→snapshot→refreshClips). Luego persiste en segundo
+  // plano y reconcilia con la verdad del backend (refreshClips ignora respuestas viejas).
+  const applyMovesOptimistic = (calls: Array<Record<string, any>>) => {
+    const byId = new Map(calls.map((p) => [p.clip_id, p]));
+    useStore.setState((s) => ({
+      clips: s.clips.map((c) => {
+        const p = byId.get(c.id);
+        if (!p) return c;
+        const nc: Clip = { ...c };
+        if (p.new_start_ms != null) {
+          const dur = c.end_ms - c.start_ms;
+          nc.start_ms = Math.max(0, Math.round(p.new_start_ms));
+          if (p.new_end_ms == null) nc.end_ms = nc.start_ms + dur;
+        }
+        if (p.new_end_ms != null) nc.end_ms = Math.max(nc.start_ms + 50, Math.round(p.new_end_ms));
+        if (p.new_track != null) nc.track = p.new_track;
+        if (p.new_layer != null) nc.layer = Math.max(0, p.new_layer);
+        return nc;
+      }),
+    }));
+  };
+
   const commitMoves = async (calls: Array<Record<string, any>>) => {
     if (!calls.length) { moveableRef.current?.updateRect(); return; }
+    applyMovesOptimistic(calls); // el clip se queda YA en su sitio
     try {
       for (const params of calls) await control.call("move_clip", params);
-      await refreshClips();
       try { await control.call("snapshot"); } catch {}
+      await refreshClips(); // reconcilia con el backend (clamps/redondeos)
     } catch (err) {
       console.error("[Timeline] move_clip failed:", err);
+      await refreshClips(); // ante fallo, vuelve a la verdad del servidor
     }
   };
 
   // Mantener los targets de Moveable sincronizados con la selección (sin locked).
   useEffect(() => {
+    if (draggingRef.current) return; // no reconstruir targets a mitad de un gesto
     if (!lanesRef.current) { setMoveTargets([]); return; }
     const ids = selectedClipIds.size > 0
       ? [...selectedClipIds]
@@ -376,7 +427,10 @@ export function TimelineView() {
   }, [selectedClipId, selectedClipIds, clips, zoom, lanes.length, tool]);
 
   // Reposicionar los controles de Moveable tras cambios de layout.
-  useEffect(() => { moveableRef.current?.updateRect(); }, [zoom, clips, moveTargets]);
+  useEffect(() => {
+    if (draggingRef.current) return; // durante el gesto, Moveable ya se posiciona solo
+    moveableRef.current?.updateRect();
+  }, [zoom, clips, moveTargets]);
 
   // ── Handlers Moveable: mover (1 clip) ──────────────────────────────────────
   const onClipDrag = (e: any) => {
@@ -388,24 +442,25 @@ export function TimelineView() {
     if (clientY != null) {
       const pos = barLayerAtClientY(clientY);
       dropPosRef.current = pos;
-      setDropBar(pos ? pos.bar : null);
+      setDropCellsIfChanged(pos ? [pos] : []);
     }
   };
   const onClipDragEnd = (e: any) => {
+    draggingRef.current = false;
     const dest = dropPosRef.current;
     dropPosRef.current = null;
-    setDropBar(null);
-    e.target.style.transform = ""; // React reposiciona vía `left` tras el commit
-    e.target.style.zIndex = "";
+    clearDropCells();
     const c = clipFromEl(e.target);
-    if (!c || !e.lastEvent) { moveableRef.current?.updateRect(); return; }
+    if (!c || !e.lastEvent) { e.target.style.transform = ""; e.target.style.zIndex = ""; moveableRef.current?.updateRect(); return; }
     const dx = e.lastEvent.translate[0];
     const newStart = Math.max(0, Math.round(c.start_ms + xToMs(dx, zoom)));
     const params: any = { clip_id: c.id, new_start_ms: newStart };
-    if (c.track >= 0 && dest) {
-      if (dest.bar !== c.track) params.new_track = dest.bar;
-      if (dest.layer !== c.layer) params.new_layer = dest.layer;
-    }
+    const newTrack = c.track >= 0 && dest && dest.bar !== c.track ? dest.bar : c.track;
+    const newLayer = c.track >= 0 && dest && dest.layer !== c.layer ? dest.layer : c.layer;
+    if (newTrack !== c.track) params.new_track = newTrack;
+    if (newLayer !== c.layer) params.new_layer = newLayer;
+    // Pin inmediato; si cambia de fila, layer=null (el re-render lo recoloca).
+    pinClipEl(e.target, newStart, null, newTrack === c.track ? newLayer : null);
     commitMoves([params]);
   };
 
@@ -415,10 +470,9 @@ export function TimelineView() {
     e.target.style.transform = e.drag.transform;
   };
   const onClipResizeEnd = (e: any) => {
-    e.target.style.transform = "";
-    e.target.style.width = "";
+    draggingRef.current = false;
     const c = clipFromEl(e.target);
-    if (!c || !e.lastEvent) { moveableRef.current?.updateRect(); return; }
+    if (!c || !e.lastEvent) { e.target.style.transform = ""; e.target.style.width = ""; e.target.style.zIndex = ""; moveableRef.current?.updateRect(); return; }
     const { width, drag, direction } = e.lastEvent;
     let newStart = c.start_ms;
     let newEnd = c.end_ms;
@@ -428,6 +482,7 @@ export function TimelineView() {
     } else { // borde derecho: cambia fin
       newEnd = Math.max(c.start_ms + 50, Math.round(c.start_ms + xToMs(width, zoom)));
     }
+    pinClipEl(e.target, newStart, newEnd, c.layer);
     commitMoves([{ clip_id: c.id, new_start_ms: newStart, new_end_ms: newEnd }]);
   };
 
@@ -435,26 +490,35 @@ export function TimelineView() {
   // Sigue al cursor en XY; cada clip resuelve su bar+layer destino por su propia
   // posición (hit-test del centro), preservando la disposición relativa del grupo.
   const onClipDragGroup = (e: any) => {
+    const cells: { bar: number; layer: number }[] = [];
     e.events.forEach((ev: any) => {
       ev.target.style.transform = `translate(${ev.translate[0]}px, ${ev.translate[1]}px)`;
       ev.target.style.zIndex = "20";
+      // celda destino de cada clip (hit-test de su centro ya desplazado)
+      const r = ev.target.getBoundingClientRect();
+      const pos = barLayerAtClientY(r.top + r.height / 2);
+      if (pos) cells.push(pos);
     });
+    setDropCellsIfChanged(cells);
   };
   const onClipDragGroupEnd = (e: any) => {
+    draggingRef.current = false;
+    clearDropCells();
     const calls: any[] = [];
     e.events.forEach((ev: any) => {
+      // hit-test ANTES de limpiar el transform (la rect aún lleva el offset del drag)
       const rect = ev.target.getBoundingClientRect();
       const centerY = rect.top + rect.height / 2;
       const dest = barLayerAtClientY(centerY);
-      ev.target.style.transform = "";
-      ev.target.style.zIndex = "";
       const c = clipFromEl(ev.target);
-      if (!c || !ev.lastEvent) return;
-      const params: any = { clip_id: c.id, new_start_ms: Math.max(0, Math.round(c.start_ms + xToMs(ev.lastEvent.translate[0], zoom))) };
-      if (c.track >= 0 && dest) {
-        if (dest.bar !== c.track) params.new_track = dest.bar;
-        if (dest.layer !== c.layer) params.new_layer = dest.layer;
-      }
+      if (!c || !ev.lastEvent) { ev.target.style.transform = ""; ev.target.style.zIndex = ""; return; }
+      const newStart = Math.max(0, Math.round(c.start_ms + xToMs(ev.lastEvent.translate[0], zoom)));
+      const params: any = { clip_id: c.id, new_start_ms: newStart };
+      const newTrack = c.track >= 0 && dest && dest.bar !== c.track ? dest.bar : c.track;
+      const newLayer = c.track >= 0 && dest && dest.layer !== c.layer ? dest.layer : c.layer;
+      if (newTrack !== c.track) params.new_track = newTrack;
+      if (newLayer !== c.layer) params.new_layer = newLayer;
+      pinClipEl(ev.target, newStart, null, newTrack === c.track ? newLayer : null);
       calls.push(params);
     });
     commitMoves(calls);
@@ -840,7 +904,11 @@ export function TimelineView() {
               {lanes.map((lane) => {
                 const h = lane.kind === "bar" ? rowHeight(lane.bar) : laneHeight(lane);
                 const dim = lane.kind === "bar" && muted[lane.bar];
-                const isDrop = lane.kind === "bar" && dropBar === lane.bar;
+                // capas destino resaltadas en este track (1 en drag simple, varias en grupo)
+                const dropLayersHere = lane.kind === "bar"
+                  ? [...new Set(dropCells.filter((c) => c.bar === lane.bar).map((c) => c.layer))]
+                  : [];
+                const isDrop = dropLayersHere.length > 0;
                 return (
                   <div key={lane.key}
                     ref={(el) => { if (el) rowRefs.current.set(lane.key, el); else rowRefs.current.delete(lane.key); }}
@@ -848,6 +916,9 @@ export function TimelineView() {
                     style={{ height: h, opacity: dim ? 0.4 : 1 }}
                     onMouseDown={(e) => onLaneMouseDown(e, lane)}
                     onContextMenu={(e) => openLaneMenu(e, lane)}>
+                    {dropLayersHere.map((ly) => (
+                      <div key={"dl" + ly} className="drop-layer" style={{ top: 7 + ly * LANE_H, height: LANE_H - 4 }} />
+                    ))}
                     {clipsForLane(lane).map((c) => {
                       const col = c.color || famColor(famName(c.effect_id));
                       return (
@@ -941,10 +1012,13 @@ export function TimelineView() {
                   verticalGuidelines={verticalGuidelines}
                   snapThreshold={6}
                   throttleDrag={0}
+                  onDragStart={() => { draggingRef.current = true; }}
                   onDrag={onClipDrag}
                   onDragEnd={onClipDragEnd}
+                  onDragGroupStart={() => { draggingRef.current = true; }}
                   onDragGroup={onClipDragGroup}
                   onDragGroupEnd={onClipDragGroupEnd}
+                  onResizeStart={() => { draggingRef.current = true; }}
                   onResize={onClipResize}
                   onResizeEnd={onClipResizeEnd}
                 />

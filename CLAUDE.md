@@ -15,6 +15,19 @@ Estado a **2026-06-11** · **v1.10 (web)**: backend headless + frontend React, 4
 
 ## 0. TL;DR
 
+- 🗺️ **ROADMAP v2 ACTIVO (2026-06-12): `ROADMAP.md`** — plan "El Secuenciador" (nivel FL
+  Studio): 15 fases en 4 bloques (Composición/Show/Directo/Impro), ~44 días. Reglas: un
+  commit por fase (`roadmap-v2 fase <ID>: ...`), doc actualizada en el mismo commit, core
+  sin imports de red/UI, handlers JSON-RPC existentes no cambian de firma, invariantes
+  I1-I5 (§0.5 del ROADMAP), checklist de cierre al final del ROADMAP.
+  - ✅ **F0 APLICADA (2026-06-12, PENDIENTE DE COMMIT)**: actx real en la web (el render ya
+    NO usa `_cached_actx` salvo fallback), `src/core/param_pipeline.py` (stages, fast path),
+    schema v3 con migración, `docs/dev/handlers.md`, ADRs 001-003, bench I5
+    (`pytest -m bench`), vitest (falta `cd web && npm install` UNA vez). 388 verdes en CI
+    Linux. **Siguiente fase: A1 (modulación) con Sonnet** según la asignación de modelos.
+  - Pasos pendientes del usuario: `cd web && npm install` (vitest), `pytest tests/` completo
+    en Windows, y el commit: `roadmap-v2 fase F0: actx real + param pipeline + schema v3 + bench`.
+
 - **Entry point (v1.10, web):** `python -m server.main` → http://localhost:8000. Dev frontend:
   `cd web && npm run dev` (Vite :5173 proxea WS a :8000). Rebuild: `cd web && npm run build`.
 - **UI Qt RETIRADA** (Fase 8, 2026-06-12): se borró del repo toda la UI PyQt5 (`src/ui/`,
@@ -79,6 +92,16 @@ Estado a **2026-06-11** · **v1.10 (web)**: backend headless + frontend React, 4
 - ✅ **AUDITORÍA `ANALYSIS.md` COMPLETA**: 8 fases aplicadas (1→8), un commit por fase sobre
   `timeline-fixes-2`. Único trabajo incremental que queda: barrido masivo `print`→logger (Fase 6,
   hecho en paths de red). Progreso en el memory `analysis_audit_progress.md`.
+- ✅ **Fase 9 (bug UX, 2026-06-12) APLICADA: "el clip no se queda al soltarlo".** Síntoma real
+  (aclarado por el usuario): el drag SÍ funciona, pero al soltar el clip volvía a su sitio. La
+  hipótesis estática del "doble gesto" (stopPropagation) era FALSA — reproducido en vivo, la
+  delegación Selecto→Moveable y `move_clip` siempre funcionaron. Causa raíz: **NO había update
+  optimista** → al soltar se limpiaba el `transform` y el clip se quedaba en su `left` viejo
+  ~456 ms hasta que terminaba el round-trip `move_clip→snapshot→refreshClips`. Fix (frontend):
+  update optimista del store + **pin imperativo** (`pinClipEl`, reusa `msToX`) que fija el clip al
+  instante sin esperar el re-render de ~1.3k clips + guardia `draggingRef` (no reconstruir targets
+  a mitad de gesto) + token monótono en `refreshClips`. Verificado en vivo (:8000): drop instantáneo
+  en X; `tsc` limpio, build OK, **432 verde**. Detalle en `ANALYSIS.md` → hallazgo 27.
 
 ---
 
@@ -127,6 +150,12 @@ Claves:
   (`xToMs/msToX/buildLaneLayout/yToLane`, hit-test de filas con altura variable).
 - Arrastre vertical: el clip sigue al cursor; en `onDrag` se hit-testea bar+layer con rects medidos;
   al soltar commitea `new_track`/`new_layer` vía `move_clip` (`_h_move_clip` soporta ambos + start/end).
+- **Drop OPTIMISTA (Fase 9, NO romper):** al soltar, `commitMoves` parchea el store (`applyMovesOptimistic`)
+  y `pinClipEl` fija el clip imperativamente (left/top/width, reusando `msToX`) ANTES del round-trip,
+  para que se quede donde se suelta sin esperar a `move_clip→snapshot→refreshClips` ni al re-render de
+  ~1.3k clips. `refreshClips` reconcilia después (con token monótono para descartar respuestas viejas).
+  `draggingRef` evita reconstruir `moveTargets`/`updateRect` a mitad de gesto. Si tocas el commit, NO
+  vuelvas a depender solo del round-trip o reaparece el "no se queda al soltar".
 - Pintar (modo draw): efecto base → `set_clip_effect`; preset → `set_clip_preset` (web-only en
   `dispatcher.py`). Atajos: `V/D/C` (select/draw/cut), `Q` (snap), `Ctrl+0` (reset zoom), `[`/`]`
   (±50ms), `Ctrl+C/V`, `Ctrl+A`/`Ctrl+Shift+A`, `?` (ayuda). Aux: `ClipInspector`, `Toast`, `HelpOverlay`.
