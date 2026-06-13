@@ -588,7 +588,7 @@ Handler `set_output_target(fixture_id, protocol, ip, port, ...)` (ya existe como
 
 ---
 
-## G2 — Ableton Link / MIDI Clock sync de tempo (~2 días, Sonnet)
+## ✅ G2 — Ableton Link / MIDI Clock sync de tempo (~2 días, Sonnet) — APLICADA 2026-06-13
 
 **Qué**: sincronizar el BPM de Show Designer con el DJ (Ableton, Traktor, Serato, rekordbox)
 via Ableton Link (LAN) o MIDI Clock (cable/USB). El Auto-VJ (D1) se vuelve milimétrico

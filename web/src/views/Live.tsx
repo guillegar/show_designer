@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { control } from "../api/control";
 import { stream, LEDS } from "../api/stream";
-import type { AutosaveAvailableEvent, ExportProgressEvent } from "../api/stream";
+import type { AutosaveAvailableEvent, ExportProgressEvent, TempoSyncState } from "../api/stream";
 import { useStore } from "../store";
 import { Ico, fmtTime } from "../icons";
 import type { TrackChain, MixerState, LiveSlot, LiveState, MacrosState, CueEntry } from "../api/types";
@@ -1077,6 +1077,92 @@ function CuesPanel() {
   );
 }
 
+// ── G2: Panel de sincronización de tempo ────────────────────────────────────
+
+function SyncPanel() {
+  const [syncState, setSyncState] = useState<TempoSyncState>({
+    mode: "off", bpm: 0, beat_phase: 0, midi_device: null, synced: false,
+  });
+  const [midiPorts, setMidiPorts] = useState<string[]>([]);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    control.call("tempo_sync_get_state", {}).then((r: any) => {
+      if (r && r.mode) setSyncState(r);
+    }).catch(() => {});
+    control.call("tempo_sync_list_midi_ports", {}).then((r: any) => {
+      if (r?.ports) setMidiPorts(r.ports);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    return stream.onState((s) => {
+      if (s.tempo_sync) setSyncState(s.tempo_sync);
+    });
+  }, []);
+
+  const setMode = (mode: string, device?: string) => {
+    control.call("tempo_sync_set_mode", { mode, device }).then((r: any) => {
+      if (r?.state) setSyncState(r.state);
+    }).catch(() => {});
+  };
+
+  const statusColor = syncState.synced ? "#4caf50" : syncState.mode !== "off" ? "#ff9800" : "var(--txt-4)";
+  const statusLabel = syncState.synced ? "Sincronizado" : syncState.mode !== "off" ? "Buscando…" : "Off";
+
+  return (
+    <div className="panel-section">
+      <div className="panel-head" onClick={() => setCollapsed((c) => !c)} style={{ cursor: "pointer" }}>
+        <h3>Sync Tempo</h3>
+        <span className="ph-spacer" />
+        {syncState.bpm > 0 && (
+          <span className="chip mono" style={{ fontSize: 13, fontWeight: 700 }}>
+            {syncState.bpm.toFixed(1)} BPM
+          </span>
+        )}
+        <span className="chip" style={{ background: statusColor, color: "#fff", marginLeft: 4 }}>
+          {statusLabel}
+        </span>
+        <span style={{ marginLeft: 6, fontSize: 11, color: "var(--txt-4)" }}>{collapsed ? "▸" : "▾"}</span>
+      </div>
+      {!collapsed && (
+        <div style={{ padding: "6px 10px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            {(["off", "link", "midi_clock"] as const).map((m) => (
+              <button
+                key={m}
+                className={`btn${syncState.mode === m ? " active" : " ghost"}`}
+                style={{ flex: 1, fontSize: 11 }}
+                onClick={() => setMode(m, syncState.midi_device ?? undefined)}
+              >
+                {m === "off" ? "Off" : m === "link" ? "Link" : "MIDI Clock"}
+              </button>
+            ))}
+          </div>
+          {syncState.mode === "midi_clock" && (
+            <select
+              value={syncState.midi_device ?? ""}
+              onChange={(e) => setMode("midi_clock", e.target.value || undefined)}
+              style={{ fontSize: 11, background: "var(--bg-2)", color: "var(--txt)", border: "1px solid var(--line-soft)", borderRadius: 4, padding: "3px 6px" }}
+            >
+              <option value="">— primer dispositivo disponible —</option>
+              {midiPorts.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          )}
+          {syncState.mode === "link" && (
+            <p style={{ fontSize: 10, color: "var(--txt-4)", margin: 0 }}>
+              Ableton Link descubre nodos en la misma red LAN automáticamente.
+              Requiere: <code>pip install pylinkbpm</code>
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Vista principal ──────────────────────────────────────────────────────────
 
 export function LiveView() {
@@ -1227,6 +1313,8 @@ export function LiveView() {
         </div>
         {/* E1: Panel de Cues profesional */}
         <CuesPanel />
+        {/* G2: Panel de sincronización de tempo */}
+        <SyncPanel />
         {/* C3: Panel MIDI */}
         <MidiPanel
           handle={midiHandle.current}

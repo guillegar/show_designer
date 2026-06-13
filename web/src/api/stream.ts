@@ -9,6 +9,14 @@
 export const NUM_BARS = 10;
 export const LEDS = 93;
 
+export type TempoSyncState = {
+  mode: "off" | "link" | "midi_clock";
+  bpm: number;
+  beat_phase: number;
+  midi_device: string | null;
+  synced: boolean;
+};
+
 export type TransportState = {
   type: "state";
   t: number;
@@ -22,6 +30,7 @@ export type TransportState = {
   fps: number;
   rev: number;
   clip_count: number;
+  tempo_sync?: TempoSyncState;
 };
 
 export type DmxState = Record<string, Record<string, number>>;

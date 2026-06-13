@@ -255,6 +255,8 @@ html, body {
 .btn.primary:hover { filter: brightness(1.07); }
 .btn.ghost { background: transparent; border-color: transparent; color: var(--txt-2); }
 .btn.ghost:hover { background: var(--bg-2); color: var(--txt); }
+.btn.active { background: var(--acc); color: var(--bg-0); border-color: var(--acc); }
+.btn.active:hover { filter: brightness(1.08); }
 .btn.sm { height: 26px; padding: 0 9px; font-size: 11.5px; }
 
 .seg { display: inline-flex; background: var(--bg-0); border: 1px solid var(--line-soft); border-radius: var(--r); padding: 2px; }

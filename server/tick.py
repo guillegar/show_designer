@@ -112,6 +112,7 @@ class TickLoop:
                     sig = (playing, section, bar, beat, s.loop, s.rec, s._rev)
                     if self._n % 3 == 0 or sig != self._last_state_sig:
                         self._last_state_sig = sig
+                        ts = getattr(s, "tempo_sync", None)
                         await self.hub.broadcast_json({
                             "type": "state",
                             "t": round(t, 3),
@@ -125,6 +126,7 @@ class TickLoop:
                             "fps": round(self._fps_meter, 1),
                             "rev": s._rev,
                             "clip_count": len(s.timeline.clips),
+                            "tempo_sync": ts.get_state() if ts else {"mode": "off", "bpm": 0.0, "synced": False},
                         })
 
                     # E1: cue_changed — emitir solo si hay fade activo y pct cambió >1%

@@ -226,6 +226,10 @@ class ShowSession:
         # E2: OSC bridge (asignado por web.py tras construir la sesión)
         self.osc_bridge = None
 
+        # G2: sync de tempo vía Ableton Link o MIDI Clock
+        from server.tempo_sync import TempoSyncService
+        self.tempo_sync = TempoSyncService()
+
         # E4: estado runtime de herramientas de test de output (no persiste)
         self.blackout_override: bool = False   # blackout duro de pánico (instantáneo)
         self._identify: Dict[str, float] = {}  # fixture_id → t_expires (monotonic)
@@ -721,13 +725,22 @@ class ShowSession:
         svc = self.analysis
         try:
             if svc is not None and getattr(svc, 'has_timeseries', False):
-                return svc.get_audio_context(t_s)
+                actx = svc.get_audio_context(t_s)
+            else:
+                actx = self._cached_actx
         except Exception as e:
-            import logging
-            from src.log import get_logger, log_throttled
-            log_throttled(get_logger(__name__), logging.WARNING,
-                          'session.actx', f"get_audio_context({t_s:.2f}) error: {e}")
-        return self._cached_actx
+            import logging as _logging
+            from src.log import get_logger as _get_logger, log_throttled as _log_throttled
+            _log_throttled(_get_logger(__name__), _logging.WARNING,
+                           'session.actx', f"get_audio_context({t_s:.2f}) error: {e}")
+            actx = self._cached_actx
+
+        # G2: si hay sync de tempo activo, sobreescribir el BPM del contexto
+        ts = getattr(self, 'tempo_sync', None)
+        if ts is not None and ts.bpm > 0.0:
+            actx = dict(actx)  # copia shallow para no mutar el cache
+            actx["bpm"] = ts.bpm
+        return actx
 
     # ── B3: baked frames ─────────────────────────────────────────────────────
 

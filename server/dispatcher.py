@@ -1599,6 +1599,48 @@ def _h_osc_set_config(session, params):
     return {"ok": True, **osc.get_state()}
 
 
+# ── G2 — Sync de tempo (Ableton Link / MIDI Clock) ──────────────────────────
+
+def _h_tempo_sync_get_state(session, params):
+    """tempo_sync_get_state() → {mode, bpm, beat_phase, midi_device, synced}"""
+    ts = getattr(session, "tempo_sync", None)
+    if ts is None:
+        return {"mode": "off", "bpm": 0.0, "beat_phase": 0.0,
+                "midi_device": None, "synced": False}
+    return ts.get_state()
+
+
+def _h_tempo_sync_set_mode(session, params):
+    """tempo_sync_set_mode(mode, device?) — mode ∈ {"off","link","midi_clock"}.
+
+    Activa/desactiva la sincronización de tempo. Si mode="midi_clock", device
+    es el nombre del puerto MIDI (string). Si omitido, mido elige el primero disponible.
+    """
+    mode = require_key(params, "mode")
+    device = params.get("device")
+    ts = getattr(session, "tempo_sync", None)
+    if ts is None:
+        return {"ok": False, "error": "TempoSyncService no disponible"}
+    import asyncio
+    asyncio.create_task(ts.start(mode, device))
+    return {"ok": True, "state": ts.get_state()}
+
+
+def _h_tempo_sync_list_midi_ports(session, params):
+    """tempo_sync_list_midi_ports() → {ok, ports: [str]}
+
+    Lista los puertos MIDI disponibles para MIDI Clock.
+    """
+    try:
+        import mido  # type: ignore
+        ports = mido.get_input_names()
+    except ImportError:
+        ports = []
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    return {"ok": True, "ports": list(ports)}
+
+
 # ── E1 — Sistema de Cues profesional (ROADMAP v3) ────────────────────────────
 
 def _h_add_cue(session, params):
@@ -2079,6 +2121,10 @@ _LOCAL = {
     # E2 — OSC bridge (ROADMAP v3)
     "osc_get_state": _h_osc_get_state,
     "osc_set_config": _h_osc_set_config,
+    # G2 — Sync de tempo (Ableton Link / MIDI Clock)
+    "tempo_sync_get_state": _h_tempo_sync_get_state,
+    "tempo_sync_set_mode": _h_tempo_sync_set_mode,
+    "tempo_sync_list_midi_ports": _h_tempo_sync_list_midi_ports,
     # E1 — Sistema de Cues profesional (ROADMAP v3)
     "add_cue": _h_add_cue,
     "delete_cue": _h_delete_cue,

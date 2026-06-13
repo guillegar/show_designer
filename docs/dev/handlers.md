@@ -463,3 +463,20 @@ activa universos de forma lazy (`activate_output(universe)` solo la primera vez 
 y hace `sender.stop()` en `close()`. Compatible con `OutputRouter.close()` al shutdown del server.
 
 Requisito PyPI: `sacn>=1.6` (ya en `requirements.txt`).
+
+---
+
+## G2 — Ableton Link / MIDI Clock sync de tempo
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `tempo_sync_get_state` | — | `{mode, bpm, beat_phase, midi_device, synced}` |
+| `tempo_sync_set_mode` | `mode: str, device?: str` | `{ok, state}` |
+| `tempo_sync_list_midi_ports` | — | `{ok, ports: [str]}` |
+
+**`tempo_sync_set_mode`**: cambia el modo de sincronización de tempo. `mode` ∈ `"off"` / `"link"` / `"midi_clock"`. Para `"midi_clock"`, `device` es el nombre del puerto MIDI (si se omite, usa el primero disponible).
+
+- El servicio corre en hilo de fondo; las librerías (`pylinkbpm`, `mido`) son imports opcionales con fallback limpio si no están instaladas.
+- Cuando `bpm > 0`, `session._get_audio_context()` sobreescribe el BPM del análisis con el BPM del sync. Esto hace que D1 (Auto-VJ) cuantice en el beat correcto del DJ.
+- Stream: los mensajes `{type:"state"}` incluyen el campo `tempo_sync` con el estado actual.
+- `TempoSyncService` vive en `server/tempo_sync.py`; `_calc_bpm(pulse_times_s)` es una función pura testeable.
