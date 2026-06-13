@@ -1,7 +1,7 @@
 # ROADMAP v2 — "El Secuenciador"
 
 **Objetivo**: llevar Show Designer del nivel "editor de clips" al nivel "FL Studio de la luz".
-**Fecha**: 2026-06-13 · **Estado**: C1 APLICADA (2026-06-13) — siguiente: C2 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
+**Fecha**: 2026-06-13 · **Estado**: C2 APLICADA (2026-06-13) — siguiente: C3 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
 
 > **F0 APLICADA (2026-06-12, pendiente de commit)**: F0.0 actx real en `session.compute_frame`
 > (verificado: 0.004 ms/frame, cero regresión), F0.1 `src/core/param_pipeline.py` cableado
@@ -703,7 +703,7 @@ Mode / Ableton Session, pero de luces.
 clavado al compás siguiente; lo suelto y muere limpio.
 **Commit**: `roadmap-v2 fase C1: performance grid`.
 
-## C2 — Macros en vivo (~2 días)
+## ✅ C2 — Macros en vivo (APLICADA 2026-06-13)
 
 **Qué**: 4-8 knobs globales en pantalla (y MIDI en C3): Brightness, Speed, Hue shift,
 Strobe rate... que actúan AHORA sobre todo lo que suena.

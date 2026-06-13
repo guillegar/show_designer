@@ -10,7 +10,7 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
 Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4 vistas funcionando.
-**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid. **Bloque B COMPLETO. C1 APLICADA.**
+**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo. **Bloque B COMPLETO. C1+C2 APLICADAS.**
 
 ---
 
@@ -62,6 +62,14 @@ Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4
     Frontend: `RenderPanel` en `Live.tsx` con botón Render + barra progreso + toggle Baked + aviso
     invalidación. `onRenderProgress` en `StreamClient`. 11 tests nuevos. 593 verdes.
   - ✅ **B4 APLICADA (2026-06-13)**: autosave + versiones de show. **Bloque B COMPLETO.**
+  - ✅ **C2 APLICADA (2026-06-13)**: macros en vivo. `MacroStage` en `src/core/param_pipeline.py`
+    (4º stage, fast path si brightness_mul==1.0 y speed_mul==1.0). 4 macros: `brightness_mul`
+    (0..2), `speed_mul` (0..4), `hue_shift` (-180..180), `strobe_rate` (0..30 Hz). Estado live
+    en `session.macros` (no persiste en show.json). `hue_shift` sumado al master antes de
+    `apply_master` (sin mutar el dict del timeline). Strobe al final de `compute_frame` (ambas
+    rutas: live y baked). Handler `set_macro` con validación de nombre y rango.
+    `MacroStrip` en `Live.tsx`: 4 sliders con throttle, doble clic = reset, botón Reset all.
+    9 tests nuevos. **628 verdes. Siguiente: C3.**
   - ✅ **C1 APLICADA (2026-06-13)**: performance grid (lanzar patterns en vivo). `server/live_engine.py`:
     `LiveSlot` (config: pattern_uid, key, quantize, mode) × 16 slots + `LiveEngine` (runtime: `_active`,
     `_armed` dicts, `compute_live_frame`). Cuantización bar/beat/free con degradación automática a free

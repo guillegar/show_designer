@@ -40,6 +40,39 @@ class ParamStage(Protocol):
         ...
 
 
+class MacroStage:
+    """Stage C2: aplica multiplicadores globales de macros a los params del clip.
+
+    Recibe una referencia viva al dict session.macros (no copia) — siempre ve
+    el valor actual. Sólo actúa sobre brightness_mul y speed_mul; hue_shift y
+    strobe_rate los gestiona session.compute_frame directamente sobre el frame.
+
+    Fast path (invariante I5): si brightness_mul==1.0 y speed_mul==1.0, devuelve
+    params sin copiar (cero allocs a 30 FPS × N clips).
+    """
+
+    def __init__(self, macros: Dict[str, Any]) -> None:
+        self._macros = macros  # referencia viva a session.macros
+
+    def apply(self, params: Dict[str, Any], clip: Any, t_ms: int,
+              audio_context: Dict[str, Any]) -> Dict[str, Any]:
+        bm = self._macros.get("brightness_mul", 1.0)
+        sm = self._macros.get("speed_mul", 1.0)
+        # fast path: ambos defaults → sin copia (invariante I5)
+        if bm == 1.0 and sm == 1.0:
+            return params
+        out: Dict[str, Any] | None = None
+        if bm != 1.0 and "brightness" in params:
+            if out is None:
+                out = dict(params)
+            out["brightness"] = max(0.0, min(1.0, float(out["brightness"]) * bm))
+        if sm != 1.0 and "speed" in params:
+            if out is None:
+                out = dict(params)
+            out["speed"] = max(0.0, min(8.0, float(out["speed"]) * sm))
+        return out if out is not None else params
+
+
 def resolve_params(clip: Any, t_ms: int, audio_context: Dict[str, Any],
                    stages: List[ParamStage],
                    base_params: Dict[str, Any] | None = None) -> Dict[str, Any]:

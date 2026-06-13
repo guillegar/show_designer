@@ -1290,6 +1290,36 @@ def _h_get_live_state(session, params):
     return {"ok": True, **state}
 
 
+# C2 — Macros en vivo
+_MACRO_RANGES: dict = {
+    "brightness_mul": (0.0, 2.0),
+    "speed_mul":      (0.0, 4.0),
+    "hue_shift":      (-180.0, 180.0),
+    "strobe_rate":    (0.0, 30.0),
+}
+
+
+def _h_set_macro(session, params):
+    """set_macro(name, value) → {ok, macros}.
+
+    Modifica una macro en vivo (estado de sesión, no del show.json).
+    Throttle recomendado en el cliente: ≤ 20 llamadas/s.
+    """
+    name = params.get("name")
+    if name not in _MACRO_RANGES:
+        return {"ok": False, "error": f"Macro desconocida: {name!r}. "
+                f"Válidas: {list(_MACRO_RANGES)}"}
+    lo, hi = _MACRO_RANGES[name]
+    try:
+        value = float(params["value"])
+    except (KeyError, TypeError, ValueError):
+        return {"ok": False, "error": "value requerido (float)"}
+    if not (lo <= value <= hi):
+        return {"ok": False, "error": f"{name} debe estar en [{lo}, {hi}], recibido {value}"}
+    session.macros[name] = value
+    return {"ok": True, "macros": dict(session.macros)}
+
+
 _LOCAL = {
     "undo": _h_undo,
     "redo": _h_redo,
@@ -1355,6 +1385,8 @@ _LOCAL = {
     "live_release": _h_live_release,
     "live_stop_all": _h_live_stop_all,
     "get_live_state": _h_get_live_state,
+    # C2 — Macros en vivo
+    "set_macro": _h_set_macro,
 }
 
 

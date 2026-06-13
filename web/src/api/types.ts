@@ -86,3 +86,11 @@ export type LiveState = {
   active: string[];         // slot_uids activos
   armed: string[];          // slot_uids armados (pendientes de activar)
 };
+
+/** Macros en vivo (fase C2): estado de sesión, no se persiste en show.json. */
+export type MacrosState = {
+  brightness_mul: number;   // 0..2, default 1.0
+  speed_mul:      number;   // 0..4, default 1.0
+  hue_shift:      number;   // -180..180, default 0
+  strobe_rate:    number;   // 0..30 Hz, default 0
+};

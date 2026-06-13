@@ -4,7 +4,7 @@ import { stream, LEDS } from "../api/stream";
 import type { AutosaveAvailableEvent } from "../api/stream";
 import { useStore } from "../store";
 import { Ico, fmtTime } from "../icons";
-import type { TrackChain, MixerState, LiveSlot, LiveState } from "../api/types";
+import type { TrackChain, MixerState, LiveSlot, LiveState, MacrosState } from "../api/types";
 
 const FEEDBACK_CATS = [
   { key: "intensity_ok", label: "Intensidad OK", pos: true },
@@ -395,6 +395,105 @@ function RenderPanel() {
   );
 }
 
+// ── C2: Macro Strip ──────────────────────────────────────────────────────────
+
+const MACRO_DEFAULTS: MacrosState = {
+  brightness_mul: 1.0,
+  speed_mul: 1.0,
+  hue_shift: 0.0,
+  strobe_rate: 0.0,
+};
+
+type MacroDef = {
+  key: keyof MacrosState;
+  label: string;
+  icon: string;
+  min: number;
+  max: number;
+  step: number;
+  center?: number;  // valor de "centro" visual (default = para doble-click reset)
+};
+
+const MACRO_DEFS: MacroDef[] = [
+  { key: "brightness_mul", label: "Brightness ×", icon: "🔆", min: 0, max: 2, step: 0.01, center: 1.0 },
+  { key: "speed_mul",      label: "Speed ×",       icon: "⚡", min: 0, max: 4, step: 0.02, center: 1.0 },
+  { key: "hue_shift",      label: "Hue Shift",     icon: "🎨", min: -180, max: 180, step: 1, center: 0 },
+  { key: "strobe_rate",    label: "Strobe Hz",      icon: "🔦", min: 0, max: 30, step: 0.5, center: 0 },
+];
+
+function MacroStrip() {
+  const [macros, setMacros] = useState<MacrosState>({ ...MACRO_DEFAULTS });
+  const lastSent = useRef<Record<string, number>>({});
+
+  const sendMacro = useCallback((key: keyof MacrosState, value: number) => {
+    const now = Date.now();
+    if ((now - (lastSent.current[key] ?? 0)) >= SLIDER_THROTTLE_MS) {
+      lastSent.current[key] = now;
+      control.call("set_macro", { name: key, value }).catch(() => {});
+    }
+  }, []);
+
+  const handleChange = (key: keyof MacrosState, value: number) => {
+    setMacros((m) => ({ ...m, [key]: value }));
+    sendMacro(key, value);
+  };
+
+  const handleDoubleClick = (def: MacroDef) => {
+    const dflt = MACRO_DEFAULTS[def.key];
+    setMacros((m) => ({ ...m, [def.key]: dflt }));
+    control.call("set_macro", { name: def.key, value: dflt }).catch(() => {});
+  };
+
+  const fmtVal = (def: MacroDef, v: number) => {
+    if (def.key === "hue_shift") return `${v > 0 ? "+" : ""}${v.toFixed(0)}°`;
+    if (def.key === "strobe_rate") return v === 0 ? "OFF" : `${v.toFixed(1)} Hz`;
+    return `×${v.toFixed(2)}`;
+  };
+
+  return (
+    <div className="macro-strip">
+      <div className="macro-strip-head">
+        <span className="macro-strip-title">Macros en vivo</span>
+        <button
+          className="btn ghost"
+          style={{ fontSize: 10 }}
+          onClick={() => {
+            setMacros({ ...MACRO_DEFAULTS });
+            for (const def of MACRO_DEFS) {
+              control.call("set_macro", { name: def.key, value: MACRO_DEFAULTS[def.key] }).catch(() => {});
+            }
+          }}
+          title="Resetear todas las macros a su valor por defecto"
+        >↺ Reset</button>
+      </div>
+      <div className="macro-strip-body">
+        {MACRO_DEFS.map((def) => {
+          const v = macros[def.key];
+          const isDefault = v === MACRO_DEFAULTS[def.key];
+          return (
+            <div key={def.key} className={"macro-row" + (isDefault ? "" : " active")}>
+              <div className="macro-label-row">
+                <span className="macro-icon">{def.icon}</span>
+                <span className="macro-label">{def.label}</span>
+                <span className="macro-val">{fmtVal(def, v)}</span>
+              </div>
+              <input
+                type="range"
+                min={def.min} max={def.max} step={def.step}
+                value={v}
+                onChange={(e) => handleChange(def.key, parseFloat(e.target.value))}
+                onDoubleClick={() => handleDoubleClick(def)}
+                className="macro-slider"
+                title={`${def.label} · doble clic para resetear`}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── C1: Performance Grid ─────────────────────────────────────────────────────
 
 // Teclas por defecto: slots 0-7 = "1"-"8", slots 8-15 = "q"-"i"
@@ -715,6 +814,8 @@ export function LiveView() {
             🕐 Versiones…
           </button>
         </div>
+        {/* C2: Macros en vivo */}
+        <MacroStrip />
         {/* C1: Performance Grid */}
         <PerformanceGrid />
         {/* Panel Render offline (B3) */}

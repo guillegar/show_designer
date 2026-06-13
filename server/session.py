@@ -181,6 +181,14 @@ class ShowSession:
         if getattr(self.timeline, 'live_slots', None):
             self.live_engine.slots_from_dicts(self.timeline.live_slots)
 
+        # ── C2: macros en vivo (estado live, NO se persisten en show.json) ──
+        self.macros: Dict[str, float] = {
+            "brightness_mul": 1.0,
+            "speed_mul": 1.0,
+            "hue_shift": 0.0,
+            "strobe_rate": 0.0,
+        }
+
         # ── Estado de transporte / render ────────────────────────────────────
         self.loop = False
         self.rec = False
@@ -240,10 +248,12 @@ class ShowSession:
         from src.core.modulation import ModulationStage
         from src.core.automation import AutomationStage
         from src.core.micro_events import MicroEventStage
+        from src.core.param_pipeline import MacroStage
         self.param_stages: list = [
             ModulationStage(),
             AutomationStage(get_automation_lanes=self._get_automation_lanes),
             MicroEventStage(),
+            MacroStage(self.macros),  # C2: referencia viva al dict — siempre ve el valor actual
         ]
 
     # ── Helpers para el pipeline de parámetros ───────────────────────────────
@@ -620,10 +630,10 @@ class ShowSession:
             n_frames = len(self.baked_frames)
             frame_idx = max(0, min(n_frames - 1, round(t_s * _FPS_BAKED)))
             frame = self.baked_frames[frame_idx].copy()
-            # Postfx/master (B2) sobre el frame bakeado
+            # Postfx/master (B2) + C2 hue_shift sobre el frame bakeado
             mixer = self.timeline.mixer
+            from src.core.postfx import apply_track_chain, apply_master
             if mixer:
-                from src.core.postfx import apply_track_chain, apply_master
                 track_chains = mixer.get("tracks", {})
                 if track_chains:
                     for track_key, chain in track_chains.items():
@@ -633,9 +643,19 @@ class ShowSession:
                                 frame[track_idx] = apply_track_chain(frame[track_idx], chain)
                         except (ValueError, TypeError):
                             pass
-                master_chain = mixer.get("master", {})
-                if master_chain:
-                    frame = apply_master(frame, master_chain)
+            master_chain = dict(mixer.get("master", {})) if mixer else {}
+            macro_hue = self.macros.get("hue_shift", 0.0)
+            if macro_hue:
+                master_chain["hue_shift"] = master_chain.get("hue_shift", 0.0) + macro_hue
+            if master_chain:
+                frame = apply_master(frame, master_chain)
+            # C2: strobe_rate al final (aplica también en modo baked)
+            strobe_rate = self.macros.get("strobe_rate", 0.0)
+            if strobe_rate > 0:
+                t_ms_b = int(t_s * 1000)
+                half_period_ms = 500.0 / strobe_rate
+                if (t_ms_b % (2 * half_period_ms)) >= half_period_ms:
+                    frame[:] = 0
             return frame
 
         from src.core.param_pipeline import resolve_params
@@ -698,11 +718,11 @@ class ShowSession:
         if live_frame.any():
             frame = np.maximum(frame, live_frame)
 
-        # B2: cadena postfx del mixer — pista por pista, luego master global.
-        # Orden fijo del pipeline: timeline_render → capa live (C1) → postfx/master.
+        # B2 + C2: postfx/master — pista por pista, luego master con hue_shift macro.
+        # Orden fijo del pipeline: timeline_render → capa live (C1) → macros (C2) → postfx/master.
         mixer = self.timeline.mixer
+        from src.core.postfx import apply_track_chain, apply_master
         if mixer:
-            from src.core.postfx import apply_track_chain, apply_master
             track_chains = mixer.get("tracks", {})
             if track_chains:
                 for track_key, chain in track_chains.items():
@@ -712,9 +732,20 @@ class ShowSession:
                             frame[track_idx] = apply_track_chain(frame[track_idx], chain)
                     except (ValueError, TypeError):
                         pass
-            master_chain = mixer.get("master", {})
-            if master_chain:
-                frame = apply_master(frame, master_chain)
+        # C2: hue_shift macro se suma al master (sin mutar el dict del timeline)
+        master_chain = dict(mixer.get("master", {})) if mixer else {}
+        macro_hue = self.macros.get("hue_shift", 0.0)
+        if macro_hue:
+            master_chain["hue_shift"] = master_chain.get("hue_shift", 0.0) + macro_hue
+        if master_chain:
+            frame = apply_master(frame, master_chain)
+
+        # C2: strobe_rate — si >0, fase oscura → frame negro
+        strobe_rate = self.macros.get("strobe_rate", 0.0)
+        if strobe_rate > 0:
+            half_period_ms = 500.0 / strobe_rate
+            if (t_ms % (2 * half_period_ms)) >= half_period_ms:
+                frame[:] = 0
 
         return frame
 
