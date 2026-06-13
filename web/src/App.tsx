@@ -1,6 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useStore, Tab } from "./store";
 import { control } from "./api/control";
+import { stream } from "./api/stream";
+import type { ProjectChangedEvent } from "./api/stream";
 import { Ico } from "./icons";
 import { Transport } from "./components/Transport";
 import { CueBar } from "./components/CueBar";
@@ -9,6 +11,72 @@ import { LiveView } from "./views/Live";
 import { AnalyzerView } from "./views/Analyzer";
 import { PatchView } from "./views/Patch";
 import { Viewer3DView } from "./views/Viewer3D";
+
+type ProjectInfo = { slug: string; name: string; audio_path: string };
+
+function ProjectSwitcher({ current }: { current: string }) {
+  const [projects, setProjects] = useState<ProjectInfo[]>([]);
+  const [open, setOpen] = useState(false);
+  const [switching, setSwitching] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const refreshAll = useStore((s) => s.refreshAll);
+
+  useEffect(() => {
+    control.call("list_projects").then((r: any) => {
+      setProjects(r?.projects ?? []);
+    }).catch(() => {});
+  }, [current]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const doSwitch = (slug: string) => {
+    if (slug === current || switching) return;
+    setSwitching(slug);
+    setOpen(false);
+    control.call("switch_project", { slug }).catch(() => setSwitching(null));
+  };
+
+  if (projects.length <= 1) return null;
+  return (
+    <div ref={ref} style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+      <button
+        className="btn sm ghost"
+        style={{ fontSize: 11, padding: "2px 8px", marginLeft: 6 }}
+        onClick={() => setOpen((v) => !v)}
+        title="Cambiar proyecto"
+      >
+        {switching ? "Cargando…" : "▾"}
+      </button>
+      {open && !switching && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 200,
+          background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 6,
+          minWidth: 160, padding: 4, boxShadow: "0 4px 16px rgba(0,0,0,.4)",
+        }}>
+          {projects.map((p) => (
+            <button
+              key={p.slug}
+              onClick={() => doSwitch(p.slug)}
+              style={{
+                display: "block", width: "100%", textAlign: "left",
+                padding: "5px 10px", fontSize: 12, borderRadius: 4, border: "none",
+                background: p.slug === current ? "var(--acc)" : "transparent",
+                color: p.slug === current ? "#fff" : "var(--txt-1)",
+                cursor: p.slug === current ? "default" : "pointer",
+              }}
+            >{p.name}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const TABS: { id: Tab; label: string; icon: keyof typeof Ico }[] = [
   { id: "timeline", label: "Timeline", icon: "timeline" },
@@ -27,10 +95,24 @@ export function App() {
   const clipCount = useStore((s) => s.clipCount);
   const fixtures = useStore((s) => s.fixtures);
   const refreshAll = useStore((s) => s.refreshAll);
+  const [currentSlug, setCurrentSlug] = useState<string>("");
+  const [switching, setSwitching] = useState(false);
 
   useEffect(() => {
     refreshAll();
     control.onReconnect = () => refreshAll();
+    control.call("list_projects").then((r: any) => {
+      setCurrentSlug(r?.current ?? "");
+    }).catch(() => {});
+  }, [refreshAll]);
+
+  // Reaccionar al evento project_changed: refrescar todo el estado
+  useEffect(() => {
+    return stream.onProjectChanged((e: ProjectChangedEvent) => {
+      setCurrentSlug(e.slug);
+      setSwitching(false);
+      refreshAll();
+    });
   }, [refreshAll]);
 
   // Atajos globales de transporte/edición (ignora si se escribe en un campo)
@@ -64,6 +146,17 @@ export function App() {
 
   return (
     <div className="app">
+      {/* Overlay de cambio de proyecto */}
+      {switching && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "rgba(10,12,16,.7)", display: "flex",
+          alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12,
+        }}>
+          <div style={{ width: 40, height: 40, border: "3px solid var(--acc)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+          <span style={{ color: "var(--txt-1)", fontSize: 14 }}>Cargando proyecto…</span>
+        </div>
+      )}
       {/* TOP BAR */}
       <div className="topbar">
         <div className="brand">
@@ -74,6 +167,7 @@ export function App() {
           <span className="dot" />
           <span><b>{song.title}</b></span>
           <span className="bpm">{Math.round(song.bpm)} BPM{song.key ? ` · ${song.key}` : ""}</span>
+          <ProjectSwitcher current={currentSlug} />
         </div>
         <div className="top-spacer" />
         <div className="io-chip"><span className={"led " + (playing ? "on" : "off")} /> ART-NET · 10 univ.</div>

@@ -46,6 +46,7 @@ export type AutosaveAvailableEvent = { type: "autosave_available"; path: string;
 export type LiveStateChangedEvent = { type: "live_state_changed"; slots: unknown[]; active: string[]; armed: string[] };
 export type CueChangedEvent = { type: "cue_changed"; active_uid: string | null; fade_pct: number; next_uid: string | null };
 export type BlackoutChangedEvent = { type: "blackout_changed"; enabled: boolean };
+export type ProjectChangedEvent = { type: "project_changed"; slug: string; name: string; clips: number; duration_ms: number };
 
 class StreamClient {
   latestFrame: Uint8Array | null = null;
@@ -59,6 +60,7 @@ class StreamClient {
   private liveStateSubs = new Set<(e: LiveStateChangedEvent) => void>();
   private cueChangedSubs = new Set<(e: CueChangedEvent) => void>();
   private blackoutChangedSubs = new Set<(e: BlackoutChangedEvent) => void>();
+  private projectChangedSubs = new Set<(e: ProjectChangedEvent) => void>();
 
   constructor() {
     this.connect();
@@ -96,6 +98,8 @@ class StreamClient {
         for (const f of this.cueChangedSubs) f(m as CueChangedEvent);
       } else if (m.type === "blackout_changed") {
         for (const f of this.blackoutChangedSubs) f(m as BlackoutChangedEvent);
+      } else if (m.type === "project_changed") {
+        for (const f of this.projectChangedSubs) f(m as ProjectChangedEvent);
       }
     };
     ws.onclose = () => setTimeout(() => this.connect(), 1000);
@@ -133,6 +137,10 @@ class StreamClient {
   onCueChanged(fn: (e: CueChangedEvent) => void): () => void {
     this.cueChangedSubs.add(fn);
     return () => this.cueChangedSubs.delete(fn);
+  }
+  onProjectChanged(fn: (e: ProjectChangedEvent) => void): () => void {
+    this.projectChangedSubs.add(fn);
+    return () => this.projectChangedSubs.delete(fn);
   }
 
   // Color RGB de un LED concreto del último frame (para canvas Live/Patch)

@@ -860,7 +860,7 @@ el server arranca → la web funciona en `:8000`.
 
 ---
 
-## H3 — Multi-show en vivo: quick-switch entre proyectos (~2 días, Sonnet)
+## ✅ H3 — Multi-show en vivo: quick-switch entre proyectos (~2 días, Sonnet) — APLICADA 2026-06-13
 
 **Qué**: hoy cambiar de proyecto (`LUCES_PROJECT`) requiere reiniciar el server. En un
 contexto de producción (varios artistas, misma noche, mismo rig) se necesita cargar otro

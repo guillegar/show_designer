@@ -1043,6 +1043,137 @@ class ShowSession:
             pass
         return None
 
+    # ── H3: multi-show quick-switch ───────────────────────────────────────────
+
+    async def switch_project(self, new_slug: str) -> None:
+        """Cambia el proyecto activo sin reiniciar el server.
+
+        1. Para el playback (audio + live).
+        2. Guarda el estado actual (autosave inmediato si hay cambios).
+        3. Carga el nuevo proyecto (timeline, audio, analysis).
+        4. Resetea el playback a t=0.
+        5. Emite 'project_changed' al stream con el nuevo nombre.
+
+        Lanza ValueError si new_slug no existe. Si algo falla a mitad del
+        switch, la sesión puede quedar en estado parcial (el servidor sigue
+        respondiendo pero el show puede ser inconsistente — recargar el server).
+        """
+        import asyncio
+
+        # Verificar que el slug exista ANTES de empezar a desmontar el proyecto actual
+        new_project = self.pm.open_project(new_slug)
+        if new_project is None:
+            raise ValueError(f"Proyecto no encontrado: {new_slug!r}")
+
+        # 1. Parar playback y live engine
+        try:
+            self.audio.stop()
+        except Exception:
+            pass
+        try:
+            self.live_engine.stop_all()
+        except Exception:
+            pass
+
+        # 2. Guardar estado del proyecto actual si hay cambios
+        if self._rev != self._last_saved_rev:
+            try:
+                self.autosave_now()
+            except Exception as e:
+                print(f"[switch_project] autosave fallido: {e}")
+
+        # 3. Cargar nuevo proyecto
+        self.project = new_project
+        self._project = new_project
+        self.pm._current = new_project
+
+        audio_file = Path(new_project.audio_path)
+        show_file = new_project.show_file
+        analysis_slug = new_project.analysis_slug
+
+        # Timeline
+        dur_ms = self.timeline.duration_ms  # fallback si analysis falla
+        try:
+            from src.analysis.analyzer_service import AnalysisService, default_service, ANALIZADAS_DIR
+            if analysis_slug:
+                self.analysis = AnalysisService(ANALIZADAS_DIR / analysis_slug)
+            else:
+                self.analysis = default_service()
+            summary = self.analysis.summary
+            self.bpm = float(summary.get('bpm') or 128.0)
+            dur_ms = int(float(summary.get('duration_s') or 165.0) * 1000)
+        except Exception as e:
+            print(f"[switch_project] analysis fallido: {e}")
+
+        loaded = Timeline.load(show_file) if show_file.is_file() else Timeline.load()
+        loaded.duration_ms = dur_ms
+        if not getattr(loaded, 'groups', None):
+            loaded.groups = make_default_groups()
+        self.timeline = loaded
+
+        # Presets del nuevo proyecto
+        try:
+            from server.presets import PresetBank
+            self.presets = PresetBank(self.library, self.channel_lib,
+                                      project_file=new_project.folder / "presets.json")
+        except Exception:
+            pass
+
+        # AutoVJ del nuevo proyecto
+        try:
+            _autovj_path = new_project.folder / "autovj.json"
+            if _autovj_path.is_file():
+                self.autovj_engine.load(_autovj_path)
+        except Exception:
+            pass
+
+        # 4. Resetear estado de playback / render
+        self.baked_frames = None
+        self.baked_hash = None
+        self.render_in_progress = False
+        self.render_pct = 0.0
+        self._clip_bucket_index = {}
+        self._clip_bucket_index_n = -1
+        self._pattern_rev = 0
+        self._pattern_expanded = []
+        self._pattern_expanded_rev = -1
+        self._last_saved_rev = 0
+        self._autosave_banner_shown = False
+        self.blackout_override = False
+        self._identify = {}
+        self._test_universes = {}
+        self._cue_fade_start_ms = None
+        self._cue_fade_duration_ms = 0.0
+        self._cue_fade_from_master = 1.0
+        self._cue_last_fade_pct = 1.0
+        self.live_engine.stop_all()
+        self._rev += 1
+
+        # Audio
+        try:
+            if audio_file.is_file():
+                self.audio.load(audio_file, duration=dur_ms / 1000.0)
+            else:
+                self.audio.duration = dur_ms / 1000.0
+        except Exception as e:
+            print(f"[switch_project] audio fallido: {e}")
+
+        # 5. Emitir evento al stream
+        if self.hub is not None:
+            try:
+                await self.hub.broadcast({
+                    "type": "project_changed",
+                    "slug": new_slug,
+                    "name": new_project.name,
+                    "clips": len(self.timeline.clips),
+                    "duration_ms": self.timeline.duration_ms,
+                })
+            except Exception as e:
+                print(f"[switch_project] broadcast fallido: {e}")
+
+        print(f"[switch_project] → {new_project.name!r} ({new_slug}), "
+              f"{len(self.timeline.clips)} clips")
+
 
 _AUTOSAVE_MAX = 20
 # (F0 + B2 + B4 aplicadas — ROADMAP v2)

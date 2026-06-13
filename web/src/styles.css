@@ -273,3 +273,5 @@ html, body {
 
 .muted { color: var(--txt-3); }
 .mono { font-family: var(--mono); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
