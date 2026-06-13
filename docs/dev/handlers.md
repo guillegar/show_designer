@@ -419,3 +419,21 @@ los presets existentes sin este campo se cargan sin error).
 3 presets curados por cada efecto F1 (IDs 1010-1019), añadidos automáticamente al arrancar
 si no estaban en `presets.json`. Nombres evocadores (no técnicos). Los presets de
 `vu_meter` y `breathing` (audio_reactive) están pre-conectados a la señal RMS.
+
+---
+
+## F4 — Live preview en el inspector
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `preview_effect_frame` | `effect_id: int, params?: dict, t_ms?: float` | `{ok, frame_b64?: str, width?: int, height?: int}` o `{ok, frame_raw?: list}` |
+
+**`preview_effect_frame`**: renderiza un frame del efecto (sin estado de sesión, sin tocar el
+timeline). Crea un `bars_state` sintético de ceros, llama a `effect.render(t_ms, ...)` y
+devuelve el resultado como PNG base64 (scale 2× con Pillow).
+
+- Sin `params`: usa los defaults del efecto.
+- `t_ms` (ms desde inicio de clip, default 0): permite previsualizar distintos momentos.
+- Fallback `LUCES_NO_PILLOW=1`: devuelve `frame_raw` (lista Python, sin dependencia de Pillow).
+- Efecto no encontrado → `{ok: false, error}`. Tiempo < 50 ms (síncrono, sin executor).
+- Registrado en `_LOCAL` (no disponible vía MCP bridge).

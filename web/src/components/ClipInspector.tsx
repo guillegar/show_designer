@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Clip, EffectInfo } from "../store";
 import { control } from "../api/control";
 import {
@@ -208,8 +208,11 @@ export function ClipInspector({
   const [editingDuration, setEditingDuration] = useState(false);
   const [schema, setSchema] = useState<EffectSchema | null>(null);
   const [suggestedPresets, setSuggestedPresets] = useState<PresetChip[]>([]);
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [previewTms, setPreviewTms] = useState(0);
   const schemaCacheRef = useRef<Record<number, EffectSchema | null>>({});
   const presetCacheRef = useRef<Record<number, PresetChip[]>>({});
+  const previewDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Carga el schema al cambiar el effect_id del clip
   useEffect(() => {
@@ -252,6 +255,31 @@ export function ClipInspector({
         setSuggestedPresets([]);
       });
   }, [clip?.effect_id]);
+
+  // Fetch preview con debounce (200 ms)
+  const fetchPreview = useCallback((effectId: number, effectParams: Record<string, unknown>, tMs: number) => {
+    if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
+    previewDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await control.call("preview_effect_frame", {
+          effect_id: effectId,
+          params: effectParams,
+          t_ms: tMs,
+        }) as { ok: boolean; frame_b64?: string };
+        if (res?.ok && res.frame_b64) {
+          setPreviewSrc(`data:image/png;base64,${res.frame_b64}`);
+        }
+      } catch {
+        // preview no crítico — silenciar errores
+      }
+    }, 200);
+  }, []);
+
+  // Re-fetch preview cuando cambian params, effect o t_ms
+  useEffect(() => {
+    if (!clip) { setPreviewSrc(null); return; }
+    fetchPreview(clip.effect_id, clip.params || {}, previewTms);
+  }, [clip?.effect_id, clip?.params, previewTms, fetchPreview]);
 
   if (!clip) {
     return (
@@ -374,6 +402,31 @@ export function ClipInspector({
         <h3>{effect?.name || "Desconocido"}</h3>
         <span className="inspector-id">#{clip.id}</span>
       </div>
+
+      {/* Live preview miniatura */}
+      {previewSrc && (
+        <div className="inspector-section preview-section">
+          <img
+            src={previewSrc}
+            alt="preview"
+            className="effect-preview-img"
+            style={{ width: "100%", imageRendering: "pixelated", borderRadius: 3 }}
+          />
+          <div className="preview-tms-row">
+            <label className="preview-tms-label">t</label>
+            <input
+              type="range"
+              min={0}
+              max={2000}
+              step={50}
+              value={previewTms}
+              className="preview-tms-slider"
+              onChange={(e) => setPreviewTms(Number(e.target.value))}
+            />
+            <span className="preview-tms-val">{(previewTms / 1000).toFixed(1)}s</span>
+          </div>
+        </div>
+      )}
 
       {/* Duration section */}
       <div className="inspector-section duration-section">

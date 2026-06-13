@@ -500,7 +500,7 @@ Azul", "Infierno Verde"), hago clic en "Hoguera" y el clip adopta los params y m
 
 ---
 
-## F4 — Live preview en el inspector (~2 días, Sonnet)
+## F4 — Live preview en el inspector ✅ APLICADA 2026-06-13
 
 **Qué**: en el `ClipInspector`, mostrar una miniatura animada del efecto mientras el usuario
 ajusta params — sin tener que reproducir el show completo para ver el resultado.

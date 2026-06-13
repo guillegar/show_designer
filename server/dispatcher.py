@@ -137,6 +137,61 @@ def _h_get_effect_schema(session, params):
     return {"ok": True, "schema": getattr(effect, "PARAM_SCHEMA", {})}
 
 
+def _h_preview_effect_frame(session, params):
+    """preview_effect_frame(effect_id, params={}, t_ms=0) → {ok, frame_b64: str}
+    Renderiza un frame del efecto con los params dados y lo devuelve como PNG base64.
+    Sin estado en la sesión, sin tocar el timeline. < 50 ms (síncrono OK).
+    Fallback sin Pillow: devuelve el array raw como lista JSON."""
+    try:
+        effect_id = require_int(params, "effect_id", min_val=0)
+    except ValidationError as e:
+        return {"ok": False, "error": str(e)}
+
+    lib = getattr(session, "library", None)
+    effect = lib.get_effect(effect_id) if lib else None
+    if effect is None:
+        return {"ok": False, "error": f"effect_id {effect_id} no encontrado"}
+
+    import numpy as np
+    from src.core.effects_engine import EffectScope, NUM_BARS, LEDS_PER_BAR
+
+    t_ms = float(params.get("t_ms", 0))
+    effect_params = dict(params.get("params") or {})
+    bars_state = np.zeros((NUM_BARS, LEDS_PER_BAR, 3), dtype=np.uint8)
+    audio_ctx: dict = {}
+
+    try:
+        frame = effect.render(t_ms, bars_state, audio_ctx, **effect_params)
+    except Exception as e:
+        return {"ok": False, "error": f"render error: {e}"}
+
+    # Normalizar shape a (rows, LEDS_PER_BAR, 3)
+    if frame.ndim == 3 and frame.shape[0] == 1:
+        img_arr = frame[0:1]   # PER_BAR → 1 fila
+    else:
+        img_arr = frame        # ALL_BARS → 10 filas
+
+    import os as _os
+    no_pillow = _os.environ.get("LUCES_NO_PILLOW") == "1"
+    if no_pillow:
+        return {"ok": True, "frame_raw": img_arr.tolist()}
+
+    try:
+        import base64, io
+        from PIL import Image
+        # Escalar 2× para visibilidad mínima
+        scale = 2
+        h, w = img_arr.shape[:2]
+        pil = Image.fromarray(img_arr.astype(np.uint8), "RGB")
+        pil = pil.resize((w * scale, h * scale), Image.NEAREST)
+        buf = io.BytesIO()
+        pil.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+        return {"ok": True, "frame_b64": b64, "width": w * scale, "height": h * scale}
+    except ImportError:
+        return {"ok": True, "frame_raw": img_arr.tolist()}
+
+
 def _h_set_clip_effect(session, params):
     """Cambia el efecto (effect_id) de un clip pixel. No existe en el bridge."""
     try:
@@ -2044,6 +2099,8 @@ _LOCAL = {
     "get_output_status": _h_get_output_status,
     # F2 — Plugin UI auto-generada (ROADMAP v3)
     "get_effect_schema": _h_get_effect_schema,
+    # F4 — Live preview en el inspector (ROADMAP v3)
+    "preview_effect_frame": _h_preview_effect_frame,
 }
 
 

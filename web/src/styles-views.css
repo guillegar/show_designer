@@ -955,3 +955,13 @@
 }
 .preset-chip:hover { background: var(--bg-3); color: var(--txt); }
 .preset-chip-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+/* ---------- LIVE PREVIEW en ClipInspector (F4) ---------- */
+.preview-section { display: flex; flex-direction: column; gap: 4px; }
+.effect-preview-img { display: block; border: 1px solid var(--line-soft); }
+.preview-tms-row {
+  display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--txt-4);
+}
+.preview-tms-label { font-family: var(--mono); font-size: 10px; min-width: 10px; }
+.preview-tms-slider { flex: 1; height: 16px; }
+.preview-tms-val { font-family: var(--mono); font-size: 10px; min-width: 26px; text-align: right; }
