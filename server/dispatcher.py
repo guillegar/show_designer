@@ -873,6 +873,75 @@ def _h_update_micro_event(session, params):
     return {"ok": True, "clip": clip.to_dict()}
 
 
+# ── B1 — Waveform en el timeline ─────────────────────────────────────────────
+
+_WAVEFORM_N_BUCKETS = 8000
+
+
+def _h_get_waveform(session, params):
+    """Devuelve la forma de onda del audio en _WAVEFORM_N_BUCKETS cubos.
+
+    Cachea el resultado en <analysis_dir>/waveform.json (escritura atómica).
+    La primera llamada tarda ~2-5 s (librosa); las siguientes son inmediatas.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+
+    analysis_dir = session.analysis.analysis_dir
+    cache_path = analysis_dir / "waveform.json"
+
+    if cache_path.is_file():
+        with open(cache_path, "r", encoding="utf-8") as _f:
+            _data = _json.load(_f)
+        return {"ok": True, **_data}
+
+    try:
+        import librosa as _librosa
+        import numpy as _np
+    except ImportError:
+        return {"ok": False, "error": "librosa no disponible"}
+
+    audio_path = _Path(session.project.audio_path)
+    if not audio_path.is_file():
+        return {"ok": False, "error": f"Audio no encontrado: {audio_path}"}
+
+    y, sr = _librosa.load(str(audio_path), sr=None, mono=True)
+    total = len(y)
+    n = _WAVEFORM_N_BUCKETS
+    chunk = max(1, total // n)
+
+    peaks_max, peaks_min, rms_vals = [], [], []
+    for i in range(n):
+        s = i * chunk
+        e = s + chunk if i < n - 1 else total
+        block = y[s:e]
+        if len(block) == 0:
+            peaks_max.append(0.0)
+            peaks_min.append(0.0)
+            rms_vals.append(0.0)
+        else:
+            peaks_max.append(round(float(_np.max(block)), 5))
+            peaks_min.append(round(float(_np.min(block)), 5))
+            rms_vals.append(round(float(_np.sqrt(_np.mean(block ** 2))), 5))
+
+    data = {
+        "peaks_max": peaks_max,
+        "peaks_min": peaks_min,
+        "rms": rms_vals,
+        "n_buckets": n,
+        "duration_sec": round(float(total / sr), 3),
+        "bpm": float(getattr(session, "bpm", 120)),
+    }
+
+    analysis_dir.mkdir(parents=True, exist_ok=True)
+    tmp = cache_path.with_suffix(".tmp")
+    with open(tmp, "w", encoding="utf-8") as _f:
+        _json.dump(data, _f, separators=(",", ":"))
+    tmp.replace(cache_path)
+
+    return {"ok": True, **data}
+
+
 _LOCAL = {
     "undo": _h_undo,
     "redo": _h_redo,
@@ -918,6 +987,8 @@ _LOCAL = {
     "update_micro_event": _h_update_micro_event,
     # A5 — Ergonomía
     "duplicate_range": _h_duplicate_range,
+    # B1 — Waveform
+    "get_waveform": _h_get_waveform,
 }
 
 

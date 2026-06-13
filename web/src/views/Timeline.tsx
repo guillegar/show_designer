@@ -77,9 +77,17 @@ export function TimelineView() {
   const [showHelp, setShowHelp] = useState(false);
   const [ghostMode, setGhostMode] = useState(false);
   const [shiftHeld, setShiftHeld] = useState(false);
+  const [showWaveform, setShowWaveform] = useState(false);
+  const [waveformData, setWaveformData] = useState<{
+    peaks_max: number[];
+    peaks_min: number[];
+    n_buckets: number;
+    duration_sec: number;
+  } | null>(null);
   const lanesRef = useRef<HTMLDivElement>(null);
   const tlScrollRef = useRef<HTMLDivElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
+  const wfCanvasRef = useRef<HTMLCanvasElement>(null);
   const zoomRef = useRef(DEFAULT_ZOOM);
 
   useEffect(() => {
@@ -151,6 +159,42 @@ export function TimelineView() {
     window.addEventListener("keyup", up);
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
   }, []);
+
+  // B1 — fetch waveform on demand
+  useEffect(() => {
+    if (!showWaveform || waveformData) return;
+    control.call("get_waveform", {}).then((r: any) => {
+      if (r?.ok) setWaveformData(r);
+    }).catch(() => {});
+  }, [showWaveform]);
+
+  // B1 — redraw canvas when zoom or data changes
+  useEffect(() => {
+    const canvas = wfCanvasRef.current;
+    if (!canvas || !waveformData || !showWaveform) return;
+    const { peaks_max, peaks_min, n_buckets } = waveformData;
+    const cw = Math.round(duration * zoom);
+    const ch = 38;
+    canvas.width = cw;
+    canvas.height = ch;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const mid = ch / 2;
+    const scale = mid * 0.88;
+    ctx.fillStyle = "rgba(80,210,130,0.4)";
+    for (let x = 0; x < cw; x++) {
+      const b0 = Math.floor((x / cw) * n_buckets);
+      const b1 = Math.min(Math.ceil(((x + 1) / cw) * n_buckets), n_buckets);
+      let pmax = 0, pmin = 0;
+      for (let b = b0; b < b1; b++) {
+        if (peaks_max[b] > pmax) pmax = peaks_max[b];
+        if (peaks_min[b] < pmin) pmin = peaks_min[b];
+      }
+      const yTop = Math.floor(mid - pmax * scale);
+      const yBot = Math.ceil(mid - pmin * scale);
+      ctx.fillRect(x, yTop, 1, Math.max(1, yBot - yTop));
+    }
+  }, [showWaveform, waveformData, zoom, duration]);
 
   const beatSec = 60 / bpm;
   const barSec = beatSec * 4;
@@ -948,6 +992,7 @@ export function TimelineView() {
           </select>
           <button className="btn sm ghost" onClick={() => setGhostMode((g) => !g)} style={ghostMode ? { color: "var(--acc)" } : undefined} title="Ghost: mostrar clips de otras pistas en la pista activa">◈ Ghost</button>
           <button className="btn sm ghost" onClick={quantize} title="Cuantizar clips seleccionados al beat más cercano (requiere selección)">⊹ Q</button>
+          <button className="btn sm ghost" onClick={() => setShowWaveform((w) => !w)} style={showWaveform ? { color: "var(--acc)" } : undefined} title="Mostrar/ocultar forma de onda del audio en el ruler">≋ WF</button>
           <button className="btn sm" onClick={() => setGenOpen(true)} disabled={!drawInfo} title="Generar clips en una sección con el efecto/preset activo">✨ Generar</button>
           <button className="btn sm ghost" title="Exportar CSV de clips" onClick={() => doExport("csv")}>⬇ CSV</button>
           <button className="btn sm ghost" title="Exportar workspace QLC+" onClick={() => doExport("qlc")}>⬇ QLC+</button>
@@ -999,6 +1044,9 @@ export function TimelineView() {
                 const name = window.prompt("Nombre del marcador:", fmtTime(ms / 1000));
                 if (name != null) control.call("add_marker", { time_ms: ms, name }).then(refreshMarkers);
               }}>
+              {showWaveform && (
+                <canvas ref={wfCanvasRef} style={{ position: "absolute", top: 0, left: 0, width: W, height: "100%", pointerEvents: "none", zIndex: 0 }} />
+              )}
               {sections.map((s, i) => {
                 const next = sections[i + 1]?.start ?? duration;
                 return (

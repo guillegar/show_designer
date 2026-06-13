@@ -1,7 +1,7 @@
 # ROADMAP v2 — "El Secuenciador"
 
 **Objetivo**: llevar Show Designer del nivel "editor de clips" al nivel "FL Studio de la luz".
-**Fecha**: 2026-06-12 · **Estado**: A4 APLICADA (2026-06-12) — siguiente: A5 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
+**Fecha**: 2026-06-13 · **Estado**: B1 APLICADA (2026-06-13) — siguiente: B2 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
 
 > **F0 APLICADA (2026-06-12, pendiente de commit)**: F0.0 actx real en `session.compute_frame`
 > (verificado: 0.004 ms/frame, cero regresión), F0.1 `src/core/param_pipeline.py` cableado
@@ -527,21 +527,22 @@ con la checklist de la Fase 9 de ANALYSIS.md).
 
 # BLOQUE B — SHOW
 
-## B1 — Waveform en el timeline (~2 días)
+## B1 — Waveform en el timeline ✅ APLICADA (2026-06-13)
 
 **Qué**: la forma de onda del audio detrás de la regla (y opcionalmente tras las pistas),
 para alinear clips con la música a ojo.
 
-- **Backend**: handler `get_waveform(n_buckets)` → para el audio del proyecto, devolver
-  `{peaks: [...], rms: [...]}` con n_buckets valores (min/max por bucket). Calcular con
-  librosa (ya es dependencia) UNA vez y cachear en `analizadas/<slug>/waveform.json`
-  (igual que el resto de artefactos de análisis). OJO: no recalcular en cada request.
-- **Frontend**: `<canvas>` en la regla (y como fondo opcional de pistas, toggle en toolbar).
-  Redibujar solo al cambiar zoom/scroll (no por frame). ~2000 buckets visibles bastan;
-  pedir más resolución al hacer zoom in (re-request con rango: añadir params `t0_ms,t1_ms`).
-- **Tests**: bucketing correcto (longitudes, min≤max), cache se reusa.
+- **Backend**: `_h_get_waveform` en `server/dispatcher.py` — carga audio con librosa,
+  calcula min/max/rms en 8000 buckets, cachea atómicamente en
+  `analizadas/<slug>/waveform.json`. Segunda llamada es instantánea (lee JSON).
+  Registrado como `"get_waveform"` en `_LOCAL`.
+- **Frontend**: `<canvas ref={wfCanvasRef}>` absoluto dentro de `tl-ruler` (z-index 0,
+  pointer-events: none). State: `showWaveform` (toggle), `waveformData`. Fetch lazy al
+  activar el toggle; redibuja con `fillRect` por píxel al cambiar zoom/duration.
+  Botón `≋ WF` en toolbar (activo = color accent).
+- **Tests**: `tests/test_waveform.py` — 4 tests (basic, min≤max, cache_reuse, range_valid).
 
-**Aceptación**: veo el drop de la canción en la regla y alineo un clip a ojo sin reproducir.
+**Entrega**: 562 tests verdes (+4 sobre A5). `tsc --noEmit` limpio. `npm run build` OK.
 **Commit**: `roadmap-v2 fase B1: waveform en timeline`.
 
 ## B2 — Mixer: master + cadena por pista (~3 días)
