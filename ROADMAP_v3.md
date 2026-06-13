@@ -701,7 +701,7 @@ vista Patch (posición en tiempo real).
 
 ---
 
-## G4 — Salida DMX USB directa (~2 días, Haiku)
+## ✅ G4 — Salida DMX USB directa (~2 días, Haiku) — APLICADA 2026-06-13
 
 **Qué**: hoy la salida es Art-Net o WLED (requiere nodo/switch en LAN). Añadir salida DMX
 USB directa (interfaz ENTTEC Open DMX / USB Pro compatible) para instalaciones donde no

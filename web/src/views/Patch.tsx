@@ -172,6 +172,89 @@ function AddFixtureModal({ profiles, onClose, onAdded }: {
   );
 }
 
+// ── G4: Panel de salida DMX USB ──────────────────────────────────────────────
+
+function DmxUsbPanel() {
+  const [ports, setPorts] = useState<string[]>([]);
+  const [universe, setUniverse] = useState("1");
+  const [port, setPort] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+
+  const refresh = () => {
+    control.call("list_dmx_ports").then((r: any) => {
+      const list = r?.ports ?? [];
+      setPorts(list);
+      if (list.length > 0 && !port) setPort(list[0]);
+    }).catch(() => {});
+  };
+
+  useEffect(() => { refresh(); }, []);
+
+  const apply = () => {
+    control.call("set_output_target", {
+      universe: parseInt(universe, 10),
+      type: "dmx_usb",
+      port,
+    }).then((r: any) => {
+      setStatus(r?.ok ? "Configurado ✓" : (r?.error ?? "Error"));
+      setTimeout(() => setStatus(null), 3000);
+    }).catch((e: any) => { setStatus("Error: " + e.message); setTimeout(() => setStatus(null), 3000); });
+  };
+
+  return (
+    <div className="osc-panel" style={{ borderTop: "1px solid var(--line)", flexShrink: 0 }}>
+      <div className="panel-head" style={{ cursor: "pointer" }} onClick={() => { setOpen((v) => !v); if (!open) refresh(); }}>
+        <h3>DMX USB</h3>
+        <span className="ph-spacer" />
+        <span className="chip" style={{ color: ports.length > 0 ? "var(--good)" : "var(--txt-3)" }}>
+          {ports.length > 0 ? `${ports.length} puerto${ports.length > 1 ? "s" : ""}` : "sin puertos"}
+        </span>
+        <span style={{ marginLeft: 6, opacity: 0.5, fontSize: 11 }}>{open ? "▲" : "▼"}</span>
+      </div>
+      {open && (
+        <div style={{ padding: "0 14px 12px", fontSize: 12 }}>
+          {ports.length === 0 ? (
+            <div style={{ color: "var(--txt-3)", marginBottom: 8 }}>
+              Sin puertos COM disponibles. Conecta el ENTTEC Open DMX y recarga.
+            </div>
+          ) : null}
+          <div className="form-row">
+            <span className="fl">Puerto COM</span>
+            <div className="fv" style={{ gap: 6 }}>
+              {ports.length > 0 ? (
+                <select className="field" value={port} onChange={(e) => setPort(e.target.value)} style={{ flex: 1 }}>
+                  {ports.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              ) : (
+                <input className="field" placeholder="COM3" value={port}
+                  onChange={(e) => setPort(e.target.value)} style={{ flex: 1 }} />
+              )}
+              <button className="btn sm ghost" onClick={refresh} title="Refrescar lista de puertos">↺</button>
+            </div>
+          </div>
+          <div className="form-row">
+            <span className="fl">Universo DMX</span>
+            <div className="fv">
+              <input className="field" type="number" min={1} max={512} value={universe}
+                onChange={(e) => setUniverse(e.target.value)} style={{ width: 60 }} />
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+            <button className="btn sm primary" onClick={apply} disabled={!port}>
+              Aplicar
+            </button>
+            {status && <span style={{ fontSize: 11, color: status.includes("✓") ? "var(--good)" : "var(--bad)" }}>{status}</span>}
+          </div>
+          <div style={{ marginTop: 8, color: "var(--txt-3)", lineHeight: 1.5 }}>
+            ENTTEC Open DMX USB · 250 kbaud 8N2 · pyserial requerido
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 type OscClient = { ip: string; port: number };
 type OscState = {
   enabled: boolean; available: boolean; active: boolean;
@@ -539,6 +622,7 @@ export function PatchView() {
           </div>
         )}
         <FixtureTestPanel fixtures={fixtures} />
+        <DmxUsbPanel />
         <OscPanel />
       </div>
 

@@ -194,6 +194,73 @@ class SacnNodeTarget(OutputTarget):
                 "multicast": self.multicast}
 
 
+class DmxUsbTarget(OutputTarget):
+    """Salida DMX USB directa vía ENTTEC Open DMX USB (puerto serie).
+
+    Protocolo ENTTEC Open DMX:
+      1. BREAK: serial.send_break(0.001)
+      2. START CODE 0x00 + 512 bytes DMX a 250 kbaud, 8N2.
+
+    Instancia el puerto una sola vez y lo reutiliza. Thread-safe: el GIL
+    protege las escrituras en CPython para cargas normales (un tick a la vez).
+    `close()` cierra el puerto limpiamente.
+    """
+    type_name = "dmx_usb"
+
+    def __init__(self, port: str):
+        self.port = str(port)
+        self._ser = None
+        self._init_port()
+
+    def _init_port(self) -> None:
+        try:
+            import serial as _serial  # type: ignore
+            self._ser = _serial.Serial(
+                port=self.port,
+                baudrate=250000,
+                bytesize=8,
+                stopbits=2,
+                parity='N',
+                timeout=0,
+            )
+        except Exception as e:
+            log_throttled(_log, logging.ERROR, f"dmx_usb_init:{self.port}",
+                          f"DMX USB {self.port!r} no se pudo abrir: {e}")
+            self._ser = None
+
+    def send(self, universe: int, dmx_bytes: bytes) -> None:
+        if self._ser is None:
+            return
+        dmx = bytearray(512)
+        dmx[:len(dmx_bytes)] = dmx_bytes
+        try:
+            self._ser.send_break(0.001)          # BREAK ≥88µs
+            self._ser.write(b'\x00' + bytes(dmx)) # START CODE + 512 bytes
+        except Exception as e:
+            log_throttled(_log, logging.ERROR, f"dmx_usb_send:{self.port}",
+                          f"DMX USB {self.port!r} send error: {e}")
+
+    def close(self) -> None:
+        if self._ser is not None:
+            try:
+                self._ser.close()
+            except Exception:
+                pass
+            self._ser = None
+
+    @classmethod
+    def list_ports(cls) -> list:
+        """Lista los puertos serie disponibles. Devuelve [] si pyserial no instalado."""
+        try:
+            from serial.tools import list_ports  # type: ignore
+            return [p.device for p in list_ports.comports()]
+        except Exception:
+            return []
+
+    def describe(self) -> Dict:
+        return {"type": "dmx_usb", "port": self.port}
+
+
 class SimOnlyTarget(OutputTarget):
     """No envía nada por red. Mantiene el último bytes(512) para inspección
     (viewer 3D, tests, debug MCP)."""
@@ -265,6 +332,8 @@ class OutputRouter:
                     port=int(cfg.get("port", 5568)),
                     multicast=bool(cfg.get("multicast", False)),
                 )
+            elif ttype == "dmx_usb":
+                targets[uni] = DmxUsbTarget(port=cfg.get("port", "COM3"))
             elif ttype == "sim_only":
                 targets[uni] = SimOnlyTarget()
             else:

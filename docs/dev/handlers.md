@@ -480,3 +480,22 @@ Requisito PyPI: `sacn>=1.6` (ya en `requirements.txt`).
 - Cuando `bpm > 0`, `session._get_audio_context()` sobreescribe el BPM del análisis con el BPM del sync. Esto hace que D1 (Auto-VJ) cuantice en el beat correcto del DJ.
 - Stream: los mensajes `{type:"state"}` incluyen el campo `tempo_sync` con el estado actual.
 - `TempoSyncService` vive en `server/tempo_sync.py`; `_calc_bpm(pulse_times_s)` es una función pura testeable.
+
+---
+
+## G4 — Salida DMX USB directa (ENTTEC Open DMX)
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `list_dmx_ports` | — | `{ok, ports: [str]}` — puertos COM/ttyUSB disponibles |
+| `set_output_target` | `universe, type, port?, ip?, multicast?` | `{ok, universe, target}` |
+
+**`list_dmx_ports`**: envuelve `serial.tools.list_ports.comports()`. Devuelve `[]` si `pyserial` no instalado.
+
+**`set_output_target`**: actualiza `output_targets.json` (escritura atómica tmp→replace) para el universo indicado y recarga el `OutputRouter` en la sesión sin reiniciar el servidor. Soporta cualquier `type`: `wled`, `artnet_node`, `sacn`, `dmx_usb`, `sim_only`.
+
+Framing ENTTEC Open DMX USB (en `DmxUsbTarget.send()`):
+1. `serial.send_break(0.001)` — BREAK ≥88µs
+2. `serial.write(b'\x00' + bytes(dmx_512))` — START CODE 0x00 + 512 bytes a 250 kbaud 8N2
+
+`DmxUsbTarget` (en `src/io/outputs/router.py`): import lazy de `serial`, error de puerto → log + `_ser=None` + send no-op. `list_ports()` classmethod. Requisito: `pyserial>=3.5` (en `requirements.txt`).

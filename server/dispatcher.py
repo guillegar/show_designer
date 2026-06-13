@@ -1687,6 +1687,63 @@ def _h_delete_clip_channel_effect(session, params):
     return {"ok": True, "clip": clip.to_dict()}
 
 
+def _h_list_dmx_ports(session, params):
+    """list_dmx_ports() → {ok, ports: [str]} — lista puertos serie para DMX USB."""
+    from src.io.outputs.router import DmxUsbTarget
+    return {"ok": True, "ports": DmxUsbTarget.list_ports()}
+
+
+def _h_set_output_target(session, params):
+    """set_output_target(universe, type, port?, ip?, multicast?) → {ok}.
+
+    Actualiza output_targets.json para el universo indicado y recarga el router
+    en el engine de la sesión. Soporta type: wled, artnet_node, sacn, dmx_usb, sim_only.
+    """
+    from pathlib import Path
+    import json
+
+    uni = int(params.get("universe", 1))
+    ttype = str(params.get("type", "sim_only"))
+
+    cfg: dict = {"type": ttype}
+    if ttype in ("wled", "artnet_node", "sacn"):
+        ip = params.get("ip") or params.get("port") or ""
+        if ip:
+            cfg["ip"] = ip
+        if ttype == "sacn":
+            if params.get("multicast"):
+                cfg["multicast"] = True
+    elif ttype == "dmx_usb":
+        port = params.get("port") or "COM3"
+        cfg["port"] = port
+
+    _ot = Path(__file__).resolve().parent.parent / "output_targets.json"
+    try:
+        data: dict = {}
+        if _ot.is_file():
+            data = json.loads(_ot.read_text(encoding="utf-8"))
+        data[str(uni)] = cfg
+        tmp = _ot.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(_ot)
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+    # Recargar router en el engine
+    se = getattr(session, "show_engine", None)
+    if se is not None:
+        try:
+            from src.io.outputs.router import OutputRouter
+            new_router = OutputRouter.load(_ot)
+            if hasattr(se, "router") and se.router is not None:
+                se.router.close()
+            se.router = new_router
+        except Exception as e:
+            return {"ok": True, "warn": f"config guardada pero router no recargado: {e}"}
+
+    return {"ok": True, "universe": uni, "target": cfg}
+
+
 def _h_get_fixture_pan_tilt(session, params):
     """get_fixture_pan_tilt(fixture_id?) → {ok, fixtures: [{fixture_id, pan, tilt}]}
 
@@ -2247,6 +2304,9 @@ _LOCAL = {
     "set_clip_channel_effect": _h_set_clip_channel_effect,
     "delete_clip_channel_effect": _h_delete_clip_channel_effect,
     "get_fixture_pan_tilt": _h_get_fixture_pan_tilt,
+    # G4 — DMX USB directa
+    "list_dmx_ports": _h_list_dmx_ports,
+    "set_output_target": _h_set_output_target,
     # G2 — Sync de tempo (Ableton Link / MIDI Clock)
     "tempo_sync_get_state": _h_tempo_sync_get_state,
     "tempo_sync_set_mode": _h_tempo_sync_set_mode,
