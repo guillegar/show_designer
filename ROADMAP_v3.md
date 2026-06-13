@@ -297,7 +297,7 @@ pulsar → recupera el show.
 > *El banco de efectos es el corazón del sistema: sin un banco rico, el diseñador trabaja
 > con las manos atadas.*
 
-## F1 — 10 efectos built-in nuevos (~3 días, Sonnet)
+## F1 — 10 efectos built-in nuevos ✅ APLICADA 2026-06-13
 
 **Qué**: los 4 plugins actuales (`solid_color`, `waving_flag`, `spanish_flag`, `example`)
 son insuficientes para producción. Añadir un banco de efectos de calidad en `plugins/effects/`
