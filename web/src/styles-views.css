@@ -199,6 +199,44 @@
 .scope-stat .k { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--txt-4); }
 .scope-stat .v { font-family: var(--mono); font-size: 17px; font-weight: 600; color: var(--txt); margin-top: 2px; }
 
+/* ---------- MIXER (B2) ---------- */
+.mixer-panel { border-bottom: 1px solid var(--line-soft); }
+.mixer-header {
+  display: flex; align-items: center; padding: 8px 12px; cursor: pointer;
+  background: var(--bg-1); user-select: none;
+}
+.mixer-header:hover { background: var(--bg-0); }
+.mixer-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--txt-3); }
+.mixer-toggle { font-size: 10px; color: var(--txt-4); }
+.mixer-body { padding: 6px 8px 8px; background: var(--bg-inset); }
+.mixer-tracks { display: flex; flex-direction: column; gap: 3px; margin-bottom: 6px; }
+.mixer-track {
+  display: flex; align-items: center; gap: 5px; padding: 2px 4px;
+  border-radius: var(--r-sm); background: transparent;
+}
+.mixer-track.muted { opacity: 0.45; }
+.mixer-track.solo { background: oklch(0.82 0.15 255 / 0.08); }
+.mixer-track-num {
+  font-family: var(--mono); font-size: 10px; color: var(--txt-4); width: 14px; text-align: right; flex: none;
+}
+.mixer-slider {
+  flex: 1; height: 3px; cursor: pointer;
+  accent-color: var(--acc);
+}
+.mixer-slider.blackout-slider { accent-color: var(--warn, #f90); }
+.mixer-btn {
+  width: 22px; height: 18px; flex: none; font-size: 9px; font-weight: 700;
+  border: 1px solid var(--line-soft); border-radius: 3px; background: var(--bg-0);
+  color: var(--txt-3); cursor: pointer; display: grid; place-items: center; padding: 0;
+}
+.mixer-btn.on.warn { background: oklch(0.82 0.15 80 / 0.25); border-color: var(--warn); color: var(--warn); }
+.mixer-btn.on.acc  { background: var(--acc-dim); border-color: var(--acc); color: var(--acc); }
+.mixer-master { border-top: 1px solid var(--line-soft); padding-top: 6px; }
+.mixer-master-label { font-size: 9.5px; font-weight: 700; text-transform: uppercase; color: var(--txt-4); letter-spacing: 0.07em; display: block; margin-bottom: 4px; padding-left: 4px; }
+.mixer-master-row { display: flex; align-items: center; gap: 6px; padding: 2px 4px; }
+.mixer-master-key { font-size: 10px; color: var(--txt-3); width: 46px; flex: none; }
+.mixer-master-val { font-family: var(--mono); font-size: 10px; color: var(--txt-4); width: 30px; text-align: right; flex: none; }
+
 /* ---------- ANALYZER ---------- */
 .az { display: flex; flex-direction: column; height: 100%; background: var(--bg-0); }
 .az-main { flex: 1; display: flex; min-height: 0; }

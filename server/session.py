@@ -195,6 +195,7 @@ class ShowSession:
             get_extra=lambda: {
                 "patterns": list(self.timeline.patterns),
                 "pattern_instances": list(self.timeline.pattern_instances),
+                "mixer": dict(self.timeline.mixer),
             },
             restore_extra=self._restore_pattern_state,
         )
@@ -495,9 +496,11 @@ class ShowSession:
         self.notify_changed("undo")
 
     def _restore_pattern_state(self, extra: dict) -> None:
-        """Restaura patterns y pattern_instances desde un snapshot de undo (I1)."""
+        """Restaura patterns, pattern_instances y mixer desde un snapshot de undo (I1)."""
         self.timeline.patterns = list(extra.get("patterns", []))
         self.timeline.pattern_instances = list(extra.get("pattern_instances", []))
+        if "mixer" in extra:
+            self.timeline.mixer = dict(extra["mixer"])
         self._pattern_rev += 1
         self._clip_bucket_index_n = -1
 
@@ -593,5 +596,24 @@ class ShowSession:
                         frame[clip.track] = np.maximum(frame[clip.track], r[clip.track])
             except Exception:
                 pass
+
+        # B2: cadena postfx del mixer — pista por pista, luego master global.
+        # Orden fijo del pipeline: timeline_render → [capa live C1] → postfx/master.
+        mixer = self.timeline.mixer
+        if mixer:
+            from src.core.postfx import apply_track_chain, apply_master
+            track_chains = mixer.get("tracks", {})
+            if track_chains:
+                for track_key, chain in track_chains.items():
+                    try:
+                        track_idx = int(track_key)
+                        if 0 <= track_idx < NUM_BARS and chain:
+                            frame[track_idx] = apply_track_chain(frame[track_idx], chain)
+                    except (ValueError, TypeError):
+                        pass
+            master_chain = mixer.get("master", {})
+            if master_chain:
+                frame = apply_master(frame, master_chain)
+
         return frame
-# (F0 aplicada — ROADMAP v2)
+# (F0 + B2 aplicadas — ROADMAP v2)

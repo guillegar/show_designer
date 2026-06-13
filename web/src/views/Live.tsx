@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { control } from "../api/control";
 import { stream, LEDS } from "../api/stream";
 import { useStore } from "../store";
 import { Ico, fmtTime } from "../icons";
+import type { TrackChain, MixerState } from "../api/types";
 
 const FEEDBACK_CATS = [
   { key: "intensity_ok", label: "Intensidad OK", pos: true },
@@ -16,6 +17,10 @@ const FEEDBACK_CATS = [
   { key: "need_contrast", label: "Más contraste", pos: false },
   { key: "too_busy", label: "Demasiado recargado", pos: false },
 ];
+
+const NUM_TRACKS = 10;
+// Throttle sliders a ~20 req/s: sólo enviar si pasaron >=50 ms desde el último envío
+const SLIDER_THROTTLE_MS = 50;
 
 // Canvas de una barra: lee el frame binario real del stream en su propio rAF.
 function BarCanvas({ barIdx }: { barIdx: number }) {
@@ -58,6 +63,141 @@ function barAvg(barIdx: number): string {
   for (let i = 0; i < LEDS; i++) { const c = stream.ledRGB(barIdx, i); r += c[0]; g += c[1]; b += c[2]; }
   return `rgb(${Math.round(r / LEDS)},${Math.round(g / LEDS)},${Math.round(b / LEDS)})`;
 }
+
+// ── Panel Mixer ──────────────────────────────────────────────────────────────
+
+function MixerPanel() {
+  const [expanded, setExpanded] = useState(true);
+  const [mixer, setMixer] = useState<MixerState>({ tracks: {}, master: {} });
+  const [muted, setMuted] = useState<number[]>([]);
+  const [solo, setSolo] = useState<number[]>([]);
+
+  // Último timestamp de envío por clave (throttle ~20 req/s)
+  const lastSent = useRef<Record<string, number>>({});
+
+  const loadMixer = useCallback(() => {
+    control.call("get_mixer").then((r) => {
+      if (r.ok) setMixer(r.mixer as MixerState);
+    }).catch(() => {});
+    control.call("get_tracks_state").then((r) => {
+      setMuted(r.muted ?? []);
+      setSolo(r.solo ?? []);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => { loadMixer(); }, [loadMixer]);
+
+  const sendThrottled = (key: string, fn: () => Promise<unknown>) => {
+    const now = Date.now();
+    if ((now - (lastSent.current[key] ?? 0)) >= SLIDER_THROTTLE_MS) {
+      lastSent.current[key] = now;
+      fn().catch(() => {});
+    }
+  };
+
+  const setTrackBrightness = (track: number, value: number) => {
+    const chain = { ...((mixer.tracks[track] as TrackChain) ?? {}), brightness: value };
+    setMixer((m) => ({ ...m, tracks: { ...m.tracks, [track]: chain } }));
+    sendThrottled(`t${track}`, () =>
+      control.call("set_track_chain", { track, chain })
+    );
+  };
+
+  const setMasterParam = (key: string, value: number) => {
+    const masterNew = { ...(mixer.master ?? {}), [key]: value };
+    setMixer((m) => ({ ...m, master: masterNew }));
+    sendThrottled(`master_${key}`, () =>
+      control.call("set_master", { master: masterNew })
+    );
+  };
+
+  const toggleMute = (track: number) => {
+    control.call("set_track_mute", { track }).then((r) => {
+      setMuted(r.muted ?? []);
+    }).catch(() => {});
+  };
+
+  const toggleSolo = (track: number) => {
+    control.call("set_track_solo", { track }).then((r) => {
+      setSolo(r.solo ?? []);
+    }).catch(() => {});
+  };
+
+  const trackChain = (t: number): TrackChain =>
+    (mixer.tracks[t] as TrackChain) ?? {};
+
+  const masterFade = (mixer.master as any)?.blackout_fade ?? 1;
+  const masterBrightness = (mixer.master as any)?.brightness ?? 1;
+
+  return (
+    <div className="mixer-panel">
+      <div className="mixer-header" onClick={() => setExpanded((e) => !e)}>
+        <span className="mixer-title">Mixer</span>
+        <span className="ph-spacer" style={{ flex: 1 }} />
+        <span className="mixer-toggle">{expanded ? "▾" : "▸"}</span>
+      </div>
+
+      {expanded && (
+        <div className="mixer-body">
+          {/* Pistas 0..9 */}
+          <div className="mixer-tracks">
+            {Array.from({ length: NUM_TRACKS }, (_, i) => (
+              <div key={i} className={"mixer-track" + (muted.includes(i) ? " muted" : "") + (solo.includes(i) ? " solo" : "")}>
+                <span className="mixer-track-num">{i}</span>
+                <input
+                  type="range" min="0" max="1" step="0.01"
+                  value={(trackChain(i).brightness ?? 1)}
+                  onChange={(e) => setTrackBrightness(i, parseFloat(e.target.value))}
+                  className="mixer-slider"
+                  title={`Pista ${i} · brightness`}
+                />
+                <button
+                  className={"mixer-btn" + (muted.includes(i) ? " on warn" : "")}
+                  onClick={() => toggleMute(i)}
+                  title="Mute"
+                >M</button>
+                <button
+                  className={"mixer-btn" + (solo.includes(i) ? " on acc" : "")}
+                  onClick={() => toggleSolo(i)}
+                  title="Solo"
+                >S</button>
+              </div>
+            ))}
+          </div>
+
+          {/* Strip master */}
+          <div className="mixer-master">
+            <span className="mixer-master-label">Master</span>
+            <div className="mixer-master-row">
+              <span className="mixer-master-key">Brillo</span>
+              <input
+                type="range" min="0" max="1" step="0.01"
+                value={masterBrightness}
+                onChange={(e) => setMasterParam("brightness", parseFloat(e.target.value))}
+                className="mixer-slider"
+                title="Master brightness"
+              />
+              <span className="mixer-master-val">{Math.round(masterBrightness * 100)}%</span>
+            </div>
+            <div className="mixer-master-row">
+              <span className="mixer-master-key">Blackout</span>
+              <input
+                type="range" min="0" max="1" step="0.01"
+                value={masterFade}
+                onChange={(e) => setMasterParam("blackout_fade", parseFloat(e.target.value))}
+                className="mixer-slider blackout-slider"
+                title="Blackout fade (0=negro, 1=libre)"
+              />
+              <span className="mixer-master-val">{Math.round(masterFade * 100)}%</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Vista principal ──────────────────────────────────────────────────────────
 
 export function LiveView() {
   const t = useStore((s) => s.t);
@@ -117,7 +257,12 @@ export function LiveView() {
       </div>
 
       <div className="live-side">
-        <div className="panel-head"><h3>Feedback</h3><span className="ph-spacer" /><span className="chip mono">{fmtTime(t)}</span></div>
+        {/* Panel Mixer (B2) */}
+        <MixerPanel />
+
+        <div className="panel-head" style={{ borderTop: "1px solid var(--line-soft)" }}>
+          <h3>Feedback</h3><span className="ph-spacer" /><span className="chip mono">{fmtTime(t)}</span>
+        </div>
 
         <div className="fb-cats">
           {FEEDBACK_CATS.map((c) => (

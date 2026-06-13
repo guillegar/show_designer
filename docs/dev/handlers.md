@@ -116,3 +116,30 @@ Devuelven el clip completo (invariante I3) para que el frontend actualice el sto
 `MicroEventStage` es el 3er stage del pipeline (orden: modulación→automatización→micro-eventos).
 Fast path: si `clip.events == []`, devuelve `params` sin copiar (cero allocs).
 Los `events` van en `clip.to_dict()`, por lo que el undo por snapshot (I1) los cubre automáticamente.
+
+### B2 — Mixer: cadena por pista + master
+
+El mixer vive en `timeline.mixer` (contenedor v3, persistido en show.json, incluido en undo).
+El postfx se aplica al final de `compute_frame`, ANTES del envío (orden fijo del pipeline:
+`timeline_render → [capa live C1] → apply_track_chain × pista → apply_master`).
+
+**Throttle obligatorio en el cliente**: los sliders disparan eventos onChange continuamente.
+Implementar en la UI con un ref de timestamp: si `Date.now() - lastSent < 50 ms`, no enviar.
+Sólo enviar en mouseUp si el usuario fue más rápido que el throttle.
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `set_track_chain` | `track: int (0..9)`, `chain: {brightness?:0..1, gamma?:0.5..2.2, hue_shift?:-180..180, white_limit?:0..1}` | `{ok, track, chain}` |
+| `set_master` | `master: {brightness?:0..1, gamma?:0.5..2.2, hue_shift?:-180..180, white_limit?:0..1, blackout_fade?:0..1}` | `{ok, master}` |
+| `get_mixer` | — | `{ok, mixer: {tracks: {}, master: {}}}` |
+
+**`blackout_fade`**: animable con una lane de A2 (target `'master:blackout_fade'`) para
+fades de salida de show profesionales — sale gratis porque la cadena de automatización
+ya evalúa este target en `AutomationStage`.
+
+**Cadena aplicada** (en `src/core/postfx.py`, puro numpy):
+1. `apply_track_chain(frame[track], chain)` — por cada pista con chain configurada
+2. `apply_master(frame, master)` — al frame completo (NUM_BARS×LEDS×3)
+
+Fast path: si todos los parámetros son identidad (brightness=1, gamma=1, hue_shift=0,
+white_limit=1, blackout_fade=1), se devuelve la referencia original sin copiar (cero allocs, I4).

@@ -10,7 +10,7 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
 Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4 vistas funcionando.
-**A1+A2+A3+A4+A5+B1 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline.
+**A1+A2+A3+A4+A5+B1+B2 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista.
 
 ---
 
@@ -45,7 +45,14 @@ Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4
     `server/dispatcher.py` — librosa + 8000 buckets (min/max/rms) cacheados en
     `analizadas/<slug>/waveform.json` (atómico). Frontend: `<canvas>` absoluto en `tl-ruler`,
     redibuja por píxel al cambiar zoom, estado lazy (`showWaveform`). Botón `≋ WF` en toolbar.
-    4 tests nuevos (`test_waveform.py`). **562 verdes. Siguiente: B2 (mixer)**.
+    4 tests nuevos (`test_waveform.py`). 562 verdes.
+  - ✅ **B2 APLICADA (2026-06-13)**: mixer master + cadena por pista. `src/core/postfx.py`
+    (`apply_track_chain`, `apply_master`) — numpy vectorizado, fast path (identity = sin alloc).
+    Integrado al final de `session.compute_frame` (orden fijo: timeline_render → postfx/master).
+    Handlers `set_track_chain`, `set_master`, `get_mixer` en dispatcher. Mixer en undo (I1).
+    Panel Mixer plegable en `Live.tsx`: sliders brightness por pista + M/S + strip master con
+    `blackout_fade` (animable con A2 gratis). 20 tests nuevos (`test_postfx.py`).
+    **582 verdes. Siguiente: B3 (render offline)**.
   - Pasos pendientes del usuario: `cd web && npm install` (vitest), `pytest tests/` completo
     en Windows, y el commit: `roadmap-v2 fase F0: actx real + param pipeline + schema v3 + bench`.
 

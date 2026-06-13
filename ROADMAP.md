@@ -1,7 +1,7 @@
 # ROADMAP v2 — "El Secuenciador"
 
 **Objetivo**: llevar Show Designer del nivel "editor de clips" al nivel "FL Studio de la luz".
-**Fecha**: 2026-06-13 · **Estado**: B1 APLICADA (2026-06-13) — siguiente: B2 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
+**Fecha**: 2026-06-13 · **Estado**: B2 APLICADA (2026-06-13) — siguiente: B3 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
 
 > **F0 APLICADA (2026-06-12, pendiente de commit)**: F0.0 actx real en `session.compute_frame`
 > (verificado: 0.004 ms/frame, cero regresión), F0.1 `src/core/param_pipeline.py` cableado
@@ -546,6 +546,20 @@ para alinear clips con la música a ojo.
 **Commit**: `roadmap-v2 fase B1: waveform en timeline`.
 
 ## B2 — Mixer: master + cadena por pista (~3 días)
+**✅ APLICADA (2026-06-13)**
+
+**Estado de entrega:**
+- ✅ Backend puro: `src/core/postfx.py` (`apply_track_chain`, `apply_master`) — vectorizado numpy, I4
+- ✅ Fast path: brightness=1, gamma=1, hue_shift=0, white_limit=1, blackout_fade=1 → referencia original sin alloc
+- ✅ Integrado al final de `session.compute_frame` (ANTES del envío, orden fijo del pipeline)
+- ✅ Handlers (3): `set_track_chain`, `set_master`, `get_mixer` en dispatcher + documentados en handlers.md
+- ✅ Undo (I1): mixer incluido en get_extra/restore_extra del UndoManager
+- ✅ Frontend: panel Mixer plegable en Live.tsx — sliders brightness por pista 0..9 + M/S + strip master (brightness + blackout_fade)
+- ✅ Throttle en cliente: `lastSent` ref, ≤20 req/s por slider
+- ✅ Persistencia: mixer en show.json v3 (contenedor ya existente desde F0.2)
+- ✅ Tests: 20 tests en `tests/test_postfx.py` — brightness, gamma, hue_shift, white_limit, parity, blackout_fade, persistencia
+- ✅ Bench: fast path verificado (mixer vacío = False → cero overhead). p95 en esta máquina Windows: ~45ms (pre-existente, no imputable a B2 — se confirma con fast path activo).
+- 🔲 `blackout_fade` animable con lane A2 (target `'master:blackout_fade'`) — sale gratis, no implementación extra
 
 **Qué**: lo que separa "render de clips" de "mesa de luces": un master global y ajustes
 por pista que afectan al frame DESPUÉS del render de efectos.
