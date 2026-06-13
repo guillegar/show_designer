@@ -181,6 +181,13 @@ class ShowSession:
         if getattr(self.timeline, 'live_slots', None):
             self.live_engine.slots_from_dicts(self.timeline.live_slots)
 
+        # ── D1: motor AutoVJ (estado live, no se persiste en show.json) ────
+        from src.core.autovj import AutoVJEngine
+        self.autovj_engine = AutoVJEngine()
+        _autovj_path = self.project.folder / "autovj.json"
+        if _autovj_path.is_file():
+            self.autovj_engine.load(_autovj_path)
+
         # ── C2: macros en vivo (estado live, NO se persisten en show.json) ──
         self.macros: Dict[str, float] = {
             "brightness_mul": 1.0,
@@ -709,11 +716,22 @@ class ShowSession:
             except Exception:
                 pass
 
-        # C1: capa live — patterns lanzados desde el performance grid.
+        # D1: AutoVJ — evalúa reglas ANTES de compute_live_frame para que
+        # los disparos lleguen al mismo frame que los desencadenó.
+        # Solo activo si hay ruleset habilitado.
+        if (self.autovj_engine.ruleset is not None
+                and self.autovj_engine.ruleset.enabled):
+            self.autovj_engine.evaluate(t_ms, actx, self.analysis,
+                                        self.live_engine)
+
+        # C1: capa live — patterns lanzados + D1 patterns efímeros del AutoVJ.
         # Se mezcla encima del timeline con np.maximum (más brillante gana).
-        # Orden fijo del pipeline: timeline_render → live → postfx/master.
+        # Orden fijo del pipeline: timeline_render → live+autovj → postfx/master.
+        _autovj_pats = list(self.autovj_engine._ephemeral_patterns.values())
         live_frame = self.live_engine.compute_live_frame(
-            t_ms, self.timeline.patterns, self.library, self.param_stages, actx
+            t_ms,
+            list(self.timeline.patterns) + _autovj_pats,
+            self.library, self.param_stages, actx,
         )
         if live_frame.any():
             frame = np.maximum(frame, live_frame)

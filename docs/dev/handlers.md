@@ -143,3 +143,37 @@ ya evalúa este target en `AutomationStage`.
 
 Fast path: si todos los parámetros son identidad (brightness=1, gamma=1, hue_shift=0,
 white_limit=1, blackout_fade=1), se devuelve la referencia original sin copiar (cero allocs, I4).
+
+### D1 — Auto-VJ por reglas
+
+El motor AutoVJ vive en `session.autovj_engine: AutoVJEngine` (estado live, no en show.json).
+Se evalúa en `compute_frame` ANTES de `live_engine.compute_live_frame`. Los patterns efímeros
+de `fire_effect` se pasan junto con `timeline.patterns` a `compute_live_frame` (capa C1
+sin duplicar infraestructura).
+
+Persistencia: `projects/<slug>/autovj.json` (guardado atómico, no parte de show.json).
+Se carga automáticamente al arrancar la sesión si el archivo existe. Los presets integrados
+(FIESTA/CHILL/TECHNO) viven en código (`src/core/autovj.py`) y no se persisten en disco.
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `autovj_get_state` | — | `{ok, ruleset\|null, presets:[{uid,name,rules}]}` |
+| `autovj_set_ruleset` | `ruleset: dict\|null` | `{ok, ruleset\|null}` (null = desactivar) |
+| `autovj_activate_preset` | `preset_uid: str` ("preset_fiesta"\|"preset_chill"\|"preset_techno") | `{ok, ruleset}` |
+| `autovj_update_rule` | `rule_uid: str`, `enabled?: bool`, `cooldown_ms?: int`, `trigger?: str`, `action?: str` | `{ok, rule}` |
+| `autovj_save` | — | `{ok, path, saved: bool}` |
+| `autovj_load` | — | `{ok, ruleset\|null}` |
+
+**Triggers disponibles:**
+- `"on_beat"` — ±20ms de cualquier beat del análisis
+- `"on_downbeat"` — ±20ms de cualquier downbeat
+- `"on_kick"` — `actx['norm'].get('kick', norm.get('onset_strength', 0)) > 0.6` (proxy)
+- `"on_section_change"` — transición entre secciones (no dispara en el primer frame)
+- `"signal_above:<src>:<thr>"` — flanco ascendente sobre umbral, histéresis thr_off=thr×0.8
+
+**Actions disponibles:**
+- `"fire_effect:<effect_id>:<scope>:<duration_ms>"` — crea pattern efímero + slot en live._active
+- `"fire_pattern:<pattern_uid>"` — activa slot con ese pattern (usa slot 15 si no hay ninguno asignado)
+
+**Slot reservado**: el slot 15 de LiveEngine es el destino por defecto de `fire_pattern` cuando
+ningún slot del grid tiene el pattern_uid. No lo asignes manualmente en la UI del performance grid.

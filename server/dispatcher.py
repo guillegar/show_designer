@@ -1320,6 +1320,121 @@ def _h_set_macro(session, params):
     return {"ok": True, "macros": dict(session.macros)}
 
 
+# ── D1 — Auto-VJ por reglas ─────────────────────────────────────────────────
+
+def _h_autovj_get_state(session, params):
+    """autovj_get_state() → {ok, ruleset|null, presets: [{uid, name, rules}]}.
+
+    Estado completo del motor AutoVJ: ruleset activo + presets disponibles.
+    """
+    from src.core.autovj import PRESETS
+    ruleset = session.autovj_engine.ruleset
+    return {
+        "ok": True,
+        "ruleset": ruleset.to_dict() if ruleset is not None else None,
+        "presets": [
+            {"uid": p.uid, "name": p.name, "rules": len(p.rules)}
+            for p in PRESETS.values()
+        ],
+    }
+
+
+def _h_autovj_set_ruleset(session, params):
+    """autovj_set_ruleset(ruleset|null) → {ok, ruleset|null}.
+
+    Reemplaza el ruleset activo. Pasar null desactiva el AutoVJ.
+    """
+    from src.core.autovj import RuleSet
+    ruleset_dict = params.get("ruleset")
+    if ruleset_dict is None:
+        session.autovj_engine.ruleset = None
+        return {"ok": True, "ruleset": None}
+    try:
+        rs = RuleSet.from_dict(ruleset_dict)
+        session.autovj_engine.ruleset = rs
+        return {"ok": True, "ruleset": rs.to_dict()}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def _h_autovj_activate_preset(session, params):
+    """autovj_activate_preset(preset_uid) → {ok, ruleset}.
+
+    Carga un preset integrado como ruleset activo (copia fresca, estado
+    runtime reseteado).
+    """
+    from src.core.autovj import PRESETS, RuleSet
+    preset_uid = params.get("preset_uid", "")
+    preset = PRESETS.get(preset_uid)
+    if preset is None:
+        return {"ok": False, "error": f"Preset no encontrado: {preset_uid!r}. "
+                f"Válidos: {list(PRESETS)}"}
+    # from_dict crea objetos Rule nuevos con _last_fired_ms=-inf y _above=False
+    rs = RuleSet.from_dict(preset.to_dict())
+    session.autovj_engine.ruleset = rs
+    return {"ok": True, "ruleset": rs.to_dict()}
+
+
+def _h_autovj_update_rule(session, params):
+    """autovj_update_rule(rule_uid, enabled?, cooldown_ms?, trigger?, action?) → {ok, rule}.
+
+    Actualiza campos de una regla en el ruleset activo. Devuelve la regla (I3).
+    """
+    try:
+        rule_uid = require_key(params, "rule_uid")
+    except ValidationError as e:
+        return {"ok": False, "error": str(e)}
+
+    rs = session.autovj_engine.ruleset
+    if rs is None:
+        return {"ok": False, "error": "No hay ruleset activo"}
+    rule = next((r for r in rs.rules if r.uid == rule_uid), None)
+    if rule is None:
+        return {"ok": False, "error": "rule_uid no encontrado"}
+
+    if "enabled" in params:
+        rule.enabled = bool(params["enabled"])
+    if "cooldown_ms" in params:
+        rule.cooldown_ms = max(0, int(params["cooldown_ms"]))
+    if "trigger" in params:
+        rule.trigger = str(params["trigger"])
+    if "action" in params:
+        rule.action = str(params["action"])
+
+    return {"ok": True, "rule": rule.to_dict()}
+
+
+def _h_autovj_save(session, params):
+    """autovj_save() → {ok, path}.
+
+    Guarda el ruleset activo en projects/<slug>/autovj.json (guardado atómico).
+    No-op si no hay ruleset activo.
+    """
+    path = session.project.folder / "autovj.json"
+    session.autovj_engine.save(path)
+    ruleset = session.autovj_engine.ruleset
+    return {
+        "ok": True,
+        "path": str(path),
+        "saved": ruleset is not None,
+    }
+
+
+def _h_autovj_load(session, params):
+    """autovj_load() → {ok, ruleset|null}.
+
+    Carga el ruleset desde projects/<slug>/autovj.json.
+    No-op si el archivo no existe.
+    """
+    path = session.project.folder / "autovj.json"
+    session.autovj_engine.load(path)
+    ruleset = session.autovj_engine.ruleset
+    return {
+        "ok": True,
+        "ruleset": ruleset.to_dict() if ruleset is not None else None,
+    }
+
+
 _LOCAL = {
     "undo": _h_undo,
     "redo": _h_redo,
@@ -1387,6 +1502,13 @@ _LOCAL = {
     "get_live_state": _h_get_live_state,
     # C2 — Macros en vivo
     "set_macro": _h_set_macro,
+    # D1 — Auto-VJ por reglas
+    "autovj_get_state": _h_autovj_get_state,
+    "autovj_set_ruleset": _h_autovj_set_ruleset,
+    "autovj_activate_preset": _h_autovj_activate_preset,
+    "autovj_update_rule": _h_autovj_update_rule,
+    "autovj_save": _h_autovj_save,
+    "autovj_load": _h_autovj_load,
 }
 
 

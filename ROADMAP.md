@@ -1,7 +1,7 @@
 # ROADMAP v2 — "El Secuenciador"
 
 **Objetivo**: llevar Show Designer del nivel "editor de clips" al nivel "FL Studio de la luz".
-**Fecha**: 2026-06-13 · **Estado**: C3 APLICADA (2026-06-13) — siguiente: D1 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
+**Fecha**: 2026-06-13 · **Estado**: D1 APLICADA (2026-06-13) — siguiente: D2 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
 
 > **F0 APLICADA (2026-06-12, pendiente de commit)**: F0.0 actx real en `session.compute_frame`
 > (verificado: 0.004 ms/frame, cero regresión), F0.1 `src/core/param_pipeline.py` cableado
@@ -750,6 +750,23 @@ sin tocar el ratón.
 # BLOQUE D — IMPRO
 
 ## D1 — Auto-VJ por reglas (~3 días)
+**✅ APLICADA (2026-06-13)**
+
+**Estado de entrega:**
+- ✅ Backend puro: `src/core/autovj.py` (Rule, RuleSet, AutoVJEngine, _EphemeralSlot).
+  Triggers: on_beat (±20ms), on_downbeat, on_kick (proxy norm), on_section_change, signal_above (histéresis).
+  Actions: fire_effect (pattern efímero + _EphemeralSlot en _active), fire_pattern (slot 15 reservado).
+  Presets integrados: PRESET_FIESTA, PRESET_CHILL, PRESET_TECHNO (no persisten, viven en código).
+- ✅ Persistencia: `projects/<slug>/autovj.json` (guardado atómico). Auto-carga al arrancar sesión.
+- ✅ Integración `server/session.py`: `autovj_engine: AutoVJEngine`. En `compute_frame` ANTES de
+  `live_engine.compute_live_frame`: evalúa reglas. Pasa `timeline.patterns + _ephemeral_patterns`
+  a `compute_live_frame` (cero duplicación de la capa live C1).
+- ✅ Handlers (6): `autovj_get_state`, `autovj_set_ruleset`, `autovj_activate_preset`,
+  `autovj_update_rule`, `autovj_save`, `autovj_load` en dispatcher.py.
+- ✅ Tests: 40 tests en `tests/test_autovj.py`. **668 verdes.**
+- ✅ Sin imports prohibidos: `src/core/autovj.py` no importa de server/web/fastapi. `_EphemeralSlot`
+  evita importar `server.live_engine.ActiveSlot` dentro de src/core (duck typing).
+- 🔲 UI web: tabla de reglas diferida (handlers funcionan, UI es trabajo separado)
 
 **Qué**: modo sin timeline: defines reglas "señal → acción" y el motor improvisa con la
 música. Es la resurrección, hecha bien, del viejo `event_mapping` (borrado en la auditoría).

@@ -10,7 +10,7 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
 Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4 vistas funcionando.
-**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI. **Bloque B COMPLETO. Bloque C COMPLETO.**
+**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D iniciado.**
 
 ---
 
@@ -77,7 +77,17 @@ Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4
     control → queda mapeado. Mapa en localStorage `"show_designer_midi_map"` (independiente
     del show.json). `MidiPanel` plegable: estado/dispositivos/tabla/export/import JSON.
     `MacroStrip` refactorizada a controlada (estado elevado a `LiveView`). CERO cambios de
-    backend. 15 tests nuevos Vitest. **628 verdes. Siguiente: D1.**
+    backend. 15 tests nuevos Vitest. **628 verdes.**
+  - ✅ **D1 APLICADA (2026-06-13)**: Auto-VJ por reglas. **Bloque D iniciado.**
+    `src/core/autovj.py`: Rule, RuleSet, AutoVJEngine, _EphemeralSlot (duck-typed, sin imports
+    de server/). Triggers: on_beat/on_downbeat (±20ms searchsorted), on_kick (proxy norm),
+    on_section_change, signal_above (histéresis thr_off=thr×0.8). Actions: fire_effect (pattern
+    efímero + slot en live._active), fire_pattern (slot 15 reservado). Presets: FIESTA/CHILL/TECHNO.
+    Integrado en `session.compute_frame` antes de `live_engine.compute_live_frame`; pasa
+    `timeline.patterns + _ephemeral_patterns` (cero duplicación C1). Persistencia: autovj.json
+    atómico, auto-carga al arrancar. 6 handlers en dispatcher: `autovj_get/set_ruleset`,
+    `autovj_activate_preset`, `autovj_update_rule`, `autovj_save/load`. 40 tests nuevos.
+    **668 verdes. Siguiente: D2.**
   - ✅ **C1 APLICADA (2026-06-13)**: performance grid (lanzar patterns en vivo). `server/live_engine.py`:
     `LiveSlot` (config: pattern_uid, key, quantize, mode) × 16 slots + `LiveEngine` (runtime: `_active`,
     `_armed` dicts, `compute_live_frame`). Cuantización bar/beat/free con degradación automática a free
