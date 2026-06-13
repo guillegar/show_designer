@@ -192,6 +192,12 @@ function ParamControl({
 
 // ── Inspector principal ────────────────────────────────────────────────────
 
+interface PresetChip {
+  preset_id: string;
+  name: string;
+  color: string;
+}
+
 export function ClipInspector({
   clip,
   effects,
@@ -201,7 +207,9 @@ export function ClipInspector({
 }: ClipInspectorProps) {
   const [editingDuration, setEditingDuration] = useState(false);
   const [schema, setSchema] = useState<EffectSchema | null>(null);
+  const [suggestedPresets, setSuggestedPresets] = useState<PresetChip[]>([]);
   const schemaCacheRef = useRef<Record<number, EffectSchema | null>>({});
+  const presetCacheRef = useRef<Record<number, PresetChip[]>>({});
 
   // Carga el schema al cambiar el effect_id del clip
   useEffect(() => {
@@ -221,6 +229,27 @@ export function ClipInspector({
       .catch(() => {
         schemaCacheRef.current[id] = null;
         setSchema(null);
+      });
+  }, [clip?.effect_id]);
+
+  // Carga presets sugeridos al cambiar el effect_id
+  useEffect(() => {
+    if (!clip) { setSuggestedPresets([]); return; }
+    const id = clip.effect_id;
+    if (id in presetCacheRef.current) {
+      setSuggestedPresets(presetCacheRef.current[id]);
+      return;
+    }
+    control
+      .call("list_presets", { effect_id: id })
+      .then((res: { presets?: PresetChip[] }) => {
+        const chips = (res?.presets ?? []).slice(0, 3);
+        presetCacheRef.current[id] = chips;
+        setSuggestedPresets(chips);
+      })
+      .catch(() => {
+        presetCacheRef.current[id] = [];
+        setSuggestedPresets([]);
       });
   }, [clip?.effect_id]);
 
@@ -427,6 +456,36 @@ export function ClipInspector({
           }}
         />
       </div>
+
+      {/* Presets sugeridos */}
+      {suggestedPresets.length > 0 && (
+        <div className="inspector-section presets-section">
+          <h4>Presets sugeridos</h4>
+          <div className="preset-chips">
+            {suggestedPresets.map((preset) => (
+              <button
+                key={preset.preset_id}
+                className="preset-chip"
+                style={{ borderColor: preset.color }}
+                title={preset.name}
+                onClick={async () => {
+                  await control.call("set_clip_preset", {
+                    clip_id: clip.id,
+                    preset_id: preset.preset_id,
+                  });
+                  onClipUpdate();
+                }}
+              >
+                <span
+                  className="preset-chip-dot"
+                  style={{ background: preset.color }}
+                />
+                {preset.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Dynamic params */}
       {renderParams()}

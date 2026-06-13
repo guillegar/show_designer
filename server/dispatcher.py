@@ -195,6 +195,8 @@ def _h_set_clip_preset(session, params):
     c.color = p.color
     c.label = p.name
     c.preset_id = p.preset_id
+    if getattr(p, "param_links", None):
+        c.param_links = list(p.param_links)
     if p.kind == "channel":
         c.category = p.category
         c.channel_effect_id = p.channel_effect_id
@@ -306,7 +308,15 @@ def _h_analyzer_waveform_peaks(session, params):
 
 # ── Banco de presets (v1.10) ────────────────────────────────────────────────
 def _h_list_presets(session, params):
-    return {"presets": [p.to_dict() for p in session.presets.list()]}
+    all_presets = session.presets.list()
+    effect_id = params.get("effect_id")
+    if effect_id is not None:
+        try:
+            eid = int(effect_id)
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "effect_id debe ser entero"}
+        all_presets = [p for p in all_presets if p.kind == "pixel" and p.base_effect_id == eid]
+    return {"presets": [p.to_dict() for p in all_presets]}
 
 
 def _h_create_preset(session, params):

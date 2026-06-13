@@ -940,3 +940,18 @@
   font-size: 9px;
   color: var(--ok);
 }
+
+/* ---------- PRESET CHIPS en ClipInspector (F3) ---------- */
+.presets-section h4 {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--txt-4); margin: 0 0 6px; font-weight: 700;
+}
+.preset-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.preset-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px; border-radius: 10px; border: 1px solid var(--line-soft);
+  background: var(--bg-0); color: var(--txt-2); font-family: var(--font);
+  font-size: 11px; cursor: pointer; transition: background 0.12s, border-color 0.12s;
+}
+.preset-chip:hover { background: var(--bg-3); color: var(--txt); }
+.preset-chip-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }

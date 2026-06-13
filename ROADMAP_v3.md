@@ -458,7 +458,7 @@ y las barras cambian al instante.
 
 ---
 
-## F3 — Biblioteca de presets curados (~1 día, Haiku)
+## F3 — Biblioteca de presets curados ✅ APLICADA 2026-06-13
 
 **Qué**: tener efectos no basta si el diseñador tiene que inventar los params desde cero cada
 vez. Una biblioteca de presets curados (30+) permite arrancar en segundos.

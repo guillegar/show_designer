@@ -8,6 +8,7 @@
     "category": "",
     "family": "flash",
     "params": {},
+    "param_links": [],
     "color": "#f3f4f6",
     "scope": "global"
   },
@@ -22,6 +23,7 @@
     "params": {
       "hue": 0
     },
+    "param_links": [],
     "color": "#f0654b",
     "scope": "global"
   },
@@ -36,6 +38,7 @@
     "params": {
       "hue": 120
     },
+    "param_links": [],
     "color": "#1fe39a",
     "scope": "global"
   },
@@ -50,6 +53,7 @@
     "params": {
       "hue": 220
     },
+    "param_links": [],
     "color": "#5aa9f0",
     "scope": "global"
   },
@@ -62,6 +66,7 @@
     "category": "",
     "family": "flash",
     "params": {},
+    "param_links": [],
     "color": "#ffffff",
     "scope": "global"
   },
@@ -76,6 +81,7 @@
     "params": {
       "hue": 210
     },
+    "param_links": [],
     "color": "#5aa9f0",
     "scope": "global"
   },
@@ -88,6 +94,7 @@
     "category": "",
     "family": "wave",
     "params": {},
+    "param_links": [],
     "color": "#d569e0",
     "scope": "global"
   },
@@ -102,6 +109,7 @@
     "params": {
       "hue": 300
     },
+    "param_links": [],
     "color": "#d569e0",
     "scope": "global"
   },
@@ -116,6 +124,7 @@
     "params": {
       "hue": 140
     },
+    "param_links": [],
     "color": "#3fe08a",
     "scope": "global"
   },
@@ -128,6 +137,7 @@
     "category": "",
     "family": "pattern",
     "params": {},
+    "param_links": [],
     "color": "#e0c05a",
     "scope": "global"
   },
@@ -142,6 +152,7 @@
     "params": {
       "hue": 45
     },
+    "param_links": [],
     "color": "#e0c05a",
     "scope": "global"
   },
@@ -154,6 +165,7 @@
     "category": "",
     "family": "spectral",
     "params": {},
+    "param_links": [],
     "color": "#a779f0",
     "scope": "global"
   },
@@ -169,6 +181,7 @@
       "speed": 0.3,
       "radius": 0.25
     },
+    "param_links": [],
     "color": "#a779f0",
     "scope": "global"
   },
@@ -184,6 +197,7 @@
       "speed": 0.3,
       "radius": 0.25
     },
+    "param_links": [],
     "color": "#a779f0",
     "scope": "global"
   },
@@ -198,6 +212,7 @@
     "params": {
       "speed": 0.2
     },
+    "param_links": [],
     "color": "#5aa9f0",
     "scope": "global"
   },
@@ -212,6 +227,7 @@
     "params": {
       "speed": 0.2
     },
+    "param_links": [],
     "color": "#d569e0",
     "scope": "global"
   },
@@ -226,6 +242,7 @@
     "params": {
       "speed": 0.2
     },
+    "param_links": [],
     "color": "#e0c05a",
     "scope": "global"
   },
@@ -240,6 +257,7 @@
     "params": {
       "speed": 0.5
     },
+    "param_links": [],
     "color": "#1fe39a",
     "scope": "global"
   },
@@ -254,6 +272,7 @@
     "params": {
       "speed": 0.3
     },
+    "param_links": [],
     "color": "#1fe39a",
     "scope": "global"
   },
@@ -268,6 +287,7 @@
     "params": {
       "freq_hz": 12
     },
+    "param_links": [],
     "color": "#ffffff",
     "scope": "global"
   },
@@ -282,7 +302,621 @@
     "params": {
       "speed": 0.4
     },
+    "param_links": [],
     "color": "#f0654b",
+    "scope": "global"
+  },
+  {
+    "preset_id": "d25421e596f1",
+    "name": "Aurora Boreal",
+    "kind": "pixel",
+    "base_effect_id": 1010,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "color",
+    "params": {
+      "color1_r": 0,
+      "color1_g": 50,
+      "color1_b": 255,
+      "color2_r": 128,
+      "color2_g": 0,
+      "color2_b": 255,
+      "speed": 0.5,
+      "offset": 0.0
+    },
+    "param_links": [],
+    "color": "#3244e8",
+    "scope": "global"
+  },
+  {
+    "preset_id": "e68162d8fe79",
+    "name": "Amanecer",
+    "kind": "pixel",
+    "base_effect_id": 1010,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "color",
+    "params": {
+      "color1_r": 255,
+      "color1_g": 30,
+      "color1_b": 0,
+      "color2_r": 255,
+      "color2_g": 180,
+      "color2_b": 0,
+      "speed": 0.3,
+      "offset": 0.0
+    },
+    "param_links": [],
+    "color": "#e87020",
+    "scope": "global"
+  },
+  {
+    "preset_id": "29823e0c8a91",
+    "name": "Crepúsculo",
+    "kind": "pixel",
+    "base_effect_id": 1010,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "color",
+    "params": {
+      "color1_r": 255,
+      "color1_g": 100,
+      "color1_b": 0,
+      "color2_r": 220,
+      "color2_g": 0,
+      "color2_b": 180,
+      "speed": 0.7,
+      "offset": 0.5
+    },
+    "param_links": [],
+    "color": "#e05080",
+    "scope": "global"
+  },
+  {
+    "preset_id": "ab90804c4005",
+    "name": "Hormiga Roja",
+    "kind": "pixel",
+    "base_effect_id": 1011,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "chase",
+    "params": {
+      "r": 255,
+      "g": 0,
+      "b": 0,
+      "speed": 60.0,
+      "width": 4.0,
+      "mode": "bounce",
+      "tail_decay": 0.9
+    },
+    "param_links": [],
+    "color": "#e03030",
+    "scope": "global"
+  },
+  {
+    "preset_id": "c1e3b4ae989c",
+    "name": "Luz de Policía",
+    "kind": "pixel",
+    "base_effect_id": 1011,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "chase",
+    "params": {
+      "r": 0,
+      "g": 100,
+      "b": 255,
+      "speed": 80.0,
+      "width": 3.0,
+      "mode": "bounce",
+      "tail_decay": 0.7
+    },
+    "param_links": [],
+    "color": "#2266e8",
+    "scope": "global"
+  },
+  {
+    "preset_id": "ea726a0375c9",
+    "name": "Lluvia de Neón",
+    "kind": "pixel",
+    "base_effect_id": 1011,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "chase",
+    "params": {
+      "r": 0,
+      "g": 255,
+      "b": 100,
+      "speed": 120.0,
+      "width": 2.0,
+      "mode": "cycle",
+      "tail_decay": 0.85
+    },
+    "param_links": [],
+    "color": "#00e860",
+    "scope": "global"
+  },
+  {
+    "preset_id": "8663db879353",
+    "name": "Marquesina Dorada",
+    "kind": "pixel",
+    "base_effect_id": 1012,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "chase",
+    "params": {
+      "r": 255,
+      "g": 200,
+      "b": 0,
+      "group_size": 3,
+      "gap_size": 3,
+      "speed": 3.0
+    },
+    "param_links": [],
+    "color": "#e8c000",
+    "scope": "global"
+  },
+  {
+    "preset_id": "497dc124dabb",
+    "name": "Teatro Azul",
+    "kind": "pixel",
+    "base_effect_id": 1012,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "chase",
+    "params": {
+      "r": 0,
+      "g": 100,
+      "b": 255,
+      "group_size": 5,
+      "gap_size": 3,
+      "speed": 1.5
+    },
+    "param_links": [],
+    "color": "#0066e8",
+    "scope": "global"
+  },
+  {
+    "preset_id": "c34afa192c7d",
+    "name": "Rock & Roll",
+    "kind": "pixel",
+    "base_effect_id": 1012,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "chase",
+    "params": {
+      "r": 220,
+      "g": 0,
+      "b": 0,
+      "group_size": 2,
+      "gap_size": 2,
+      "speed": 6.0
+    },
+    "param_links": [],
+    "color": "#dd0000",
+    "scope": "global"
+  },
+  {
+    "preset_id": "62bbe48561e6",
+    "name": "Cielo Estrellado",
+    "kind": "pixel",
+    "base_effect_id": 1013,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "ambient",
+    "params": {
+      "r": 150,
+      "g": 180,
+      "b": 255,
+      "density": 0.2,
+      "speed": 2.0,
+      "min_brightness": 0.0
+    },
+    "param_links": [],
+    "color": "#96b4ff",
+    "scope": "global"
+  },
+  {
+    "preset_id": "ad000e7f5ac1",
+    "name": "Nieve",
+    "kind": "pixel",
+    "base_effect_id": 1013,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "ambient",
+    "params": {
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "density": 0.15,
+      "speed": 1.5,
+      "min_brightness": 0.1
+    },
+    "param_links": [],
+    "color": "#f0f0ff",
+    "scope": "global"
+  },
+  {
+    "preset_id": "3b55e4acc54e",
+    "name": "Polvo de Hadas",
+    "kind": "pixel",
+    "base_effect_id": 1013,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "ambient",
+    "params": {
+      "r": 255,
+      "g": 100,
+      "b": 220,
+      "density": 0.3,
+      "speed": 5.0,
+      "min_brightness": 0.0
+    },
+    "param_links": [],
+    "color": "#e064dc",
+    "scope": "global"
+  },
+  {
+    "preset_id": "661f83855df0",
+    "name": "Hoguera",
+    "kind": "pixel",
+    "base_effect_id": 1014,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "ambient",
+    "params": {
+      "intensity": 0.6,
+      "cooling": 0.5,
+      "sparking": 0.5
+    },
+    "param_links": [],
+    "color": "#e87020",
+    "scope": "global"
+  },
+  {
+    "preset_id": "b3506b75635c",
+    "name": "Llama Intensa",
+    "kind": "pixel",
+    "base_effect_id": 1014,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "ambient",
+    "params": {
+      "intensity": 0.9,
+      "cooling": 0.2,
+      "sparking": 0.8
+    },
+    "param_links": [],
+    "color": "#ff4400",
+    "scope": "global"
+  },
+  {
+    "preset_id": "199412807658",
+    "name": "Fuego Suave",
+    "kind": "pixel",
+    "base_effect_id": 1014,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "ambient",
+    "params": {
+      "intensity": 0.4,
+      "cooling": 0.7,
+      "sparking": 0.3
+    },
+    "param_links": [],
+    "color": "#c06030",
+    "scope": "global"
+  },
+  {
+    "preset_id": "9f4e22d84143",
+    "name": "Estrobo Blanco",
+    "kind": "pixel",
+    "base_effect_id": 1015,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "strobe",
+    "params": {
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "rate_hz": 8.0,
+      "duty_cycle": 0.5
+    },
+    "param_links": [],
+    "color": "#ffffff",
+    "scope": "global"
+  },
+  {
+    "preset_id": "9c3ae4b1c8c7",
+    "name": "Pulso Rojo",
+    "kind": "pixel",
+    "base_effect_id": 1015,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "strobe",
+    "params": {
+      "r": 255,
+      "g": 0,
+      "b": 0,
+      "rate_hz": 4.0,
+      "duty_cycle": 0.7
+    },
+    "param_links": [],
+    "color": "#cc0000",
+    "scope": "global"
+  },
+  {
+    "preset_id": "3b38c709685b",
+    "name": "Flash Azul",
+    "kind": "pixel",
+    "base_effect_id": 1015,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "strobe",
+    "params": {
+      "r": 0,
+      "g": 80,
+      "b": 255,
+      "rate_hz": 15.0,
+      "duty_cycle": 0.3
+    },
+    "param_links": [],
+    "color": "#0050ff",
+    "scope": "global"
+  },
+  {
+    "preset_id": "f93106e62aa1",
+    "name": "VU Verde-Rojo",
+    "kind": "pixel",
+    "base_effect_id": 1016,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "audio",
+    "params": {
+      "r_low": 0,
+      "g_low": 255,
+      "b_low": 0,
+      "r_high": 255,
+      "g_high": 0,
+      "b_high": 0,
+      "smoothing": 0.7,
+      "peak_hold_ms": 500.0
+    },
+    "param_links": [],
+    "color": "#40dd40",
+    "scope": "global"
+  },
+  {
+    "preset_id": "74dc362b0f12",
+    "name": "VU Azul-Blanco",
+    "kind": "pixel",
+    "base_effect_id": 1016,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "audio",
+    "params": {
+      "r_low": 0,
+      "g_low": 80,
+      "b_low": 255,
+      "r_high": 255,
+      "g_high": 255,
+      "b_high": 255,
+      "smoothing": 0.6,
+      "peak_hold_ms": 300.0
+    },
+    "param_links": [],
+    "color": "#0050ff",
+    "scope": "global"
+  },
+  {
+    "preset_id": "000090e87be8",
+    "name": "VU Cian-Magenta",
+    "kind": "pixel",
+    "base_effect_id": 1016,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "audio",
+    "params": {
+      "r_low": 0,
+      "g_low": 220,
+      "b_low": 220,
+      "r_high": 220,
+      "g_high": 0,
+      "b_high": 220,
+      "smoothing": 0.8,
+      "peak_hold_ms": 800.0
+    },
+    "param_links": [],
+    "color": "#00dcdc",
+    "scope": "global"
+  },
+  {
+    "preset_id": "f5bee3578cd1",
+    "name": "Arcoíris Rápido",
+    "kind": "pixel",
+    "base_effect_id": 1017,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "color",
+    "params": {
+      "speed": 3.0,
+      "saturation": 1.0,
+      "value": 1.0,
+      "reverse": false
+    },
+    "param_links": [],
+    "color": "#d569e0",
+    "scope": "global"
+  },
+  {
+    "preset_id": "3adb0eb4fc74",
+    "name": "Arcoíris Suave",
+    "kind": "pixel",
+    "base_effect_id": 1017,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "color",
+    "params": {
+      "speed": 0.5,
+      "saturation": 0.9,
+      "value": 0.8,
+      "reverse": false
+    },
+    "param_links": [],
+    "color": "#a080e0",
+    "scope": "global"
+  },
+  {
+    "preset_id": "99bb4387b850",
+    "name": "Arcoíris Inverso",
+    "kind": "pixel",
+    "base_effect_id": 1017,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "color",
+    "params": {
+      "speed": 1.5,
+      "saturation": 1.0,
+      "value": 1.0,
+      "reverse": true
+    },
+    "param_links": [],
+    "color": "#e0a030",
+    "scope": "global"
+  },
+  {
+    "preset_id": "8c10748747ed",
+    "name": "Radar Blanco",
+    "kind": "pixel",
+    "base_effect_id": 1018,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "chase",
+    "params": {
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "speed": 0.8,
+      "width": 10.0,
+      "mode": "sin",
+      "brightness_env": false
+    },
+    "param_links": [],
+    "color": "#f0f0f0",
+    "scope": "global"
+  },
+  {
+    "preset_id": "8c4c5146d98d",
+    "name": "Scanner Rojo",
+    "kind": "pixel",
+    "base_effect_id": 1018,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "chase",
+    "params": {
+      "r": 255,
+      "g": 0,
+      "b": 0,
+      "speed": 1.5,
+      "width": 6.0,
+      "mode": "bounce",
+      "brightness_env": false
+    },
+    "param_links": [],
+    "color": "#dd2020",
+    "scope": "global"
+  },
+  {
+    "preset_id": "f31ce417d29b",
+    "name": "Disco Azul",
+    "kind": "pixel",
+    "base_effect_id": 1018,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "chase",
+    "params": {
+      "r": 0,
+      "g": 150,
+      "b": 255,
+      "speed": 2.5,
+      "width": 15.0,
+      "mode": "sin",
+      "brightness_env": true
+    },
+    "param_links": [],
+    "color": "#0096ff",
+    "scope": "global"
+  },
+  {
+    "preset_id": "91eeeb2885b8",
+    "name": "Respiro Blanco",
+    "kind": "pixel",
+    "base_effect_id": 1019,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "ambient",
+    "params": {
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "rate_hz": 0.3,
+      "min_brightness": 0.0,
+      "audio_reactive": false,
+      "audio_source": "rms"
+    },
+    "param_links": [],
+    "color": "#f0f0f0",
+    "scope": "global"
+  },
+  {
+    "preset_id": "adb433741742",
+    "name": "Pulso Ámbar",
+    "kind": "pixel",
+    "base_effect_id": 1019,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "ambient",
+    "params": {
+      "r": 255,
+      "g": 150,
+      "b": 0,
+      "rate_hz": 1.0,
+      "min_brightness": 0.1,
+      "audio_reactive": true,
+      "audio_source": "rms"
+    },
+    "param_links": [
+      {
+        "param": "rate_hz",
+        "source": "rms",
+        "gain": 2.0,
+        "offset": 0.5,
+        "curve": "linear",
+        "min_v": 0.1,
+        "max_v": 3.0
+      }
+    ],
+    "color": "#e09600",
+    "scope": "global"
+  },
+  {
+    "preset_id": "5d313a3e1410",
+    "name": "Respiro Verde",
+    "kind": "pixel",
+    "base_effect_id": 1019,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "ambient",
+    "params": {
+      "r": 0,
+      "g": 200,
+      "b": 80,
+      "rate_hz": 0.5,
+      "min_brightness": 0.05,
+      "audio_reactive": false,
+      "audio_source": "rms"
+    },
+    "param_links": [],
+    "color": "#00c850",
     "scope": "global"
   }
 ]

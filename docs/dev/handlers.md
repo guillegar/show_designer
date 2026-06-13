@@ -386,3 +386,36 @@ están fuera de rango o contienen enums inválidos, devuelven `{ok: false, error
 
 Véase también `docs/dev/plugin-sdk.md` para la convención de PARAM_SCHEMA y los tipos de
 control que genera la UI.
+
+---
+
+## F3 — Biblioteca de presets curados
+
+### Cambios en handlers existentes
+
+**`list_presets`** — acepta ahora un parámetro opcional `effect_id: int`:
+- Sin `effect_id`: devuelve todos los presets (comportamiento anterior, sin breaking change).
+- Con `effect_id`: devuelve solo los presets pixel con `base_effect_id == effect_id`.
+
+```json
+// Petición filtrada
+{"method": "list_presets", "params": {"effect_id": 1014}}
+// Respuesta
+{"presets": [{"preset_id": "...", "name": "Hoguera", "base_effect_id": 1014, ...}, ...]}
+```
+
+**`set_clip_preset`** — ahora también propaga `param_links` del preset al clip:
+- Si `EffectPreset.param_links` es no vacío, se copia a `Clip.param_links`.
+- Permite presets con modulación A1 preconfigurada (ej. "Pulso Ámbar": `rate_hz ← rms`).
+
+### Nuevo campo en `EffectPreset`
+
+`param_links: List[dict]` — lista de enlaces A1 preconfigurados. Mismo formato que
+`Clip.param_links` (ver `set_clip_param_links`). Por defecto vacío `[]` (backwards-compat:
+los presets existentes sin este campo se cargan sin error).
+
+### Banco global — 30 presets nuevos
+
+3 presets curados por cada efecto F1 (IDs 1010-1019), añadidos automáticamente al arrancar
+si no estaban en `presets.json`. Nombres evocadores (no técnicos). Los presets de
+`vu_meter` y `breathing` (audio_reactive) están pre-conectados a la señal RMS.
