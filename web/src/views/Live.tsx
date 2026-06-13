@@ -197,6 +197,101 @@ function MixerPanel() {
   );
 }
 
+// ── Panel Render offline (B3) ────────────────────────────────────────────────
+
+function RenderPanel() {
+  const [status, setStatus] = useState<"idle" | "rendering" | "ready">("idle");
+  const [pct, setPct] = useState(0);
+  const [baked, setBaked] = useState(false);
+  const [invalidated, setInvalidated] = useState(false);  // true cuando timeline cambió con baked activo
+  const rev = useStore((s) => s.rev);
+
+  // Detectar cambios del timeline mientras baked está activo
+  useEffect(() => {
+    if (baked) setInvalidated(true);
+  }, [rev]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cargar estado inicial
+  const loadStatus = useCallback(() => {
+    control.call("get_render_status").then((r) => {
+      if (r.ok) setStatus(r.status as "idle" | "rendering" | "ready");
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => { loadStatus(); }, [loadStatus]);
+
+  // Suscribirse a eventos de progreso del stream
+  useEffect(() => {
+    return stream.onRenderProgress((e) => {
+      setPct(Math.round(e.pct));
+      if (e.done) {
+        setStatus("ready");
+        setPct(100);
+      } else {
+        setStatus("rendering");
+      }
+    });
+  }, []);
+
+  const startRender = () => {
+    control.call("render_offline").then((r) => {
+      if (r.ok) { setStatus("rendering"); setPct(0); }
+      else alert(r.error || "Error al iniciar render");
+    }).catch(() => {});
+  };
+
+  const toggleBaked = () => {
+    if (baked) {
+      control.call("toggle_baked", { enabled: false }).then((r) => {
+        if (r.ok) { setBaked(false); setInvalidated(false); }
+      }).catch(() => {});
+    } else {
+      control.call("toggle_baked", { enabled: true }).then((r) => {
+        if (r.ok) { setBaked(true); setInvalidated(false); }
+        else alert(r.error || "Sin render válido");
+      }).catch(() => {});
+    }
+  };
+
+  return (
+    <div className="render-panel">
+      <div className="render-header">
+        <span className="render-title">Render offline</span>
+        <span className="ph-spacer" style={{ flex: 1 }} />
+        <button
+          className={"btn" + (status === "rendering" ? " disabled" : "")}
+          onClick={startRender}
+          disabled={status === "rendering"}
+          title="Bakear el timeline completo a frames (sin coste de CPU en directo)"
+        >⬛ Render</button>
+        <button
+          className={"btn" + (baked ? " on acc" : "") + (status !== "ready" ? " disabled" : "")}
+          onClick={toggleBaked}
+          disabled={status !== "ready" && !baked}
+          title="Activar/desactivar playback baked"
+        >▶ Baked</button>
+      </div>
+
+      {status === "rendering" && (
+        <div className="render-progress-wrap">
+          <div className="render-progress-bar" style={{ width: `${pct}%` }} />
+          <span className="render-progress-label">{pct}%</span>
+        </div>
+      )}
+
+      {status === "ready" && (
+        <div className="render-status ok">✓ Render listo</div>
+      )}
+
+      {invalidated && baked && (
+        <div className="render-status warn">
+          ⚠ Timeline modificado — render invalidado. Desactiva Baked o re-renderiza.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Vista principal ──────────────────────────────────────────────────────────
 
 export function LiveView() {
@@ -257,6 +352,8 @@ export function LiveView() {
       </div>
 
       <div className="live-side">
+        {/* Panel Render offline (B3) */}
+        <RenderPanel />
         {/* Panel Mixer (B2) */}
         <MixerPanel />
 

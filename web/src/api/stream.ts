@@ -31,12 +31,15 @@ function wsUrl(path: string): string {
   return `${proto}//${location.host}${path}`;
 }
 
+export type RenderProgressEvent = { pct: number; done?: boolean };
+
 class StreamClient {
   latestFrame: Uint8Array | null = null;
   latestDmx: DmxState = {};
   private ws: WebSocket | null = null;
   private stateSubs = new Set<(s: TransportState) => void>();
   private dmxSubs = new Set<(d: DmxState) => void>();
+  private renderProgressSubs = new Set<(e: RenderProgressEvent) => void>();
 
   constructor() {
     this.connect();
@@ -62,6 +65,8 @@ class StreamClient {
       } else if (m.type === "dmx") {
         this.latestDmx = m.fixtures || {};
         for (const f of this.dmxSubs) f(this.latestDmx);
+      } else if (m.type === "render_progress") {
+        for (const f of this.renderProgressSubs) f({ pct: m.pct, done: m.done });
       }
     };
     ws.onclose = () => setTimeout(() => this.connect(), 1000);
@@ -75,6 +80,10 @@ class StreamClient {
   onDmx(fn: (d: DmxState) => void): () => void {
     this.dmxSubs.add(fn);
     return () => this.dmxSubs.delete(fn);
+  }
+  onRenderProgress(fn: (e: RenderProgressEvent) => void): () => void {
+    this.renderProgressSubs.add(fn);
+    return () => this.renderProgressSubs.delete(fn);
   }
 
   // Color RGB de un LED concreto del último frame (para canvas Live/Patch)

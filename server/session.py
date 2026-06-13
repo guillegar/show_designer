@@ -35,6 +35,7 @@ from src._paths import PROJECT_DIR, VIEWER3D_DIR
 
 LEDS = LEDS_PER_BAR
 _BUCKET_MS = 500
+_FPS_BAKED = 30  # B3: FPS del render offline (debe coincidir con offline_render._FPS)
 
 
 class _NullView:
@@ -179,6 +180,12 @@ class ShowSession:
         self.rec = False
         self.muted_tracks: set[int] = set()
         self.solo_tracks: set[int] = set()
+        # B3: estado del render offline + playback baked
+        self.baked_frames: Optional[np.ndarray] = None  # None = modo live normal
+        self.baked_hash: Optional[str] = None            # hash del show al bakear
+        self.render_in_progress: bool = False
+        self.render_pct: float = 0.0
+        self.hub = None  # StreamHub; asignado por web.py tras construir la sesión
         self._clip_bucket_index: Dict[int, list] = {}
         self._clip_bucket_index_n = -1
         # A3: cache de clips efímeros expandidos de PatternInstances.
@@ -435,18 +442,30 @@ class ShowSession:
         self._clip_bucket_index_n = -1
 
     def invalidate_caches(self):
-        """Invalidar cachés tras edición de clips. Puro, sin Qt."""
+        """Invalidar cachés tras edición de clips. Puro, sin Qt.
+
+        B3: toda mutación del timeline invalida el render bakeado (el hash del
+        show ya no coincidirá con el npz en disco → compute_frame vuelve al
+        modo live).
+        """
         self._clip_bucket_index_n = -1
+        # B3: cualquier mutación del timeline invalida el baked (I4 inverso:
+        # si el usuario edita, el npz es obsoleto — no se sirve basura)
+        self.baked_frames = None
+        self.baked_hash = None
         self.notify_changed('model')
 
     def invalidate_pattern_cache(self) -> None:
         """Llamar tras mutar patterns o pattern_instances (A3).
 
         Incrementa _pattern_rev para que _build_clip_bucket_index re-expanda
-        las instancias en el próximo frame.
+        las instancias en el próximo frame. B3: también invalida el baked.
         """
         self._pattern_rev += 1
         self._clip_bucket_index_n = -1
+        # B3: mutar patterns también invalida el render bakeado
+        self.baked_frames = None
+        self.baked_hash = None
         self.notify_changed('model')
 
     def find_clip_by_id(self, clip_id):
@@ -543,9 +562,67 @@ class ShowSession:
                           'session.actx', f"get_audio_context({t_s:.2f}) error: {e}")
         return self._cached_actx
 
+    # ── B3: baked frames ─────────────────────────────────────────────────────
+
+    def load_baked_frames(self) -> bool:
+        """Lee render.npz si existe y el hash coincide con el timeline actual.
+
+        Devuelve True si cargó correctamente (= baked mode activado).
+        Si el hash no coincide (render obsoleto), no carga nada y devuelve False.
+        """
+        import json as _json
+        from server.offline_render import compute_timeline_hash
+
+        out_path = self.project.folder / "render.npz"
+        meta_path = self.project.folder / "render_meta.json"
+        if not out_path.is_file() or not meta_path.is_file():
+            return False
+        try:
+            with open(meta_path, encoding='utf-8') as f:
+                meta = _json.load(f)
+            current_hash = compute_timeline_hash(self.timeline.to_dict())
+            if meta.get("show_hash") != current_hash:
+                return False  # render obsoleto → no cargar
+            data = np.load(str(out_path))
+            self.baked_frames = data['frames']
+            self.baked_hash = meta.get("show_hash")
+            return True
+        except Exception as e:
+            print(f"[session] load_baked_frames error: {e}")
+            return False
+
     # ── compute_frame: port Qt-free de TimelineEditorWindow._compute_frame ───
     def compute_frame(self, t_s: float) -> np.ndarray:
-        """Renderiza los clips activos en t a un array (NUM_BARS, LEDS, 3) uint8."""
+        """Renderiza los clips activos en t a un array (NUM_BARS, LEDS, 3) uint8.
+
+        B3: si hay frames bakeados cargados (baked mode ON) y no hay render en
+        curso, sirve el frame del npz en vez de computar. El postfx/master (B2)
+        se aplica igualmente sobre el frame bakeado, así el modo baked sigue
+        siendo "tocable" en directo.
+        """
+        # B3: ruta baked — sirve frame del npz + aplica postfx/master
+        if self.baked_frames is not None and not self.render_in_progress:
+            n_frames = len(self.baked_frames)
+            frame_idx = max(0, min(n_frames - 1, round(t_s * _FPS_BAKED)))
+            frame = self.baked_frames[frame_idx].copy()
+            # Postfx/master (B2) sobre el frame bakeado
+            mixer = self.timeline.mixer
+            if mixer:
+                from src.core.postfx import apply_track_chain, apply_master
+                track_chains = mixer.get("tracks", {})
+                if track_chains:
+                    for track_key, chain in track_chains.items():
+                        try:
+                            track_idx = int(track_key)
+                            if 0 <= track_idx < NUM_BARS and chain:
+                                frame[track_idx] = apply_track_chain(frame[track_idx], chain)
+                        except (ValueError, TypeError):
+                            pass
+                master_chain = mixer.get("master", {})
+                if master_chain:
+                    frame = apply_master(frame, master_chain)
+            return frame
+
         from src.core.param_pipeline import resolve_params
         frame = np.zeros((NUM_BARS, LEDS, 3), dtype=np.uint8)
         t_ms = int(t_s * 1000)

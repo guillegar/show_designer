@@ -304,6 +304,33 @@ class Timeline:
         """Clips que cubren ese instante (puede haber varios por track si se solapan)."""
         return [c for c in self.clips if c.contains(time_ms)]
 
+    def to_dict(self) -> dict:
+        """Serializa a dict (para copia congelada, hash, etc.). Mismo formato que save()."""
+        return {
+            'version': self.SCHEMA_VERSION,
+            'duration_ms': self.duration_ms,
+            'clips': [c.to_dict() for c in self.clips],
+            'groups': [g.to_dict() for g in self.groups],
+            'cue_points': [c.to_dict() for c in self.cue_points],
+            'automation': list(self.automation),
+            'patterns': list(self.patterns),
+            'pattern_instances': list(self.pattern_instances),
+            'mixer': dict(self.mixer),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Timeline':
+        """Construye un Timeline desde un dict (inverso de to_dict). Migración tolerante."""
+        clips  = [Clip.from_dict(d)  for d in data.get('clips',  [])]
+        groups = [BarGroup.from_dict(d) for d in data.get('groups', [])]
+        cues_raw = data.get('cue_points', [])
+        cues = [CuePoint.from_dict(d) for d in cues_raw] if cues_raw else None
+        return cls(clips, int(data.get('duration_ms', 165_000)), groups, cues,
+                   automation=list(data.get('automation', [])),
+                   patterns=list(data.get('patterns', [])),
+                   pattern_instances=list(data.get('pattern_instances', [])),
+                   mixer=dict(data.get('mixer', {})))
+
     def save(self, path=TIMELINE_FILE):
         data = {
             'version': self.SCHEMA_VERSION,  # v3: contenedores del secuenciador

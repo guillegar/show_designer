@@ -1,7 +1,7 @@
 # ROADMAP v2 — "El Secuenciador"
 
 **Objetivo**: llevar Show Designer del nivel "editor de clips" al nivel "FL Studio de la luz".
-**Fecha**: 2026-06-13 · **Estado**: B2 APLICADA (2026-06-13) — siguiente: B3 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
+**Fecha**: 2026-06-13 · **Estado**: B3 APLICADA (2026-06-13) — siguiente: B4 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
 
 > **F0 APLICADA (2026-06-12, pendiente de commit)**: F0.0 actx real en `session.compute_frame`
 > (verificado: 0.004 ms/frame, cero regresión), F0.1 `src/core/param_pipeline.py` cableado
@@ -594,6 +594,22 @@ salida con una curva sobre `master.blackout_fade`.
 **Commit**: `roadmap-v2 fase B2: mixer master + cadena por pista`.
 
 ## B3 — Render offline + export (~3 días)
+**✅ APLICADA (2026-06-13)**
+
+**Estado de entrega:**
+- ✅ Backend puro: `server/offline_render.py` (`_render_worker` síncrono en executor, `start_render` async).
+  Copia congelada (`Timeline.from_dict(tl.to_dict())` — CRÍTICO). Hash MD5 para invalidación.
+  Guardado atómico: `render_tmp.npz` → `os.replace` → `render.npz`. `render_meta.json` atómico.
+- ✅ `Timeline.to_dict()` + `Timeline.from_dict()` añadidos a `src/core/timeline_model.py`.
+- ✅ Sesión: `baked_frames`, `baked_hash`, `render_in_progress`, `render_pct`, `hub`.
+  `load_baked_frames()`. `invalidate_caches()` + `invalidate_pattern_cache()` ponen baked=None.
+  `compute_frame()` usa baked si disponible + aplica postfx/master (B2) igualmente.
+- ✅ Handlers (3): `render_offline`, `get_render_status`, `toggle_baked` en dispatcher.
+- ✅ Progress: eventos `{type:'render_progress', pct:float}` por el stream hub (thread-safe via `run_coroutine_threadsafe`).
+- ✅ Frontend: `RenderPanel` en Live.tsx — botón ⬛ Render + barra progreso (suscrita al stream) + toggle ▶ Baked + aviso invalidación. `onRenderProgress` añadido a `StreamClient`.
+- ✅ Tests: 11 tests en `tests/test_offline_render.py` (incluyendo parity baked==live). **593 verdes**.
+- ✅ Tiempos estimados el_taser (273.3s × 30 FPS = ~8.190 frames): render ~30-60s CPU, npz < 5 MB comprimido.
+- 🔲 Export mp4 preview (ffmpeg) — diferido a B3.1 si se necesita
 
 **Qué**: precalcular el show entero a frames para (a) reproducir sin coste de CPU en
 directo, (b) detectar errores antes del bolo, (c) exportar.

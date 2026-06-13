@@ -1017,6 +1017,94 @@ def _h_get_waveform(session, params):
     return {"ok": True, **data}
 
 
+# ── B3 — Render offline + playback baked ────────────────────────────────────
+
+def _h_render_offline(session, params):
+    """render_offline() — lanza el render del timeline completo en background.
+
+    Corre en loop.run_in_executor (thread pool) — no bloquea el tick (I4).
+    El progreso se emite como {type:'render_progress', pct:float} en el stream.
+    Devuelve {ok, message} inmediatamente (el render continúa en background).
+    """
+    if getattr(session, 'render_in_progress', False):
+        return {"ok": False, "error": "Ya hay un render en curso"}
+    import asyncio
+    from server.offline_render import start_render
+    try:
+        asyncio.ensure_future(start_render(session))
+    except RuntimeError as e:
+        return {"ok": False, "error": f"No se pudo lanzar render: {e}"}
+    return {"ok": True, "message": "Render iniciado en background"}
+
+
+def _h_get_render_status(session, params):
+    """get_render_status() → {ok, status, pct, hash}.
+
+    status: 'rendering' | 'ready' | 'idle'
+      - rendering: render en curso
+      - ready: hay npz válido en disco (hash coincide con timeline actual)
+      - idle: no hay render válido
+    """
+    import json as _json
+    from server.offline_render import compute_timeline_hash
+
+    if getattr(session, 'render_in_progress', False):
+        return {
+            "ok": True,
+            "status": "rendering",
+            "pct": getattr(session, 'render_pct', 0.0),
+            "hash": None,
+        }
+
+    out_path = session.project.folder / "render.npz"
+    meta_path = session.project.folder / "render_meta.json"
+    if not out_path.is_file() or not meta_path.is_file():
+        return {"ok": True, "status": "idle", "pct": 0.0, "hash": None}
+
+    try:
+        with open(meta_path, encoding='utf-8') as f:
+            meta = _json.load(f)
+        current_hash = compute_timeline_hash(session.timeline.to_dict())
+        stored_hash = meta.get("show_hash")
+        if stored_hash == current_hash:
+            return {
+                "ok": True,
+                "status": "ready",
+                "pct": 100.0,
+                "hash": stored_hash,
+                "n_frames": meta.get("n_frames"),
+                "duration_s": meta.get("duration_s"),
+            }
+    except Exception:
+        pass
+
+    return {"ok": True, "status": "idle", "pct": 0.0, "hash": None}
+
+
+def _h_toggle_baked(session, params):
+    """toggle_baked(enabled: bool) → {ok, baked: bool}.
+
+    Si enabled=True: intenta cargar los frames bakeados del npz en memoria.
+    Si no hay render válido (hash no coincide o no existe), devuelve error.
+    Si enabled=False: descarga los frames de memoria (vuelve al modo live).
+    """
+    enabled = bool(params.get("enabled", True))
+
+    if not enabled:
+        session.baked_frames = None
+        session.baked_hash = None
+        return {"ok": True, "baked": False}
+
+    ok = session.load_baked_frames()
+    if not ok:
+        return {
+            "ok": False,
+            "error": "Sin render válido. Lanza render_offline primero.",
+            "baked": False,
+        }
+    return {"ok": True, "baked": True}
+
+
 _LOCAL = {
     "undo": _h_undo,
     "redo": _h_redo,
@@ -1068,6 +1156,10 @@ _LOCAL = {
     "set_track_chain": _h_set_track_chain,
     "set_master": _h_set_master,
     "get_mixer": _h_get_mixer,
+    # B3 — Render offline + playback baked
+    "render_offline": _h_render_offline,
+    "get_render_status": _h_get_render_status,
+    "toggle_baked": _h_toggle_baked,
 }
 
 

@@ -199,6 +199,27 @@
 .scope-stat .k { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--txt-4); }
 .scope-stat .v { font-family: var(--mono); font-size: 17px; font-weight: 600; color: var(--txt); margin-top: 2px; }
 
+/* ---------- RENDER OFFLINE (B3) ---------- */
+.render-panel { border-bottom: 1px solid var(--line-soft); padding: 8px 12px; }
+.render-header { display: flex; align-items: center; gap: 6px; }
+.render-title { font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--txt-3); }
+.render-progress-wrap {
+  position: relative; height: 6px; background: var(--bg-0);
+  border-radius: 3px; overflow: hidden; margin-top: 8px;
+}
+.render-progress-bar {
+  height: 100%; background: var(--acc); transition: width 0.3s ease;
+  border-radius: 3px;
+}
+.render-progress-label {
+  position: absolute; right: 4px; top: -1px; font-size: 9px;
+  color: var(--txt-3); font-family: var(--mono);
+}
+.render-status { font-size: 11px; padding-top: 5px; }
+.render-status.ok { color: var(--ok); }
+.render-status.warn { color: var(--warn); }
+
 /* ---------- MIXER (B2) ---------- */
 .mixer-panel { border-bottom: 1px solid var(--line-soft); }
 .mixer-header {

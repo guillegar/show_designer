@@ -64,6 +64,7 @@ def create_app() -> FastAPI:
         # Proyecto de arranque: LUCES_PROJECT (slug) si está definido, si no el default.
         startup_slug = os.environ.get("LUCES_PROJECT") or None
         session = ShowSession(slug=startup_slug, on_change=lambda kind: None)
+        session.hub = hub  # B3: para que render offline emita progress events al stream
         dispatcher = Dispatcher(session)
         app.state.session = session
         app.state.dispatcher = dispatcher

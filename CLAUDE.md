@@ -10,7 +10,7 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
 Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4 vistas funcionando.
-**A1+A2+A3+A4+A5+B1+B2 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista.
+**A1+A2+A3+A4+A5+B1+B2+B3 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked.
 
 ---
 
@@ -51,8 +51,16 @@ Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4
     Integrado al final de `session.compute_frame` (orden fijo: timeline_render → postfx/master).
     Handlers `set_track_chain`, `set_master`, `get_mixer` en dispatcher. Mixer en undo (I1).
     Panel Mixer plegable en `Live.tsx`: sliders brightness por pista + M/S + strip master con
-    `blackout_fade` (animable con A2 gratis). 20 tests nuevos (`test_postfx.py`).
-    **582 verdes. Siguiente: B3 (render offline)**.
+    `blackout_fade` (animable con A2 gratis). 20 tests nuevos (`test_postfx.py`). 582 verdes.
+  - ✅ **B3 APLICADA (2026-06-13)**: render offline + playback baked. `server/offline_render.py`:
+    `_render_worker` síncrono en executor (I4), copia congelada (`Timeline.from_dict(to_dict())`),
+    hash MD5 para invalidación, guardado atómico. `Timeline.to_dict()` + `from_dict()` añadidos.
+    Sesión: `baked_frames`, `baked_hash`, `render_in_progress`, `hub`. `load_baked_frames()`.
+    `invalidate_caches()` + `invalidate_pattern_cache()` invalidan baked. `compute_frame` usa baked
+    + aplica postfx/master sobre el frame bakeado. Handlers: `render_offline`, `get_render_status`,
+    `toggle_baked`. Progress events `{type:'render_progress'}` en el stream (thread-safe).
+    Frontend: `RenderPanel` en `Live.tsx` con botón Render + barra progreso + toggle Baked + aviso
+    invalidación. `onRenderProgress` en `StreamClient`. 11 tests nuevos. **593 verdes. Siguiente: B4**.
   - Pasos pendientes del usuario: `cd web && npm install` (vitest), `pytest tests/` completo
     en Windows, y el commit: `roadmap-v2 fase F0: actx real + param pipeline + schema v3 + bench`.
 
