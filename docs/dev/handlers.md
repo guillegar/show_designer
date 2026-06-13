@@ -499,3 +499,119 @@ Framing ENTTEC Open DMX USB (en `DmxUsbTarget.send()`):
 2. `serial.write(b'\x00' + bytes(dmx_512))` — START CODE 0x00 + 512 bytes a 250 kbaud 8N2
 
 `DmxUsbTarget` (en `src/io/outputs/router.py`): import lazy de `serial`, error de puerto → log + `_ser=None` + send no-op. `list_ports()` classmethod. Requisito: `pyserial>=3.5` (en `requirements.txt`).
+
+---
+
+## G3 — Moving heads: pan/tilt en el timeline
+
+`PanTiltWaveEffect` en `src/core/channel_effects.py`. Un clip puede tener `channel_effects:
+List[ChannelEffectConfig]` (lista de sub-efectos); `_render_clip_channels` los renderiza con
+política de mezcla `LAST_WINS` (el clip de layer más alto manda). Documentada en ADR-004.
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `list_channel_effects` | — | `{ok, effects: [{effect_id, name, PARAM_SCHEMA}]}` |
+| `set_clip_channel_effect` | `clip_id: str`, `channel_effect: {type, params...}` | `{ok, clip}` |
+| `delete_clip_channel_effect` | `clip_id: str`, `channel_name: str` | `{ok, clip}` |
+| `get_fixture_pan_tilt` | `fixture_id: str` | `{ok, pan, tilt}` — posición actual en [0,1] |
+
+**`PanTiltWaveEffect` modos**: `circle` (eje elíptico), `fig8` (lemniscata), `bounce_pan`
+(oscilación solo en pan), `bounce_tilt` (oscilación solo en tilt). Parámetros: `pan_center`,
+`tilt_center`, `pan_range`, `tilt_range`, `speed` (Hz), `mode`.
+
+**Persistencia**: `channel_effects` se serializa en `Clip.to_dict/from_dict` → cubierto por
+undo/snapshot (I1). Política LTP: si dos clips activos en instantes distintos tocan el mismo
+canal del mismo fixture, el de layer más alto gana (LAST_WINS, ADR-004).
+
+**Frontend**: tab "Movimiento" en `ClipInspector` con SVG preview 2D de la trayectoria del
+spot (círculo/figura 8) y sliders de speed/range generados desde `PARAM_SCHEMA` (F2).
+
+---
+
+## H1 — SDK de plugins público
+
+Sin handlers nuevos. H1 es documentación + harness de testing.
+
+- **`docs/dev/plugin-sdk.md`**: guía completa para crear un efecto custom — subclasear `Effect`,
+  definir `PARAM_SCHEMA` (convenciones F2), shape correcta, ID en rango 1000+, colocar en
+  `plugins/effects/` (detección automática al arrancar).
+- **`tests/plugin_test_harness.py`**: `assert_valid_plugin_effect(effect, params)` — verifica
+  shape, dtype, rango [0,255], inmutabilidad de `bars_state`, coherencia de `PARAM_SCHEMA`.
+  Los tests de F1 lo usan; los 4 plugins existentes también lo pasan.
+- **`plugins/effects/plugin_template.py`**: plantilla comentada con todos los campos obligatorios.
+
+**Uso del harness desde un test externo**:
+```python
+from tests.plugin_test_harness import assert_valid_plugin_effect
+from plugins.effects.my_effect import MyEffect
+assert_valid_plugin_effect(MyEffect(), params={"speed": 1.0})
+```
+
+---
+
+## H2 — Instalador Windows
+
+Sin handlers nuevos. H2 es infraestructura de build.
+
+- **`showdesigner.spec`**: spec de PyInstaller (`--onedir`), empaqueta `web/dist`, `plugins`,
+  `gdtf_profiles`.
+- **`scripts/build_installer.ps1`**: 1) `npm run build` → `web/dist/`; 2) `pyinstaller
+  showdesigner.spec`; 3) `iscc ShowDesigner.iss` (opcional — requiere Inno Setup 6).
+- **`ShowDesigner.iss`**: script Inno Setup para generar `ShowDesigner_setup.exe`.
+- **`Luces.bat`** actualizado: detecta `ShowDesigner.exe` (modo `sys.frozen`) vs `venv311`
+  (modo desarrollo) y usa el comando correcto.
+
+**Limitaciones documentadas**: `sounddevice` requiere VC++ Redistributable. FFmpeg (E3)
+no se incluye — debe estar en PATH. `llvmlite` de librosa añade ~100 MB al dist.
+
+---
+
+## H3 — Multi-show quick-switch
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `list_projects` | — | `{ok, projects: [{slug, name, duration_s}], current: str}` |
+| `switch_project` | `slug: str` | `{ok}` inmediato — el cambio ocurre en background |
+
+**`switch_project`**: lanza `ShowSession.switch_project(slug)` como tarea async. Secuencia:
+1. Para el autosave en curso; 2. `autosave_now()` del proyecto actual; 3. Carga nueva timeline/
+audio/analysis; 4. Resetea estado runtime (`baked_frames=None`, `live_stop_all()`, cues, live
+engine); 5. Emite `{type:"project_changed", slug, name}` al stream.
+
+**Stream event** `project_changed`: los clientes React hacen `refreshAll()` al recibirlo
+(clips, patterns, cues, mixer, live state). El `RenderPanel` se resetea (el baked del
+proyecto anterior es inválido para el nuevo). Spinner "Cargando proyecto X…" en el topbar
+mientras el evento no llega.
+
+**Frontend**: `ProjectSwitcher` dropdown en el topbar (solo visible si hay >1 proyecto
+en `projects/`). El dropdown llama a `switch_project(slug)` y activa el spinner.
+
+**Switch a slug inexistente**: devuelve `{ok: False, error}` sin dejar la sesión en estado
+parcial (la sesión no se toca si el slug no existe).
+
+---
+
+## H4 — Rendimiento a escala
+
+Sin handlers nuevos. H4 añade paginación a `list_clips` y benchmarks.
+
+**Paginación de `list_clips`** (registrado en `_LOCAL` con prioridad sobre el bridge):
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `list_clips` | `offset?: int (def 0)`, `limit?: int (def 0 = todos)` | `{ok, clips: [...], total: int, count: int, next_offset: int\|null}` |
+
+- `offset`/`limit` = 0: devuelve todos los clips (comportamiento anterior — sin breaking change).
+- `limit > 0`: devuelve hasta `limit` clips desde `offset`, con `next_offset` para la página siguiente.
+- El orden es estable (índice de inserción en `timeline.clips`).
+
+**Protocolo diff (`model_changed_v2`)**: H4 prepara la infraestructura para que el stream
+emita `{type:'model_changed_v2', changed:[clip_dict], deleted:[uid]}` en lugar de triggering
+un refetch completo. Los clientes legacy (`model_changed` sin diff) siguen funcionando.
+
+**Benchmarks** (`tests/test_bench_scale.py`, marcados `@pytest.mark.bench`):
+- `to_dict` 5000 clips < 200 ms
+- `from_dict` 5000 clips < 200 ms
+- `list_clips` handler 5000 clips < 500 ms
+- `compute_frame` p95 < 60 ms con 200 clips activos
+- Sin leaks > 1 MB tras 100 frames (`tracemalloc`)

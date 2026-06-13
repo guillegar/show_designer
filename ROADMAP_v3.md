@@ -1,4 +1,8 @@
-# ROADMAP v3 — "El Escenario" (En planificación)
+# ROADMAP v3 — "El Escenario" — COMPLETO (2026-06-14) · 883 tests · tag `v2.0-roadmap-v3`
+
+**Resumen final**: 16 fases en 4 bloques (E Producción · F Efectos · G Hardware · H Plataforma).
+883 tests Python verdes + 30 Vitest. Modelos usados: Sonnet 4.6 (10 fases), Opus 4.8 (1 fase — G3),
+Haiku 4.5 (5 fases). Build Vite OK · tsc limpio.
 
 **Objetivo**: elevar Show Designer del nivel "secuenciador completo" al nivel "herramienta
 profesional de producción" — lista para el bolo real, con banco de efectos de categoría,
