@@ -65,3 +65,24 @@ export type MixerState = {
   tracks: Record<number, TrackChain>;
   master: TrackChain & { blackout_fade?: number };
 };
+
+/** Slot del performance grid (fase C1). */
+export type LiveSlot = {
+  uid: string;
+  pattern_uid: string | null;
+  key: string;
+  quantize: "bar" | "beat" | "free";
+  mode: "oneshot" | "loop" | "hold";
+  idx: number;
+  active: boolean;
+  armed: boolean;
+  degraded: boolean;        // true si quantize no pudo usar beats (degradó a free)
+  armed_at_ms?: number;
+};
+
+/** Estado completo del motor live (fase C1). */
+export type LiveState = {
+  slots: LiveSlot[];
+  active: string[];         // slot_uids activos
+  armed: string[];          // slot_uids armados (pendientes de activar)
+};

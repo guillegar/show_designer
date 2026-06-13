@@ -33,6 +33,7 @@ function wsUrl(path: string): string {
 
 export type RenderProgressEvent = { pct: number; done?: boolean };
 export type AutosaveAvailableEvent = { type: "autosave_available"; path: string; ts: string; filename: string };
+export type LiveStateChangedEvent = { type: "live_state_changed"; slots: unknown[]; active: string[]; armed: string[] };
 
 class StreamClient {
   latestFrame: Uint8Array | null = null;
@@ -42,6 +43,7 @@ class StreamClient {
   private dmxSubs = new Set<(d: DmxState) => void>();
   private renderProgressSubs = new Set<(e: RenderProgressEvent) => void>();
   private autosaveSubs = new Set<(e: AutosaveAvailableEvent) => void>();
+  private liveStateSubs = new Set<(e: LiveStateChangedEvent) => void>();
 
   constructor() {
     this.connect();
@@ -71,6 +73,8 @@ class StreamClient {
         for (const f of this.renderProgressSubs) f({ pct: m.pct, done: m.done });
       } else if (m.type === "autosave_available") {
         for (const f of this.autosaveSubs) f(m as AutosaveAvailableEvent);
+      } else if (m.type === "live_state_changed") {
+        for (const f of this.liveStateSubs) f(m as LiveStateChangedEvent);
       }
     };
     ws.onclose = () => setTimeout(() => this.connect(), 1000);
@@ -92,6 +96,10 @@ class StreamClient {
   onAutosaveAvailable(fn: (e: AutosaveAvailableEvent) => void): () => void {
     this.autosaveSubs.add(fn);
     return () => this.autosaveSubs.delete(fn);
+  }
+  onLiveStateChanged(fn: (e: LiveStateChangedEvent) => void): () => void {
+    this.liveStateSubs.add(fn);
+    return () => this.liveStateSubs.delete(fn);
   }
 
   // Color RGB de un LED concreto del último frame (para canvas Live/Patch)

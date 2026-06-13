@@ -1,7 +1,7 @@
 # ROADMAP v2 — "El Secuenciador"
 
 **Objetivo**: llevar Show Designer del nivel "editor de clips" al nivel "FL Studio de la luz".
-**Fecha**: 2026-06-13 · **Estado**: B4 APLICADA (2026-06-13) — Bloque B COMPLETO — siguiente: C1 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
+**Fecha**: 2026-06-13 · **Estado**: C1 APLICADA (2026-06-13) — siguiente: C2 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
 
 > **F0 APLICADA (2026-06-12, pendiente de commit)**: F0.0 actx real en `session.compute_frame`
 > (verificado: 0.004 ms/frame, cero regresión), F0.1 `src/core/param_pipeline.py` cableado
@@ -675,7 +675,7 @@ plana; toco un clip y el modo baked se desactiva solo con aviso.
 
 # BLOQUE C — DIRECTO
 
-## C1 — Performance grid: lanzar patterns en vivo (~4 días)
+## ✅ C1 — Performance grid: lanzar patterns en vivo (APLICADA 2026-06-13)
 
 **Qué**: una grilla (vista nueva o sección grande en Live) donde cada celda es un pattern
 (de A3) o un cue. Clic o tecla = se lanza CUANTIZADO al próximo compás. Como FL Performance

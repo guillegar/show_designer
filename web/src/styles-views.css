@@ -500,3 +500,175 @@
   border-radius: var(--r-sm); color: oklch(0.75 0.16 25); font-size: 11px; cursor: pointer;
 }
 .cdm-delete-btn:hover { background: oklch(0.4 0.18 25 / 0.35); }
+
+/* ---------- C1: PERFORMANCE GRID ---------- */
+
+.perf-grid-wrap {
+  flex: none;
+  border-top: 1px solid var(--line-soft);
+  display: flex; flex-direction: column;
+}
+
+.perf-grid-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px 4px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.perf-grid-title {
+  font-size: 11px; font-weight: 700; color: var(--txt-2);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+
+.btn.warn {
+  background: oklch(0.38 0.18 30 / 0.35);
+  border-color: oklch(0.55 0.18 30 / 0.55);
+  color: oklch(0.78 0.14 30);
+}
+.btn.warn:hover { background: oklch(0.42 0.20 30 / 0.55); }
+
+.perf-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 6px 8px 8px;
+}
+
+.perf-slot {
+  position: relative;
+  display: flex; flex-direction: column;
+  min-height: 64px; padding: 6px 8px 4px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+  transition: border-color 0.1s, background 0.1s;
+}
+
+.perf-slot:hover:not(.empty) {
+  border-color: var(--acc);
+  background: var(--bg-3);
+}
+
+.perf-slot.empty {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.perf-slot.armed {
+  border-color: oklch(0.72 0.18 58);
+  background: oklch(0.25 0.1 58 / 0.3);
+  animation: slot-pulse 0.5s ease-in-out infinite alternate;
+}
+
+.perf-slot.active {
+  border-color: var(--acc);
+  background: oklch(0.22 0.12 210 / 0.45);
+  box-shadow: 0 0 0 1px var(--acc) inset;
+}
+
+@keyframes slot-pulse {
+  from { opacity: 0.6; }
+  to   { opacity: 1.0; }
+}
+
+.perf-slot-bar {
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 3px;
+}
+
+.perf-slot-name {
+  flex: 1;
+  font-size: 11px; color: var(--txt);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-top: 4px;
+}
+
+.perf-slot.empty .perf-slot-name {
+  color: var(--txt-4); font-style: italic;
+}
+
+.perf-slot-meta {
+  display: flex; align-items: center; gap: 4px;
+  margin-top: 4px;
+}
+
+.perf-slot-key {
+  font-size: 9px; font-family: var(--mono);
+  background: var(--bg-3); border: 1px solid var(--line);
+  border-radius: 3px; padding: 0 3px;
+  color: var(--txt-3); min-width: 14px; text-align: center;
+}
+
+.perf-slot-mode {
+  font-size: 10px; color: var(--txt-3);
+}
+
+.perf-slot-badge {
+  font-size: 8px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em;
+  border-radius: 3px; padding: 1px 4px;
+  background: var(--bg-3); border: 1px solid var(--line);
+  color: var(--txt-3);
+}
+
+.perf-slot-badge.free {
+  background: oklch(0.38 0.18 30 / 0.35);
+  border-color: oklch(0.55 0.18 30 / 0.55);
+  color: oklch(0.78 0.14 30);
+}
+
+.perf-slot-cfg {
+  position: absolute; top: 3px; right: 3px;
+  width: 18px; height: 18px;
+  background: transparent; border: none;
+  color: var(--txt-4); font-size: 10px;
+  cursor: pointer; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.15s;
+}
+
+.perf-slot:hover .perf-slot-cfg { opacity: 1; }
+.perf-slot-cfg:hover { background: var(--bg-3); color: var(--txt); }
+
+.perf-slot-armed-dot {
+  position: absolute; top: 4px; right: 26px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: oklch(0.72 0.18 58);
+  animation: slot-pulse 0.4s ease-in-out infinite alternate;
+}
+
+/* Slot config modal */
+
+.live-slot-modal {
+  width: 320px;
+  max-width: calc(100vw - 48px);
+}
+
+.slot-cfg-row {
+  display: flex; flex-direction: column; gap: 4px;
+}
+
+.slot-cfg-row > span {
+  font-size: 10px; color: var(--txt-3); font-weight: 600;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+
+.slot-cfg-select {
+  background: var(--bg-inset); border: 1px solid var(--line);
+  border-radius: var(--r-sm); color: var(--txt);
+  font-size: 12px; padding: 4px 8px;
+}
+
+.slot-cfg-select:focus { outline: none; border-color: var(--acc); }
+
+.slot-cfg-key {
+  background: var(--bg-inset); border: 1px solid var(--line);
+  border-radius: var(--r-sm); color: var(--txt);
+  font-family: var(--mono); font-size: 13px;
+  text-align: center; padding: 4px 8px; width: 48px;
+}
+
+.slot-cfg-key:focus { outline: none; border-color: var(--acc); }

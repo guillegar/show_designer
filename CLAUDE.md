@@ -10,7 +10,7 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
 Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4 vistas funcionando.
-**A1+A2+A3+A4+A5+B1+B2+B3+B4 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones. **Bloque B COMPLETO.**
+**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid. **Bloque B COMPLETO. C1 APLICADA.**
 
 ---
 
@@ -62,6 +62,14 @@ Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4
     Frontend: `RenderPanel` en `Live.tsx` con botón Render + barra progreso + toggle Baked + aviso
     invalidación. `onRenderProgress` en `StreamClient`. 11 tests nuevos. 593 verdes.
   - ✅ **B4 APLICADA (2026-06-13)**: autosave + versiones de show. **Bloque B COMPLETO.**
+  - ✅ **C1 APLICADA (2026-06-13)**: performance grid (lanzar patterns en vivo). `server/live_engine.py`:
+    `LiveSlot` (config: pattern_uid, key, quantize, mode) × 16 slots + `LiveEngine` (runtime: `_active`,
+    `_armed` dicts, `compute_live_frame`). Cuantización bar/beat/free con degradación automática a free
+    si no hay beats. 5 handlers: `live_assign_slot`, `live_trigger`, `live_release`, `live_stop_all`,
+    `get_live_state`. `live_slots` persistido en show.json (migration-tolerant). Invariante I1 (undo
+    cubre slots), I2 (cascade clearing al borrar pattern). Stream event `live_state_changed`. Frontend:
+    `PerformanceGrid` (grid 4×4, teclas 1-8/Q-I, STOP ALL, modal de config, badge FREE). 11 tests.
+    **619 verdes. Siguiente: C2.**
     `server/session.py`: `autosave_now()` (atómico vía `Timeline.save()`), `_rotate_autosaves()`
     (máx 20 archivos), `start_autosave_task()` (asyncio, cada `LUCES_AUTOSAVE_INTERVAL` s, default
     60), `check_autosave_at_startup()` (mtime comparison, una vez por arranque).

@@ -175,6 +175,12 @@ class ShowSession:
         self._pm = self.pm
         self._project = self.project
 
+        # ── C1: motor de performance en vivo ─────────────────────────────────
+        from server.live_engine import LiveEngine
+        self.live_engine = LiveEngine()
+        if getattr(self.timeline, 'live_slots', None):
+            self.live_engine.slots_from_dicts(self.timeline.live_slots)
+
         # ── Estado de transporte / render ────────────────────────────────────
         self.loop = False
         self.rec = False
@@ -208,6 +214,7 @@ class ShowSession:
                 "patterns": list(self.timeline.patterns),
                 "pattern_instances": list(self.timeline.pattern_instances),
                 "mixer": dict(self.timeline.mixer),
+                "live_slots": self.live_engine.slots_to_dicts(),
             },
             restore_extra=self._restore_pattern_state,
         )
@@ -520,11 +527,14 @@ class ShowSession:
         self.notify_changed("undo")
 
     def _restore_pattern_state(self, extra: dict) -> None:
-        """Restaura patterns, pattern_instances y mixer desde un snapshot de undo (I1)."""
+        """Restaura patterns, pattern_instances, mixer y live_slots (I1)."""
         self.timeline.patterns = list(extra.get("patterns", []))
         self.timeline.pattern_instances = list(extra.get("pattern_instances", []))
         if "mixer" in extra:
             self.timeline.mixer = dict(extra["mixer"])
+        if "live_slots" in extra:
+            self.live_engine.slots_from_dicts(extra["live_slots"])
+            self.timeline.live_slots = self.live_engine.slots_to_dicts()
         self._pattern_rev += 1
         self._clip_bucket_index_n = -1
 
@@ -679,8 +689,17 @@ class ShowSession:
             except Exception:
                 pass
 
+        # C1: capa live — patterns lanzados desde el performance grid.
+        # Se mezcla encima del timeline con np.maximum (más brillante gana).
+        # Orden fijo del pipeline: timeline_render → live → postfx/master.
+        live_frame = self.live_engine.compute_live_frame(
+            t_ms, self.timeline.patterns, self.library, self.param_stages, actx
+        )
+        if live_frame.any():
+            frame = np.maximum(frame, live_frame)
+
         # B2: cadena postfx del mixer — pista por pista, luego master global.
-        # Orden fijo del pipeline: timeline_render → [capa live C1] → postfx/master.
+        # Orden fijo del pipeline: timeline_render → capa live (C1) → postfx/master.
         mixer = self.timeline.mixer
         if mixer:
             from src.core.postfx import apply_track_chain, apply_master

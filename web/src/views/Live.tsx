@@ -4,7 +4,7 @@ import { stream, LEDS } from "../api/stream";
 import type { AutosaveAvailableEvent } from "../api/stream";
 import { useStore } from "../store";
 import { Ico, fmtTime } from "../icons";
-import type { TrackChain, MixerState } from "../api/types";
+import type { TrackChain, MixerState, LiveSlot, LiveState } from "../api/types";
 
 const FEEDBACK_CATS = [
   { key: "intensity_ok", label: "Intensidad OK", pos: true },
@@ -395,6 +395,245 @@ function RenderPanel() {
   );
 }
 
+// ── C1: Performance Grid ─────────────────────────────────────────────────────
+
+// Teclas por defecto: slots 0-7 = "1"-"8", slots 8-15 = "q"-"i"
+const DEFAULT_KEYS = ["1","2","3","4","5","6","7","8","q","w","e","r","t","y","u","i"];
+const QUANTIZE_LABELS: Record<string, string> = { bar: "BAR", beat: "BEAT", free: "FREE" };
+const MODE_LABELS: Record<string, string> = { oneshot: "1×", loop: "↻", hold: "↓" };
+
+function SlotConfigModal({ slot, patterns, onSave, onClose }: {
+  slot: LiveSlot;
+  patterns: { uid: string; name: string; color: string }[];
+  onSave: (patch: Partial<LiveSlot>) => void;
+  onClose: () => void;
+}) {
+  const [patUid, setPatUid] = useState(slot.pattern_uid ?? "");
+  const [quantize, setQuantize] = useState<LiveSlot["quantize"]>(slot.quantize);
+  const [mode, setMode] = useState<LiveSlot["mode"]>(slot.mode);
+  const [key, setKey] = useState(slot.key);
+
+  const save = () => {
+    onSave({ pattern_uid: patUid || null, quantize, mode, key });
+    onClose();
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box live-slot-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <span>Configurar slot {slot.idx + 1}</span>
+          <button className="btn ghost" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <label className="slot-cfg-row">
+            <span>Pattern</span>
+            <select value={patUid} onChange={(e) => setPatUid(e.target.value)}
+              className="slot-cfg-select">
+              <option value="">— vacío —</option>
+              {patterns.map((p) => (
+                <option key={p.uid} value={p.uid}>{p.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="slot-cfg-row">
+            <span>Cuantización</span>
+            <select value={quantize} onChange={(e) => setQuantize(e.target.value as LiveSlot["quantize"])}
+              className="slot-cfg-select">
+              <option value="bar">Bar (compás)</option>
+              <option value="beat">Beat</option>
+              <option value="free">Free (inmediato)</option>
+            </select>
+          </label>
+          <label className="slot-cfg-row">
+            <span>Modo</span>
+            <select value={mode} onChange={(e) => setMode(e.target.value as LiveSlot["mode"])}
+              className="slot-cfg-select">
+              <option value="oneshot">Oneshot (una pasada)</option>
+              <option value="loop">Loop (repite)</option>
+              <option value="hold">Hold (mientras pulsado)</option>
+            </select>
+          </label>
+          <label className="slot-cfg-row">
+            <span>Tecla</span>
+            <input type="text" maxLength={1} value={key}
+              onChange={(e) => setKey(e.target.value.toLowerCase())}
+              className="slot-cfg-key" placeholder={DEFAULT_KEYS[slot.idx]} />
+          </label>
+          <button className="btn primary" onClick={save} style={{ marginTop: 4 }}>
+            Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PerformanceGrid() {
+  const patterns = useStore((s) => s.patterns);
+  const [liveState, setLiveState] = useState<LiveState>({
+    slots: [], active: [], armed: [],
+  });
+  const [configSlot, setConfigSlot] = useState<LiveSlot | null>(null);
+
+  // Cargar estado inicial
+  const loadState = useCallback(() => {
+    control.call("get_live_state").then((r) => {
+      if (r.ok) setLiveState({ slots: r.slots as LiveSlot[], active: r.active, armed: r.armed });
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => { loadState(); }, [loadState]);
+
+  // Suscribirse a cambios del stream
+  useEffect(() => {
+    return stream.onLiveStateChanged((e) => {
+      setLiveState({ slots: e.slots as LiveSlot[], active: e.active, armed: e.armed });
+    });
+  }, []);
+
+  // Keydown global: disparar slots por tecla
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.repeat) return;
+      const k = e.key.toLowerCase();
+      if (liveState.slots.length === 0) return;
+      const slotIdx = liveState.slots.findIndex(
+        (s) => (s.key || DEFAULT_KEYS[s.idx]) === k
+      );
+      if (slotIdx < 0) return;
+      e.preventDefault();
+      const slot = liveState.slots[slotIdx];
+      if (slot.mode === "hold") {
+        // hold: disparar en keydown, liberar en keyup
+        control.call("live_trigger", { slot_idx: slotIdx }).catch(() => {});
+        const onUp = (ue: KeyboardEvent) => {
+          if (ue.key.toLowerCase() === k) {
+            control.call("live_release", { slot_idx: slotIdx }).catch(() => {});
+            window.removeEventListener("keyup", onUp);
+          }
+        };
+        window.addEventListener("keyup", onUp);
+      } else {
+        control.call("live_trigger", { slot_idx: slotIdx }).catch(() => {});
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [liveState.slots]);
+
+  const triggerSlot = (slot: LiveSlot) => {
+    control.call("live_trigger", { slot_idx: slot.idx }).catch(() => {});
+  };
+
+  const releaseSlot = (slot: LiveSlot) => {
+    control.call("live_release", { slot_idx: slot.idx }).catch(() => {});
+  };
+
+  const stopAll = () => {
+    control.call("live_stop_all").catch(() => {});
+  };
+
+  const saveSlotConfig = (slot: LiveSlot, patch: Partial<LiveSlot>) => {
+    control.call("live_assign_slot", {
+      slot_idx: slot.idx,
+      pattern_uid: patch.pattern_uid ?? null,
+      key: patch.key ?? "",
+      quantize: patch.quantize ?? "bar",
+      mode: patch.mode ?? "oneshot",
+    }).catch(() => {});
+  };
+
+  // Lookup del nombre de pattern para un slot
+  const patternName = (uid: string | null) => {
+    if (!uid) return "— vacío —";
+    const p = patterns.find((x) => x.uid === uid);
+    return p ? p.name : uid.slice(0, 8);
+  };
+
+  const patternColor = (uid: string | null): string => {
+    if (!uid) return "var(--bg-2)";
+    const p = patterns.find((x) => x.uid === uid);
+    return p ? p.color : "#555";
+  };
+
+  return (
+    <div className="perf-grid-wrap">
+      <div className="perf-grid-header">
+        <span className="perf-grid-title">Performance Grid</span>
+        <span className="ph-spacer" style={{ flex: 1 }} />
+        <button className="btn warn" onClick={stopAll} title="Detener todos los slots (pánico)">
+          ⏹ STOP ALL
+        </button>
+      </div>
+
+      <div className="perf-grid">
+        {liveState.slots.map((slot) => {
+          const hasPattern = !!slot.pattern_uid;
+          const displayKey = slot.key || DEFAULT_KEYS[slot.idx] || "";
+          const color = hasPattern ? patternColor(slot.pattern_uid) : undefined;
+          const cls = [
+            "perf-slot",
+            slot.active ? "active" : "",
+            slot.armed ? "armed" : "",
+            !hasPattern ? "empty" : "",
+          ].filter(Boolean).join(" ");
+
+          return (
+            <div key={slot.uid} className={cls}
+              style={color ? { "--slot-color": color } as React.CSSProperties : undefined}
+              onMouseDown={() => hasPattern && triggerSlot(slot)}
+              onMouseUp={() => slot.mode === "hold" && releaseSlot(slot)}
+            >
+              {/* Barra de color del pattern */}
+              {hasPattern && (
+                <div className="perf-slot-bar" style={{ background: patternColor(slot.pattern_uid) }} />
+              )}
+
+              {/* Nombre del pattern */}
+              <div className="perf-slot-name">
+                {patternName(slot.pattern_uid)}
+              </div>
+
+              {/* Fila inferior: tecla, modo, cuantización */}
+              <div className="perf-slot-meta">
+                <span className="perf-slot-key">{displayKey.toUpperCase()}</span>
+                <span className="perf-slot-mode">{MODE_LABELS[slot.mode]}</span>
+                {slot.degraded ? (
+                  <span className="perf-slot-badge free">FREE</span>
+                ) : (
+                  <span className="perf-slot-badge">{QUANTIZE_LABELS[slot.quantize]}</span>
+                )}
+              </div>
+
+              {/* Botón de configuración */}
+              <button
+                className="perf-slot-cfg"
+                onClick={(e) => { e.stopPropagation(); setConfigSlot(slot); }}
+                title="Configurar slot"
+              >⚙</button>
+
+              {/* Indicador armado */}
+              {slot.armed && <div className="perf-slot-armed-dot" />}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Modal de configuración de slot */}
+      {configSlot && (
+        <SlotConfigModal
+          slot={configSlot}
+          patterns={patterns as { uid: string; name: string; color: string }[]}
+          onSave={(patch) => saveSlotConfig(configSlot, patch)}
+          onClose={() => setConfigSlot(null)}
+        />
+      )}
+    </div>
+  );
+}
+
 // ── Vista principal ──────────────────────────────────────────────────────────
 
 export function LiveView() {
@@ -476,6 +715,8 @@ export function LiveView() {
             🕐 Versiones…
           </button>
         </div>
+        {/* C1: Performance Grid */}
+        <PerformanceGrid />
         {/* Panel Render offline (B3) */}
         <RenderPanel />
         {/* Panel Mixer (B2) */}

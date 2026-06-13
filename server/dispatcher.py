@@ -688,6 +688,16 @@ def _h_delete_pattern(session, params):
         if i.get("pattern_uid") != pattern_uid
     ]
     deleted_instances = instances_before - len(session.timeline.pattern_instances)
+    # I2: limpiar live_slots que referencien el pattern borrado
+    changed = False
+    for slot in session.live_engine.slots:
+        if slot.pattern_uid == pattern_uid:
+            slot.pattern_uid = None
+            session.live_engine._active.pop(slot.uid, None)
+            session.live_engine._armed.pop(slot.uid, None)
+            changed = True
+    if changed:
+        session.timeline.live_slots = session.live_engine.slots_to_dicts()
     session.invalidate_pattern_cache()
     return {"ok": True, "deleted_instances": deleted_instances}
 
@@ -1166,6 +1176,120 @@ def _h_toggle_baked(session, params):
     return {"ok": True, "baked": True}
 
 
+# ── C1 — Performance grid: lanzar patterns en vivo ──────────────────────────
+
+def _live_emit(session, state: dict) -> None:
+    """Emite {type:'live_state_changed'} al stream hub si está disponible."""
+    import asyncio
+    hub = getattr(session, "hub", None)
+    if hub:
+        try:
+            asyncio.ensure_future(
+                hub.broadcast_json({"type": "live_state_changed", **state})
+            )
+        except Exception:
+            pass
+
+
+def _h_live_assign_slot(session, params):
+    """live_assign_slot(slot_idx, pattern_uid?, key?, quantize?, mode?) → {ok, slot}.
+
+    Asigna o actualiza la configuración de un slot del performance grid.
+    Limpia el slot en live_slots del timeline y toma snapshot para undo (I1).
+    """
+    try:
+        slot_idx = require_int(params, "slot_idx", min_val=0)
+        if slot_idx > 15:
+            return {"ok": False, "error": "slot_idx debe ser 0..15"}
+    except ValidationError as e:
+        return {"ok": False, "error": str(e)}
+
+    pattern_uid = params.get("pattern_uid")
+    key = params.get("key")
+    quantize = params.get("quantize")
+    mode = params.get("mode")
+
+    # Validar que el pattern existe (si se pasa uno)
+    if pattern_uid:
+        if not any(p.get("uid") == pattern_uid for p in session.timeline.patterns):
+            return {"ok": False, "error": "pattern_uid no encontrado"}
+
+    session.snapshot()
+    try:
+        slot = session.live_engine.assign_slot(
+            slot_idx,
+            pattern_uid=pattern_uid,
+            key=key,
+            quantize=quantize,
+            mode=mode,
+        )
+    except IndexError as e:
+        return {"ok": False, "error": str(e)}
+
+    session.timeline.live_slots = session.live_engine.slots_to_dicts()
+    state = session.live_engine.get_state(session.analysis)
+    _live_emit(session, state)
+    return {"ok": True, "slot": slot.to_dict()}
+
+
+def _h_live_trigger(session, params):
+    """live_trigger(slot_idx) → {ok, slot, armed_at_ms}.
+
+    Dispara un slot: lo arma hasta el próximo límite de cuantización.
+    Si quantize='bar' pero no hay downbeats → degrada a 'free' (armed_at_ms = t_actual).
+    """
+    try:
+        slot_idx = require_int(params, "slot_idx", min_val=0)
+        if slot_idx > 15:
+            return {"ok": False, "error": "slot_idx debe ser 0..15"}
+    except ValidationError as e:
+        return {"ok": False, "error": str(e)}
+
+    t_ms = float(params.get("t_ms", session.time * 1000))
+    slot, t_armed = session.live_engine.trigger(slot_idx, t_ms, session.analysis)
+    state = session.live_engine.get_state(session.analysis)
+    _live_emit(session, state)
+    return {"ok": True, "slot": slot.to_dict(), "armed_at_ms": t_armed}
+
+
+def _h_live_release(session, params):
+    """live_release(slot_idx) → {ok}.
+
+    Detiene un slot. Solo relevante para mode='hold'; libera también los demás modos.
+    """
+    try:
+        slot_idx = require_int(params, "slot_idx", min_val=0)
+        if slot_idx > 15:
+            return {"ok": False, "error": "slot_idx debe ser 0..15"}
+    except ValidationError as e:
+        return {"ok": False, "error": str(e)}
+
+    slot = session.live_engine.release(slot_idx)
+    state = session.live_engine.get_state(session.analysis)
+    _live_emit(session, state)
+    return {"ok": True, "slot": slot.to_dict()}
+
+
+def _h_live_stop_all(session, params):
+    """live_stop_all() → {ok}.
+
+    Botón de pánico: detiene todos los slots activos y armados.
+    """
+    session.live_engine.stop_all()
+    state = session.live_engine.get_state(session.analysis)
+    _live_emit(session, state)
+    return {"ok": True}
+
+
+def _h_get_live_state(session, params):
+    """get_live_state() → {ok, slots, active, armed}.
+
+    Estado completo de los 16 slots con flags active/armed/degraded.
+    """
+    state = session.live_engine.get_state(session.analysis)
+    return {"ok": True, **state}
+
+
 _LOCAL = {
     "undo": _h_undo,
     "redo": _h_redo,
@@ -1225,6 +1349,12 @@ _LOCAL = {
     "list_autosaves": _h_list_autosaves,
     "restore_autosave": _h_restore_autosave,
     "discard_autosave_prompt": _h_discard_autosave_prompt,
+    # C1 — Performance grid: lanzar patterns en vivo
+    "live_assign_slot": _h_live_assign_slot,
+    "live_trigger": _h_live_trigger,
+    "live_release": _h_live_release,
+    "live_stop_all": _h_live_stop_all,
+    "get_live_state": _h_get_live_state,
 }
 
 

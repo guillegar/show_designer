@@ -275,7 +275,8 @@ class Timeline:
                  automation: Optional[List[Dict]] = None,
                  patterns: Optional[List[Dict]] = None,
                  pattern_instances: Optional[List[Dict]] = None,
-                 mixer: Optional[Dict] = None):
+                 mixer: Optional[Dict] = None,
+                 live_slots: Optional[List[Dict]] = None):
         self.clips: List[Clip] = clips or []
         self.duration_ms = duration_ms
         self.groups: List[BarGroup] = groups or []
@@ -284,11 +285,14 @@ class Timeline:
             CuePoint(slot=i) for i in range(1, 10)
         ]
         # v3: contenedores del secuenciador (dicts crudos hasta que su fase
-        # los modele — A2/A3/B2 los convertirán en dataclasses propias).
+        # los modele — A2/A3/B2/C1 los convertirán en dataclasses propias).
         self.automation: List[Dict] = automation or []
         self.patterns: List[Dict] = patterns or []
         self.pattern_instances: List[Dict] = pattern_instances or []
         self.mixer: Dict = mixer or {}
+        # C1: configuración de los 16 slots del performance grid (uid, pattern_uid,
+        # key, quantize, mode). El estado _active/_armed NO se persiste.
+        self.live_slots: List[Dict] = live_slots or []
 
     def add(self, clip: Clip):
         self.clips.append(clip)
@@ -316,6 +320,7 @@ class Timeline:
             'patterns': list(self.patterns),
             'pattern_instances': list(self.pattern_instances),
             'mixer': dict(self.mixer),
+            'live_slots': list(self.live_slots),
         }
 
     @classmethod
@@ -329,7 +334,8 @@ class Timeline:
                    automation=list(data.get('automation', [])),
                    patterns=list(data.get('patterns', [])),
                    pattern_instances=list(data.get('pattern_instances', [])),
-                   mixer=dict(data.get('mixer', {})))
+                   mixer=dict(data.get('mixer', {})),
+                   live_slots=list(data.get('live_slots', [])))
 
     def save(self, path=TIMELINE_FILE):
         data = {
@@ -342,6 +348,7 @@ class Timeline:
             'patterns': list(self.patterns),
             'pattern_instances': list(self.pattern_instances),
             'mixer': dict(self.mixer),
+            'live_slots': list(self.live_slots),
         }
         # Guardado atómico (ANALYSIS hallazgo 18): escribir a .tmp y os.replace,
         # para que un crash a mitad de json.dump no corrompa el archivo real.
@@ -372,7 +379,8 @@ class Timeline:
                    automation=list(data.get('automation', [])),
                    patterns=list(data.get('patterns', [])),
                    pattern_instances=list(data.get('pattern_instances', [])),
-                   mixer=dict(data.get('mixer', {})))
+                   mixer=dict(data.get('mixer', {})),
+                   live_slots=list(data.get('live_slots', [])))
 
 
 def make_default_groups() -> List[BarGroup]:
