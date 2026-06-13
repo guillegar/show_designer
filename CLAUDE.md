@@ -9,8 +9,8 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > documentación** para que refleje el estado real — este `CLAUDE.md` (arquitectura/estado) y los
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
-Estado a **2026-06-12** · **v1.10 (web)**: backend headless + frontend React, 4 vistas funcionando.
-**A1+A2+A3+A4 APLICADAS (2026-06-12)**: modulación + automatización + patterns + editor de detalle (micro-eventos + curvas A2 en modal).
+Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4 vistas funcionando.
+**A1+A2+A3+A4+A5 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición.
 
 ---
 
@@ -37,7 +37,11 @@ Estado a **2026-06-12** · **v1.10 (web)**: backend headless + frontend React, 4
     3 handlers: `add/delete/update_micro_event`. `ClipDetailModal` (Alt+dblclick): beat grid,
     micro-eventos SVG arrastrables, curvas de automatización editables (A2 deferred aquí).
     23 tests. 557 verdes. Bench +3.5% (dentro I5).
-    **Siguiente: A5 (ergonomía de composición)**.
+  - ✅ **A5 APLICADA (2026-06-13)**: ergonomía de composición. Fix TS `presets` en Timeline.tsx.
+    `tlScrollRef` adjuntado a `tl-scroll`; scroll sync ruler↔tracks (translateX). `rulerRef`.
+    Botones Ghost (◈) + Quantize (⊹ Q) en toolbar. Menú contextual en regla → "Duplicar sección X
+    → aquí" llama `duplicate_range`. 1 test nuevo (`test_duplicate_range`). 558 verdes.
+    **Siguiente: B1 (waveform)**.
   - Pasos pendientes del usuario: `cd web && npm install` (vitest), `pytest tests/` completo
     en Windows, y el commit: `roadmap-v2 fase F0: actx real + param pipeline + schema v3 + bench`.
 

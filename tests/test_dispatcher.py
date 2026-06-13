@@ -218,3 +218,44 @@ def test_export_qlc(disp):
 def test_unknown_method(disp):
     resp = disp.handle({"jsonrpc": "2.0", "id": 1, "method": "no_such", "params": {}})
     assert "error" in resp
+
+
+def test_duplicate_range(disp):
+    """A5: duplicate_range copia clips en [t0_ms, t1_ms) desplazados a dest_ms."""
+    T = 350_000  # ms lejos del contenido real del show (350 s)
+
+    # Añadir 2 clips dentro del rango y 1 fuera
+    r1 = disp.call("add_clip", {"track": 0, "start_ms": T, "end_ms": T + 500, "effect_id": 0})
+    r2 = disp.call("add_clip", {"track": 1, "start_ms": T + 1000, "end_ms": T + 1500, "effect_id": 0})
+    r3 = disp.call("add_clip", {"track": 0, "start_ms": T + 2000, "end_ms": T + 2500, "effect_id": 0})
+    src_ids = [r1["clip"]["id"], r2["clip"]["id"], r3["clip"]["id"]]
+
+    dest = T + 10_000
+    dup = disp.call("duplicate_range", {"t0_ms": T, "t1_ms": T + 2000, "dest_ms": dest})
+    assert dup["ok"] is True
+    assert len(dup["clips"]) == 2  # solo los 2 clips con start_ms en [T, T+2000)
+
+    new_starts = sorted(c["start_ms"] for c in dup["clips"])
+    assert new_starts == [dest, dest + 1000]  # offsets conservados
+
+    # Los nuevos clips están en el timeline
+    all_ids = {c["id"] for c in disp.call("list_clips")["clips"]}
+    new_ids = {c["id"] for c in dup["clips"]}
+    assert new_ids.issubset(all_ids)
+
+    # Undo revierte la duplicación (los originales quedan intactos)
+    assert disp.call("undo")["ok"] is True
+    after_undo = {c["id"] for c in disp.call("list_clips")["clips"]}
+    assert not new_ids.intersection(after_undo)
+    assert {src_ids[0], src_ids[1], src_ids[2]}.issubset(after_undo)
+
+    # t0 >= t1 devuelve ok=False (no excepción)
+    err = disp.call("duplicate_range", {"t0_ms": T + 2000, "t1_ms": T, "dest_ms": 0})
+    assert err["ok"] is False
+
+    # Limpieza: borrar los 3 clips originales
+    for cid in src_ids:
+        try:
+            disp.call("delete_clip", {"clip_id": cid})
+        except Exception:
+            pass

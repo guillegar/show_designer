@@ -39,6 +39,7 @@ export function TimelineView() {
   const refreshClips = useStore((s) => s.refreshClips);
   const clipboard = useStore((s) => s.clipboard);
   const setClipboard = useStore((s) => s.setClipboard);
+  const presets = useStore((s) => s.presets);
   const patterns = useStore((s) => s.patterns);
   const patternInstances = useStore((s) => s.patternInstances);
   const selectedPatternInstanceId = useStore((s) => s.selectedPatternInstanceId);
@@ -74,7 +75,12 @@ export function TimelineView() {
   });
   const [selectedClipIds, setSelectedClipIds] = useState<Set<string>>(new Set());
   const [showHelp, setShowHelp] = useState(false);
+  const [ghostMode, setGhostMode] = useState(false);
+  const [shiftHeld, setShiftHeld] = useState(false);
   const lanesRef = useRef<HTMLDivElement>(null);
+  const tlScrollRef = useRef<HTMLDivElement>(null);
+  const rulerRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef(DEFAULT_ZOOM);
 
   useEffect(() => {
     control.call("analyzer_list_beats").then((r) => setBeats(r.beats || [])).catch(() => {});
@@ -97,6 +103,54 @@ export function TimelineView() {
       }
     }
   }, [selectedClipId, clips]);
+
+  // Keep zoomRef in sync for wheel handler (avoids stale closure)
+  zoomRef.current = zoom;
+
+  // Ctrl+wheel = zoom centrado en cursor; Shift+wheel = paneo horizontal
+  useEffect(() => {
+    const el = tlScrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const r = el.getBoundingClientRect();
+        const cursorX = Math.max(0, e.clientX - r.left - HEAD_W);
+        const oldZoom = zoomRef.current;
+        const delta = e.deltaY < 0 ? 0.5 : -0.5;
+        const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, oldZoom + delta));
+        if (newZoom === oldZoom) return;
+        const timeS = (el.scrollLeft + cursorX) / oldZoom;
+        setZoom(newZoom);
+        requestAnimationFrame(() => { el.scrollLeft = timeS * newZoom - cursorX; });
+      } else if (e.shiftKey) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []); // uses zoomRef — no re-bind needed
+
+  // Sync ruler translateX with tl-scroll horizontal scroll
+  useEffect(() => {
+    const scroll = tlScrollRef.current;
+    const ruler = rulerRef.current;
+    if (!scroll || !ruler) return;
+    const onScroll = () => { ruler.style.transform = `translateX(${-scroll.scrollLeft}px)`; };
+    onScroll(); // apply initial position
+    scroll.addEventListener("scroll", onScroll, { passive: true });
+    return () => scroll.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Track Shift key for snap bypass
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => { if (e.key === "Shift") setShiftHeld(true); };
+    const up = (e: KeyboardEvent) => { if (e.key === "Shift") setShiftHeld(false); };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
+  }, []);
 
   const beatSec = 60 / bpm;
   const barSec = beatSec * 4;
@@ -340,6 +394,7 @@ export function TimelineView() {
   const moveableRef = useRef<any>(null);
   const selectoRef = useRef<any>(null);
   const draggingRef = useRef(false); // un gesto Moveable activo (mover/resize/grupo)
+  const altDupRef = useRef(false);   // Alt estaba pulsado al iniciar el drag (= duplicar)
   const rowRefs = useRef<Map<string, HTMLElement>>(new Map());
   const [moveTargets, setMoveTargets] = useState<(HTMLElement | SVGElement)[]>([]);
   // Celdas (bar+layer) destino resaltadas bajo el cursor durante el arrastre. Es una
@@ -356,10 +411,10 @@ export function TimelineView() {
   const clearDropCells = () => { if (dropCellsKeyRef.current !== "") { dropCellsKeyRef.current = ""; setDropCells([]); } };
   const [clipboardClips, setClipboardClips] = useState<Clip[]>([]); // portapapeles multi-clip
 
-  // Líneas-guía de snap (rejilla BPM) como posiciones X en píxeles para Moveable.
+  // Líneas-guía de snap para Moveable. Shift = bypass del snap durante el arrastre.
   const verticalGuidelines = useMemo(
-    () => (snap ? gridlines.map((g) => msToX(g.t * 1000, zoom)) : []),
-    [snap, gridlines, zoom]
+    () => (snap && !shiftHeld ? gridlines.map((g) => msToX(g.t * 1000, zoom)) : []),
+    [snap, shiftHeld, gridlines, zoom]
   );
 
   // Hit-test: clientY → { bar, layer } usando rects MEDIDOS (las filas tienen
@@ -473,6 +528,8 @@ export function TimelineView() {
   };
   const onClipDragEnd = (e: any) => {
     draggingRef.current = false;
+    const isAltDup = altDupRef.current;
+    altDupRef.current = false;
     const dest = dropPosRef.current;
     dropPosRef.current = null;
     clearDropCells();
@@ -480,14 +537,24 @@ export function TimelineView() {
     if (!c || !e.lastEvent) { e.target.style.transform = ""; e.target.style.zIndex = ""; moveableRef.current?.updateRect(); return; }
     const dx = e.lastEvent.translate[0];
     const newStart = Math.max(0, Math.round(c.start_ms + xToMs(dx, zoom)));
-    const params: any = { clip_id: c.id, new_start_ms: newStart };
     const newTrack = c.track >= 0 && dest && dest.bar !== c.track ? dest.bar : c.track;
     const newLayer = c.track >= 0 && dest && dest.layer !== c.layer ? dest.layer : c.layer;
-    if (newTrack !== c.track) params.new_track = newTrack;
-    if (newLayer !== c.layer) params.new_layer = newLayer;
-    // Pin inmediato; si cambia de fila, layer=null (el re-render lo recoloca).
-    pinClipEl(e.target, newStart, null, newTrack === c.track ? newLayer : null);
-    commitMoves([params]);
+
+    if (isAltDup) {
+      // Alt+drag = duplicar: el original vuelve a su sitio, se crea una copia en destino
+      pinClipEl(e.target, c.start_ms, null, c.layer);
+      control.call("duplicate_clip", {
+        clip_id: c.id, start_ms: newStart,
+        track: newTrack, layer: newLayer,
+      }).then(() => { refreshClips(); try { control.call("snapshot"); } catch {} });
+    } else {
+      const params: any = { clip_id: c.id, new_start_ms: newStart };
+      if (newTrack !== c.track) params.new_track = newTrack;
+      if (newLayer !== c.layer) params.new_layer = newLayer;
+      // Pin inmediato; si cambia de fila, layer=null (el re-render lo recoloca).
+      pinClipEl(e.target, newStart, null, newTrack === c.track ? newLayer : null);
+      commitMoves([params]);
+    }
   };
 
   // ── Handlers Moveable: redimensionar (1 clip) ──────────────────────────────
@@ -734,6 +801,24 @@ export function TimelineView() {
     }).then(afterEdit);
   };
 
+  const quantize = async () => {
+    const ids = selectedClipIds.size > 0 ? [...selectedClipIds] : (selectedClipId != null ? [selectedClipId] : []);
+    if (!ids.length) { addToast("Selecciona clips para cuantizar", "info"); return; }
+    const calls: any[] = [];
+    for (const id of ids) {
+      const c = clips.find((x) => x.id === id);
+      if (!c) continue;
+      const qStart = snapMs(c.start_ms);
+      if (qStart !== c.start_ms) calls.push({ clip_id: id, new_start_ms: qStart });
+    }
+    if (!calls.length) { addToast("Clips ya están en la rejilla", "info"); return; }
+    applyMovesOptimistic(calls);
+    for (const params of calls) await control.call("move_clip", params);
+    try { await control.call("snapshot"); } catch {}
+    await refreshClips();
+    addToast(`✓ ${calls.length} clip(s) cuantizados`, "success");
+  };
+
   const createPatternFromSelection = (anchorClip: Clip) => {
     const ids = selectedClipIds.size > 1 ? [...selectedClipIds] : [anchorClip.id];
     const name = window.prompt("Nombre del pattern:", "Pattern") ?? "";
@@ -861,6 +946,8 @@ export function TimelineView() {
             <option value="quarter">¼ beat</option>
             <option value="off">libre</option>
           </select>
+          <button className="btn sm ghost" onClick={() => setGhostMode((g) => !g)} style={ghostMode ? { color: "var(--acc)" } : undefined} title="Ghost: mostrar clips de otras pistas en la pista activa">◈ Ghost</button>
+          <button className="btn sm ghost" onClick={quantize} title="Cuantizar clips seleccionados al beat más cercano (requiere selección)">⊹ Q</button>
           <button className="btn sm" onClick={() => setGenOpen(true)} disabled={!drawInfo} title="Generar clips en una sección con el efecto/preset activo">✨ Generar</button>
           <button className="btn sm ghost" title="Exportar CSV de clips" onClick={() => doExport("csv")}>⬇ CSV</button>
           <button className="btn sm ghost" title="Exportar workspace QLC+" onClick={() => doExport("qlc")}>⬇ QLC+</button>
@@ -879,8 +966,33 @@ export function TimelineView() {
         <div className="tl-rulerrow">
           <div className="tl-corner" style={{ width: HEAD_W }}><span className="mono" style={{ fontSize: 10, color: "var(--txt-4)" }}>BAR · BEAT</span></div>
           <div className="tl-rulerclip">
-            <div className="tl-ruler" style={{ width: W }}
-              title="Doble-clic: añadir marcador"
+            <div className="tl-ruler" ref={rulerRef} style={{ width: W }}
+              title="Doble-clic: añadir marcador · Clic derecho: duplicar sección"
+              onContextMenu={(e) => {
+                e.preventDefault();
+                const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                const destMs = Math.round(snapMs(((e.clientX - r.left) / zoom) * 1000));
+                const menuItems: import("../components/ContextMenu").MenuItem[] = sections.map((s, i) => {
+                  const nextStart = sections[i + 1]?.start ?? duration;
+                  return {
+                    label: `Duplicar sección "${s.name}" → aquí`,
+                    onClick: () => {
+                      const t0_ms = Math.round(s.start * 1000);
+                      const t1_ms = Math.round(nextStart * 1000);
+                      control.call("duplicate_range", { t0_ms, t1_ms, dest_ms: destMs })
+                        .then((res: any) => {
+                          if (res?.ok) {
+                            refreshClips();
+                            addToast(`✓ ${res.clips?.length ?? 0} clips de "${s.name}" duplicados`, "success");
+                            try { control.call("snapshot"); } catch {}
+                          }
+                        });
+                    },
+                  };
+                });
+                if (!menuItems.length) menuItems.push({ label: "Sin secciones definidas", disabled: true, onClick: () => {} });
+                setMenu({ x: e.clientX, y: e.clientY, items: menuItems });
+              }}
               onDoubleClick={(e) => {
                 const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
                 const ms = Math.round(((e.clientX - r.left) / zoom) * 1000);
@@ -910,7 +1022,7 @@ export function TimelineView() {
         </div>
 
         {/* tracks */}
-        <div className="tl-scroll">
+        <div className="tl-scroll" ref={tlScrollRef}>
           <div className="tl-grid" style={{ width: HEAD_W + W }}>
             <div className="tl-heads" style={{ width: HEAD_W }}>
               {lanes.map((lane) => lane.kind === "bar" ? (
@@ -966,7 +1078,48 @@ export function TimelineView() {
                     className={"tl-row" + (isDrop ? " drop-target" : "")}
                     style={{ height: h, opacity: dim ? 0.4 : 1 }}
                     onMouseDown={(e) => onLaneMouseDown(e, lane)}
-                    onContextMenu={(e) => openLaneMenu(e, lane)}>
+                    onContextMenu={(e) => openLaneMenu(e, lane)}
+                    onDoubleClick={(e) => {
+                      if ((e.target as Element).closest(".clip, .pattern-inst")) return;
+                      if (!hasDrawTarget) return;
+                      const r = lanesRef.current!.getBoundingClientRect();
+                      const startMs = Math.round(snapMs(((e.clientX - r.left) / zoom) * 1000));
+                      const endMs = startMs + lastEffectDuration;
+                      if (lane.kind === "bar") {
+                        if (activePreset && !isChannelPreset) {
+                          control.call("add_preset_clip", { preset_id: activePreset.preset_id, track: lane.bar, start_ms: startMs, end_ms: endMs, scope: "per_bar" }).then(afterEdit);
+                        } else if (activeFx) {
+                          control.call("add_clip", { track: lane.bar, start_ms: startMs, end_ms: endMs, effect_id: activeFx.id, scope: "per_bar", label: activeFx.name }).then(afterEdit);
+                        }
+                      } else if (lane.kind === "fixture" && isChannelPreset) {
+                        control.call("add_preset_clip", { preset_id: activePreset!.preset_id, fixture_id: lane.fixtureId, start_ms: startMs, end_ms: endMs }).then(afterEdit);
+                      }
+                    }}
+                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const raw = e.dataTransfer.getData("application/sd-drop");
+                      if (!raw) return;
+                      const { type, id } = JSON.parse(raw) as { type: string; id: string | number };
+                      const r = lanesRef.current!.getBoundingClientRect();
+                      const startMs = Math.round(snapMs(((e.clientX - r.left) / zoom) * 1000));
+                      const endMs = startMs + lastEffectDuration;
+                      if (type === "preset" && lane.kind === "bar") {
+                        control.call("add_preset_clip", { preset_id: id, track: lane.bar, start_ms: startMs, end_ms: endMs, scope: "per_bar" }).then(afterEdit);
+                        const p = presets.find((x) => x.preset_id === id);
+                        if (p) { setActivePreset(p); setActiveFx(null); setTool("draw"); }
+                      } else if (type === "channel-preset" && lane.kind === "fixture") {
+                        control.call("add_preset_clip", { preset_id: id, fixture_id: lane.fixtureId, start_ms: startMs, end_ms: endMs }).then(afterEdit);
+                      } else if (type === "effect" && lane.kind === "bar") {
+                        const fx = effects.find((x) => x.id === id);
+                        if (fx) {
+                          control.call("add_clip", { track: lane.bar, start_ms: startMs, end_ms: endMs, effect_id: fx.id, scope: "per_bar", label: fx.name }).then(afterEdit);
+                          setActiveFx(fx); setActivePreset(null); setTool("draw");
+                        }
+                      } else if (type === "pattern" && lane.kind === "bar") {
+                        control.call("add_pattern_instance", { pattern_uid: id, start_ms: startMs, track_offset: lane.bar }).then(() => refreshPatternInstances());
+                      }
+                    }}>
                     {dropLayersHere.map((ly) => (
                       <div key={"dl" + ly} className="drop-layer" style={{ top: 7 + ly * LANE_H, height: LANE_H - 4 }} />
                     ))}
@@ -1081,6 +1234,25 @@ export function TimelineView() {
                         </div>
                       );
                     })}
+
+                    {/* Ghost clips: clips de otras pistas mostrados translúcidos para alineación */}
+                    {ghostMode && selClip && lane.kind === "bar" && lane.bar === selClip.track &&
+                      clips.filter((c) => c.track !== selClip.track && (c.category ?? "pixel") === "pixel").map((c) => {
+                        const gcol = c.color || famColor(famName(c.effect_id));
+                        return (
+                          <div key={"ghost-" + c.id} style={{
+                            position: "absolute",
+                            left: (c.start_ms / 1000) * zoom,
+                            width: Math.max(2, ((c.end_ms - c.start_ms) / 1000) * zoom - 2),
+                            top: 7 + c.layer * LANE_H, height: LANE_H - 4,
+                            background: `color-mix(in oklab, ${gcol} 15%, transparent)`,
+                            border: `1px solid ${gcol}`,
+                            borderRadius: 2, opacity: 0.35,
+                            pointerEvents: "none", zIndex: 0,
+                          }} />
+                        );
+                      })
+                    }
                   </div>
                 );
               })}
@@ -1126,7 +1298,7 @@ export function TimelineView() {
                   verticalGuidelines={verticalGuidelines}
                   snapThreshold={6}
                   throttleDrag={0}
-                  onDragStart={() => { draggingRef.current = true; }}
+                  onDragStart={(e: any) => { draggingRef.current = true; altDupRef.current = e.inputEvent?.altKey ?? false; }}
                   onDrag={onClipDrag}
                   onDragEnd={onClipDragEnd}
                   onDragGroupStart={() => { draggingRef.current = true; }}

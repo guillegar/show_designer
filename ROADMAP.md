@@ -490,6 +490,17 @@ el clip ampliado a pantalla: sus lanes de automatización (A2) en grande + micro
 clips nuevos. **Commit**: `roadmap-v2 fase A4: editor de detalle del clip`.
 
 ## A5 — Ergonomía de composición (~3 días, troceable en mini-PRs)
+**✅ APLICADA (2026-06-13)**
+
+**Estado de entrega:**
+- ✅ Items 1-4, 6, 7 ya implementados en fases anteriores (onDrop, dblclick, Alt+drag, Shift snap, ghost render, quantize)
+- ✅ Item 5: Ctrl+wheel zoom centrado + Shift+wheel pan — `tlScrollRef` adjuntado a `tl-scroll`; scroll sync `tl-ruler ↔ tl-scroll` via translateX; `rulerRef` añadido
+- ✅ Item 6: Ghost toggle button en toolbar (◈ Ghost)
+- ✅ Item 7: Quantize button en toolbar (⊹ Q)
+- ✅ Item 8: `duplicate_range` handler backend (ya existía); UI = menú contextual en regla "Duplicar sección X → aquí"
+- ✅ Fix TS: `presets` declarado en Timeline.tsx (era `Cannot find name 'presets'`)
+- ✅ Tests: `test_duplicate_range` en `tests/test_dispatcher.py` — 558 tests verdes (sin bench)
+- ✅ Build: `npx tsc --noEmit` limpio + `npm run build` OK
 
 Lista cerrada, cada ítem = mini-commit dentro de la fase:
 

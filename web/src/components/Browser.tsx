@@ -68,12 +68,19 @@ export function Browser({
     ] });
   };
 
+  const setDragData = (e: React.DragEvent, type: string, id: string | number) => {
+    e.dataTransfer.effectAllowed = "copy";
+    e.dataTransfer.setData("application/sd-drop", JSON.stringify({ type, id }));
+  };
+
   const renderPreset = (p: Preset) => (
     <button key={p.preset_id}
+      draggable
       className={"fx-item preset-item" + (activePresetId === p.preset_id ? " on" : "")}
       onClick={() => onPickPreset(p)}
       onDoubleClick={() => openPreset(false, p)}
-      onContextMenu={(e) => presetMenu(e, p)}>
+      onContextMenu={(e) => presetMenu(e, p)}
+      onDragStart={(e) => setDragData(e, p.kind === "channel" ? "channel-preset" : "preset", p.preset_id)}>
       <span className="sw" style={{ background: p.color }} />
       <span className="nm">{p.kind === "channel" ? "⬡ " : ""}{p.name}</span>
       <span className="scope">{p.scope === "global" ? "G" : "P"}</span>
@@ -134,8 +141,10 @@ export function Browser({
           </div>
           <div className="fx-list">
             {(families.find(([f]) => f === (fam || families[0]?.[0]))?.[1] ?? []).map((fx) => (
-              <button key={fx.id} className={"fx-item" + (activeFxId === fx.id ? " on" : "")}
-                onClick={() => onPickEffect(fx)} onContextMenu={(e) => fxMenu(e, fx)}>
+              <button key={fx.id} draggable
+                className={"fx-item" + (activeFxId === fx.id ? " on" : "")}
+                onClick={() => onPickEffect(fx)} onContextMenu={(e) => fxMenu(e, fx)}
+                onDragStart={(e) => setDragData(e, "effect", fx.id)}>
                 <span className="sw" style={{ background: famColor(fx.family) }} />
                 <span className="nm">{fx.name}</span>
                 <span className="hint">crear preset →</span>
@@ -158,9 +167,11 @@ export function Browser({
               const instCount = patternInstances.filter((i) => i.pattern_uid === pat.uid).length;
               return (
                 <button key={pat.uid}
+                  draggable
                   className="fx-item preset-item"
                   title={`${instCount} instancia${instCount !== 1 ? "s" : ""}`}
                   onClick={() => onPickPattern?.(pat)}
+                  onDragStart={(e) => setDragData(e, "pattern", pat.uid)}
                   onDoubleClick={() => {
                     // Doble clic = añadir instancia en el t actual del transporte
                     const tMs = Math.round(t * 1000);
@@ -197,7 +208,7 @@ export function Browser({
             })}
           </div>
           <div className="fx-foot" style={{ fontSize: 11, color: "var(--txt-3)" }}>
-            Clic = seleccionar · doble clic = instanciar en t actual
+            Clic = seleccionar · doble clic = instanciar · arrastrar al timeline
           </div>
         </>
       )}

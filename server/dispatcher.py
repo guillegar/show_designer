@@ -765,6 +765,49 @@ def _h_dissolve_instance(session, params):
     return {"ok": True, "clips": [c.to_dict() for c in new_clips]}
 
 
+# ── A5 — Ergonomía: duplicar sección ────────────────────────────────────────
+
+def _h_duplicate_range(session, params):
+    """Copia todos los clips cuyo start_ms ∈ [t0_ms, t1_ms) al offset dest_ms.
+
+    El desplazamiento aplicado es `dest_ms - t0_ms`. Los clips con start_ms en
+    [t0_ms, t1_ms) se duplican con nuevos UIDs; los originales no se tocan.
+    Llama snapshot() antes de mutar (invariante I1).
+    """
+    from src.core.timeline_model import Clip
+    t0_ms = require_int(params, "t0_ms")
+    t1_ms = require_int(params, "t1_ms")
+    dest_ms = require_int(params, "dest_ms")
+    if t0_ms >= t1_ms:
+        return {"ok": False, "error": "t0_ms debe ser menor que t1_ms"}
+
+    session.snapshot()
+    offset = dest_ms - t0_ms
+    new_clips = []
+    for c in list(session.timeline.clips):
+        if t0_ms <= c.start_ms < t1_ms:
+            nc = Clip(
+                track=c.track,
+                start_ms=c.start_ms + offset,
+                end_ms=c.end_ms + offset,
+                effect_id=c.effect_id,
+                scope=c.scope,
+                color=c.color,
+                layer=c.layer,
+                label=c.label,
+                muted=c.muted,
+                params=dict(c.params or {}),
+                category=getattr(c, "category", "pixel"),
+                channel_effect_id=getattr(c, "channel_effect_id", None),
+                param_links=list(getattr(c, "param_links", []) or []),
+            )
+            new_clips.append(nc)
+    for nc in new_clips:
+        session.timeline.add(nc)
+    session.invalidate_caches()
+    return {"ok": True, "clips": [c.to_dict() for c in new_clips]}
+
+
 # ── A4 — Micro-eventos ──────────────────────────────────────────────────────
 
 def _h_add_micro_event(session, params):
@@ -873,6 +916,8 @@ _LOCAL = {
     "add_micro_event": _h_add_micro_event,
     "delete_micro_event": _h_delete_micro_event,
     "update_micro_event": _h_update_micro_event,
+    # A5 — Ergonomía
+    "duplicate_range": _h_duplicate_range,
 }
 
 
