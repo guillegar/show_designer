@@ -10,7 +10,7 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
 Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4 vistas funcionando.
-**A1+A2+A3+A4+A5+B1+B2+B3 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked.
+**A1+A2+A3+A4+A5+B1+B2+B3+B4 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones. **Bloque B COMPLETO.**
 
 ---
 
@@ -60,7 +60,16 @@ Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4
     + aplica postfx/master sobre el frame bakeado. Handlers: `render_offline`, `get_render_status`,
     `toggle_baked`. Progress events `{type:'render_progress'}` en el stream (thread-safe).
     Frontend: `RenderPanel` en `Live.tsx` con botón Render + barra progreso + toggle Baked + aviso
-    invalidación. `onRenderProgress` en `StreamClient`. 11 tests nuevos. **593 verdes. Siguiente: B4**.
+    invalidación. `onRenderProgress` en `StreamClient`. 11 tests nuevos. 593 verdes.
+  - ✅ **B4 APLICADA (2026-06-13)**: autosave + versiones de show. **Bloque B COMPLETO.**
+    `server/session.py`: `autosave_now()` (atómico vía `Timeline.save()`), `_rotate_autosaves()`
+    (máx 20 archivos), `start_autosave_task()` (asyncio, cada `LUCES_AUTOSAVE_INTERVAL` s, default
+    60), `check_autosave_at_startup()` (mtime comparison, una vez por arranque).
+    `server/web.py`: tarea de autosave + `_emit_autosave_banner` (delay 1.5 s).
+    Handlers: `list_autosaves`, `restore_autosave` (path traversal bloqueado), `discard_autosave_prompt`.
+    `stream.ts`: tipo `AutosaveAvailableEvent` + `onAutosaveAvailable()`.
+    Frontend: `AutosaveBanner` (top-center, una sola vez), botón "Versiones…" + `VersionesModal`
+    (tabla fecha/tamaño + "Cargar como copia"). 15 tests nuevos. **608 verdes. Siguiente: C1**.
   - Pasos pendientes del usuario: `cd web && npm install` (vitest), `pytest tests/` completo
     en Windows, y el commit: `roadmap-v2 fase F0: actx real + param pipeline + schema v3 + bench`.
 

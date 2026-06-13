@@ -375,6 +375,34 @@
 .preset-editor { width: 340px; background: var(--bg-1); border: 1px solid var(--line-strong);
   border-radius: var(--r-lg); box-shadow: var(--sh-pop); overflow: hidden; }
 
+/* B4 — modal genérico (Versiones) */
+.modal-box { width: 480px; max-height: 70vh; background: var(--bg-1);
+  border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+  box-shadow: var(--sh-pop); overflow: hidden; display: flex; flex-direction: column; }
+.modal-head { display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid var(--line-soft);
+  font-size: 12px; font-weight: 600; color: var(--txt); }
+.modal-body { overflow-y: auto; padding: 6px 0; }
+
+/* B4 — tabla de autosaves */
+.autosave-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.autosave-table th { text-align: left; padding: 4px 12px; color: var(--txt-4);
+  font-weight: 600; font-size: 10px; letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--line-soft); }
+.autosave-table td { padding: 5px 12px; border-bottom: 1px solid var(--line); }
+.autosave-table tr:last-child td { border-bottom: none; }
+.autosave-table tr:hover td { background: var(--bg-2); }
+
+/* B4 — banner de autosave disponible */
+.autosave-banner { position: fixed; top: 0; left: 50%; transform: translateX(-50%);
+  z-index: 1000; display: flex; align-items: center; gap: 10px;
+  background: var(--bg-1); border: 1px solid var(--warn);
+  border-top: none; border-radius: 0 0 var(--r-lg) var(--r-lg);
+  padding: 8px 16px; box-shadow: var(--sh-pop); font-size: 12px; }
+.autosave-banner-icon { color: var(--warn); font-size: 16px; flex: none; }
+.autosave-banner-text { color: var(--txt-2); flex: 1; }
+.autosave-banner-text b { color: var(--txt); }
+
 /* ---------- CLIP DRAG (v1.11 Fase B) ---------- */
 .clip-grip-l { position: absolute; left: 0; top: 0; bottom: 0; width: 5px; cursor: ew-resize; z-index: 2; }
 .clip-grip-l:hover { background: oklch(1 0 0 / 0.18); }

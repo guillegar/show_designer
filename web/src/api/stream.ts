@@ -32,6 +32,7 @@ function wsUrl(path: string): string {
 }
 
 export type RenderProgressEvent = { pct: number; done?: boolean };
+export type AutosaveAvailableEvent = { type: "autosave_available"; path: string; ts: string; filename: string };
 
 class StreamClient {
   latestFrame: Uint8Array | null = null;
@@ -40,6 +41,7 @@ class StreamClient {
   private stateSubs = new Set<(s: TransportState) => void>();
   private dmxSubs = new Set<(d: DmxState) => void>();
   private renderProgressSubs = new Set<(e: RenderProgressEvent) => void>();
+  private autosaveSubs = new Set<(e: AutosaveAvailableEvent) => void>();
 
   constructor() {
     this.connect();
@@ -67,6 +69,8 @@ class StreamClient {
         for (const f of this.dmxSubs) f(this.latestDmx);
       } else if (m.type === "render_progress") {
         for (const f of this.renderProgressSubs) f({ pct: m.pct, done: m.done });
+      } else if (m.type === "autosave_available") {
+        for (const f of this.autosaveSubs) f(m as AutosaveAvailableEvent);
       }
     };
     ws.onclose = () => setTimeout(() => this.connect(), 1000);
@@ -84,6 +88,10 @@ class StreamClient {
   onRenderProgress(fn: (e: RenderProgressEvent) => void): () => void {
     this.renderProgressSubs.add(fn);
     return () => this.renderProgressSubs.delete(fn);
+  }
+  onAutosaveAvailable(fn: (e: AutosaveAvailableEvent) => void): () => void {
+    this.autosaveSubs.add(fn);
+    return () => this.autosaveSubs.delete(fn);
   }
 
   // Color RGB de un LED concreto del último frame (para canvas Live/Patch)

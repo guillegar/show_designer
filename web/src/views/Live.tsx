@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { control } from "../api/control";
 import { stream, LEDS } from "../api/stream";
+import type { AutosaveAvailableEvent } from "../api/stream";
 import { useStore } from "../store";
 import { Ico, fmtTime } from "../icons";
 import type { TrackChain, MixerState } from "../api/types";
@@ -197,6 +198,108 @@ function MixerPanel() {
   );
 }
 
+// ── B4: Banner de autosave disponible ────────────────────────────────────────
+
+function AutosaveBanner({ event, onDone }: {
+  event: AutosaveAvailableEvent;
+  onDone: () => void;
+}) {
+  const restore = () => {
+    if (!confirm(`¿Reemplazar el timeline actual con el autosave ${event.ts}?`)) return;
+    control.call("restore_autosave", { filename: event.filename }).then((r) => {
+      if (!r.ok) alert(r.error || "Error al restaurar");
+      onDone();
+    }).catch(() => onDone());
+  };
+  const discard = () => {
+    control.call("discard_autosave_prompt").catch(() => {});
+    onDone();
+  };
+  // Formatear timestamp legible: YYYYMMDDTHHMMSS → DD/MM/YYYY HH:MM:SS
+  const ts = event.ts;
+  const tsFormatted = ts.length >= 15
+    ? `${ts.slice(6, 8)}/${ts.slice(4, 6)}/${ts.slice(0, 4)} ${ts.slice(9, 11)}:${ts.slice(11, 13)}:${ts.slice(13, 15)}`
+    : ts;
+
+  return (
+    <div className="autosave-banner">
+      <span className="autosave-banner-icon">⚠</span>
+      <span className="autosave-banner-text">
+        Hay un autosave más reciente que el show guardado (<b>{tsFormatted}</b>).
+        ¿Quieres restaurarlo?
+      </span>
+      <button className="btn primary" onClick={restore}>Restaurar</button>
+      <button className="btn ghost" onClick={discard}>Descartar</button>
+    </div>
+  );
+}
+
+// ── B4: Modal "Versiones…" ────────────────────────────────────────────────────
+
+type AutosaveEntry = { filename: string; ts: string; size_kb: number };
+
+function VersionesModal({ onClose }: { onClose: () => void }) {
+  const [entries, setEntries] = useState<AutosaveEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    control.call("list_autosaves").then((r) => {
+      if (r.ok) setEntries(r.autosaves as AutosaveEntry[]);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const loadCopy = (entry: AutosaveEntry) => {
+    if (!confirm(`¿Reemplazar el timeline actual con el autosave ${entry.ts}?`)) return;
+    control.call("restore_autosave", { filename: entry.filename }).then((r) => {
+      if (r.ok) { onClose(); }
+      else alert(r.error || "Error al cargar");
+    }).catch(() => {});
+  };
+
+  const fmtTs = (ts: string) =>
+    ts.length >= 15
+      ? `${ts.slice(6, 8)}/${ts.slice(4, 6)}/${ts.slice(0, 4)} ${ts.slice(9, 11)}:${ts.slice(11, 13)}:${ts.slice(13, 15)}`
+      : ts;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <span>Versiones guardadas automáticamente</span>
+          <button className="btn ghost" onClick={onClose}>✕</button>
+        </div>
+        {loading ? (
+          <div className="modal-body" style={{ padding: 20, color: "var(--fg-dim)" }}>Cargando…</div>
+        ) : entries.length === 0 ? (
+          <div className="modal-body" style={{ padding: 20, color: "var(--fg-dim)" }}>No hay autosaves todavía.</div>
+        ) : (
+          <div className="modal-body">
+            <table className="autosave-table">
+              <thead>
+                <tr><th>Fecha</th><th>Tamaño</th><th></th></tr>
+              </thead>
+              <tbody>
+                {entries.map((e) => (
+                  <tr key={e.filename}>
+                    <td>{fmtTs(e.ts)}</td>
+                    <td>{e.size_kb} KB</td>
+                    <td>
+                      <button className="btn" style={{ fontSize: 11 }} onClick={() => loadCopy(e)}>
+                        Cargar como copia
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Panel Render offline (B3) ────────────────────────────────────────────────
 
 function RenderPanel() {
@@ -305,6 +408,14 @@ export function LiveView() {
   const [showLeds, setShowLeds] = useState(true);
   const [log, setLog] = useState<any[]>([]);
 
+  // B4: estado de autosave
+  const [autosaveEvent, setAutosaveEvent] = useState<AutosaveAvailableEvent | null>(null);
+  const [showVersiones, setShowVersiones] = useState(false);
+
+  useEffect(() => {
+    return stream.onAutosaveAvailable((e) => setAutosaveEvent(e));
+  }, []);
+
   // barras LED ordenadas por legacy_bar_idx
   const bars = fixtures
     .filter((f) => f.legacy_bar_idx != null)
@@ -324,6 +435,13 @@ export function LiveView() {
 
   return (
     <div className="live">
+      {/* B4: Banner de autosave (solo si hay uno más nuevo que show.json) */}
+      {autosaveEvent && (
+        <AutosaveBanner event={autosaveEvent} onDone={() => setAutosaveEvent(null)} />
+      )}
+      {/* B4: Modal de versiones */}
+      {showVersiones && <VersionesModal onClose={() => setShowVersiones(false)} />}
+
       <div className="live-stage">
         <div className="live-toolbar">
           <span className="live-title">Preview en vivo</span>
@@ -352,6 +470,12 @@ export function LiveView() {
       </div>
 
       <div className="live-side">
+        {/* B4: botón Versiones */}
+        <div style={{ display: "flex", justifyContent: "flex-end", padding: "6px 10px 0" }}>
+          <button className="btn ghost" style={{ fontSize: 11 }} onClick={() => setShowVersiones(true)}>
+            🕐 Versiones…
+          </button>
+        </div>
         {/* Panel Render offline (B3) */}
         <RenderPanel />
         {/* Panel Mixer (B2) */}

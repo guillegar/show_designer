@@ -193,6 +193,11 @@ class ShowSession:
         self._pattern_rev: int = 0
         self._pattern_expanded: list = []
         self._pattern_expanded_rev: int = -1
+        # B4: autosave — rev en el último autosave (compara con _rev para detectar cambios)
+        self._last_saved_rev: int = 0
+        # Evita mostrar el banner de autosave más de una vez por arranque
+        self._autosave_banner_shown: bool = False
+
         # Undo/redo extraído a UndoManager (SRP). A3: se añaden get_extra/restore_extra
         # para que patterns y pattern_instances entren en el snapshot (invariante I1).
         from server.undo_manager import UndoManager
@@ -693,4 +698,91 @@ class ShowSession:
                 frame = apply_master(frame, master_chain)
 
         return frame
-# (F0 + B2 aplicadas — ROADMAP v2)
+
+    # ── B4: autosave + versiones de show ─────────────────────────────────────
+
+    def _autosave_dir(self) -> Path:
+        return self.project.folder / "autosave"
+
+    def autosave_now(self) -> Path:
+        """Guarda el timeline actual en el directorio de autosave (atómico).
+
+        Usa Timeline.save() existente → formato show.json v3 normal, restaurable
+        con Timeline.load(). No reemplaza show.json (ese lo controla el usuario).
+        """
+        from datetime import datetime
+        d = self._autosave_dir()
+        d.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime('%Y%m%dT%H%M%S')
+        path = d / f"show_{ts}.json"
+        self.timeline.save(path)
+        self._last_saved_rev = self._rev
+        self._rotate_autosaves()
+        return path
+
+    def _rotate_autosaves(self):
+        """Mantiene solo los 20 autosaves más recientes (borra los más viejos)."""
+        d = self._autosave_dir()
+        if not d.is_dir():
+            return
+        files = sorted(d.glob("show_*.json"), key=lambda p: p.name)
+        while len(files) > _AUTOSAVE_MAX:
+            try:
+                files.pop(0).unlink()
+            except OSError:
+                pass
+
+    async def start_autosave_task(self):
+        """Tarea asyncio: guarda cada LUCES_AUTOSAVE_INTERVAL segundos si hay cambios.
+
+        No corre en el tick de 30 FPS — es I/O pesado. Se lanza desde web.py
+        en startup como asyncio.create_task(session.start_autosave_task()).
+        """
+        import asyncio as _asyncio
+        import os as _os
+        interval = int(_os.environ.get("LUCES_AUTOSAVE_INTERVAL", "60"))
+        while True:
+            await _asyncio.sleep(interval)
+            if self._rev != self._last_saved_rev:
+                try:
+                    path = self.autosave_now()
+                    print(f"[autosave] {path.name}")
+                except Exception as e:
+                    print(f"[autosave] error: {e}")
+
+    def check_autosave_at_startup(self) -> Optional[dict]:
+        """Si el autosave más reciente es más nuevo que show.json, devuelve el evento.
+
+        El frontend muestra un banner con "Restaurar / Descartar". Solo se emite
+        UNA vez por arranque (_autosave_banner_shown evita repetición).
+        La comparación es por mtime — rápida y sin leer el contenido.
+        """
+        if self._autosave_banner_shown:
+            return None
+        d = self._autosave_dir()
+        if not d.is_dir():
+            return None
+        files = sorted(d.glob("show_*.json"), key=lambda p: p.stat().st_mtime)
+        if not files:
+            return None
+        latest = files[-1]
+        show_file = self.project.show_file
+        if not show_file.is_file():
+            return None
+        try:
+            if latest.stat().st_mtime > show_file.stat().st_mtime:
+                self._autosave_banner_shown = True
+                ts = latest.stem[5:]  # "show_YYYYMMDDTHHMMSS" → "YYYYMMDDTHHMMSS"
+                return {
+                    "type": "autosave_available",
+                    "path": f"{self.project.slug}/autosave/{latest.name}",
+                    "ts": ts,
+                    "filename": latest.name,
+                }
+        except OSError:
+            pass
+        return None
+
+
+_AUTOSAVE_MAX = 20
+# (F0 + B2 + B4 aplicadas — ROADMAP v2)

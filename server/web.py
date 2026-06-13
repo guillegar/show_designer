@@ -73,6 +73,17 @@ def create_app() -> FastAPI:
         app.state.tick = tick
         asyncio.create_task(tick.run())
 
+        # B4: tarea de autosave (I/O pesado — no en el tick de 30 FPS)
+        asyncio.create_task(session.start_autosave_task())
+
+        # B4: emitir evento autosave_available si hay un autosave más nuevo que show.json
+        async def _emit_autosave_banner():
+            await asyncio.sleep(1.5)  # esperar a que los clientes conecten
+            event = session.check_autosave_at_startup()
+            if event:
+                await hub.broadcast_json(event)
+        asyncio.create_task(_emit_autosave_banner())
+
         # Compat MCP en :9876, mismo loop, mismo dispatcher
         # (se puede desactivar en tests con LUCES_NO_MCP_COMPAT=1)
         if not os.environ.get("LUCES_NO_MCP_COMPAT"):

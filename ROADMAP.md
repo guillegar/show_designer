@@ -1,7 +1,7 @@
 # ROADMAP v2 — "El Secuenciador"
 
 **Objetivo**: llevar Show Designer del nivel "editor de clips" al nivel "FL Studio de la luz".
-**Fecha**: 2026-06-13 · **Estado**: B3 APLICADA (2026-06-13) — siguiente: B4 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
+**Fecha**: 2026-06-13 · **Estado**: B4 APLICADA (2026-06-13) — Bloque B COMPLETO — siguiente: C1 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
 
 > **F0 APLICADA (2026-06-12, pendiente de commit)**: F0.0 actx real en `session.compute_frame`
 > (verificado: 0.004 ms/frame, cero regresión), F0.1 `src/core/param_pipeline.py` cableado
@@ -643,6 +643,22 @@ plana; toco un clip y el modo baked se desactiva solo con aviso.
 **Commit**: `roadmap-v2 fase B3: render offline + playback baked`.
 
 ## B4 — Autosave + versiones de show (~1 día)
+**✅ APLICADA (2026-06-13)**
+
+**Estado de entrega:**
+- ✅ `server/session.py`: `_last_saved_rev`, `_autosave_banner_shown`, `autosave_now()`,
+  `_rotate_autosaves()` (máx 20), `start_autosave_task()` (asyncio, I/O fuera del tick),
+  `check_autosave_at_startup()` (compara mtime, emite una sola vez por arranque).
+- ✅ `server/web.py`: `asyncio.create_task(session.start_autosave_task())` +
+  `_emit_autosave_banner()` (1.5 s delay para que los clientes conecten).
+- ✅ `server/dispatcher.py`: handlers `list_autosaves`, `restore_autosave`
+  (path traversal bloqueado), `discard_autosave_prompt`. Registrados en `_LOCAL`.
+- ✅ `web/src/api/stream.ts`: tipo `AutosaveAvailableEvent` + `onAutosaveAvailable()`.
+- ✅ `web/src/views/Live.tsx`: `AutosaveBanner` (top-center, una vez por arranque),
+  botón "Versiones…" + `VersionesModal` (tabla con fecha/tamaño + "Cargar como copia").
+- ✅ `web/src/styles-views.css`: `.autosave-banner`, `.modal-box`, `.autosave-table`.
+- ✅ Tests: 15 tests en `tests/test_autosave.py` (5 clases, 15 casos). **608 verdes**.
+- ✅ `npx tsc --noEmit` limpio + `npm run build` OK.
 
 - Autosave cada 60 s (configurable) SI hay cambios (contador de revisión que ya dispara
   `model_changed`): guarda a `projects/<slug>/autosave/show_<timestamp>.json`, rota a las
