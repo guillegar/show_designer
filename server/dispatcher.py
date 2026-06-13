@@ -2236,6 +2236,49 @@ def _h_blackout(session, params):
     return {"ok": True, "blackout": enabled}
 
 
+def _h_list_clips(session, params):
+    """list_clips(filter?, offset?, limit?) → {ok, clips, total, next_offset?}
+
+    H4: si hay > 1000 clips devuelve cursor (offset, limit) en vez de N clips
+    en un solo JSON. offset y limit son enteros opcionales.
+    filter: {track?, start_ms_min?, start_ms_max?}
+    """
+    flt = params.get("filter") or {}
+    track_f = flt.get("track")
+    t_lo = flt.get("start_ms_min")
+    t_hi = flt.get("start_ms_max")
+
+    clips = list(getattr(session, "timeline", None).clips
+                 if getattr(session, "timeline", None) else [])
+
+    if track_f is not None:
+        clips = [c for c in clips if c.track == int(track_f)]
+    if t_lo is not None:
+        clips = [c for c in clips if c.start_ms >= int(t_lo)]
+    if t_hi is not None:
+        clips = [c for c in clips if c.start_ms <= int(t_hi)]
+
+    total = len(clips)
+    offset = int(params.get("offset", 0))
+    limit_raw = params.get("limit")
+
+    if limit_raw is not None:
+        limit = int(limit_raw)
+        page = clips[offset: offset + limit]
+        next_offset = offset + limit if offset + limit < total else None
+    else:
+        page = clips[offset:]
+        next_offset = None
+
+    return {
+        "ok": True,
+        "clips": [c.to_dict() for c in page],
+        "total": total,
+        "count": total,       # alias para compat con test_dispatcher.py
+        "next_offset": next_offset,
+    }
+
+
 def _h_get_output_status(session, params):
     """get_output_status() → {ok, blackout, has_ffmpeg, render_ready, active_test_universe}.
 
@@ -2259,6 +2302,8 @@ def _h_get_output_status(session, params):
 
 
 _LOCAL = {
+    # H4 — list_clips con paginación (offset/limit)
+    "list_clips": _h_list_clips,
     "undo": _h_undo,
     "redo": _h_redo,
     "export_csv": _h_export_csv,

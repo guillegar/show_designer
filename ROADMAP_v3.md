@@ -910,7 +910,7 @@ viewer 3D mantiene la conexión.
 
 ---
 
-## H4 — Rendimiento a escala (~3 días, Sonnet)
+## ✅ H4 — Rendimiento a escala (~3 días, Sonnet) — APLICADA 2026-06-14
 
 **Qué**: el bench de referencia actual usa el_taser (1358 clips, 30 FPS). Documentar el
 comportamiento a mayor escala y resolver los cuellos de botella que aparezcan.
