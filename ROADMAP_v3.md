@@ -644,7 +644,7 @@ de BPM en Show Designer muestra "128.0" y el Auto-VJ dispara en beat.
 
 ---
 
-## G3 — Moving heads: pan/tilt en el timeline (~3 días, Opus)
+## ✅ G3 — Moving heads: pan/tilt en el timeline (~3 días, Opus) — APLICADA 2026-06-13
 
 **Qué**: las barras WLED son el hardware actual, pero el sistema ya tiene ChannelEffects y
 soporte GDTF. Falta exponer pan/tilt/gobo/color_wheel como dimensiones editables en el

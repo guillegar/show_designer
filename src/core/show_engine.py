@@ -857,15 +857,38 @@ class ShowEngine:
 
     def _render_clip_channels(self, clip, fixture, t: float,
                               audio_context: Optional[Dict]) -> Dict[str, int]:
-        """Carga el ChannelEffect del clip y llama a su render.
+        """Carga el/los ChannelEffect del clip y llama a su render.
 
-        v1.7 Fase 6: usa ChannelEffectLibrary. El effect_id de un clip de
-        canal es el string `channel_effect_id` del Clip (ej. 'pos_circle').
+        G3: si clip.channel_effects (List[{id,params}]) está poblado, renderiza
+        cada efecto de la lista y fusiona los dicts (el último en ganar por canal).
+        Fallback al legacy channel_effect_id + params si la lista está vacía.
         """
         lib = self._get_channel_library()
         if lib is None:
             return {}
-        # channel_effect_id tiene prioridad; fallback a str(effect_id) por compat
+
+        elapsed = t - (clip.start_ms / 1000.0)
+
+        # G3: lista de channel effects (puede tener múltiples sub-efectos)
+        ce_list = getattr(clip, 'channel_effects', None) or []
+        if ce_list:
+            merged: Dict[str, int] = {}
+            for cfg in ce_list:
+                eff_id = cfg.get("id") or cfg.get("effect_id")
+                if not eff_id:
+                    continue
+                effect = lib.get(str(eff_id))
+                if effect is None:
+                    continue
+                try:
+                    result = effect.render(elapsed, audio_context, cfg.get("params") or {})
+                    for k, v in result.items():
+                        merged[k] = max(0, min(255, int(round(v))))
+                except Exception as e:
+                    print(f"[!] ChannelEffect {eff_id} render error: {e}")
+            return merged
+
+        # Legacy: channel_effect_id + params (un solo efecto)
         eff_id = getattr(clip, 'channel_effect_id', None)
         if not eff_id:
             raw = getattr(clip, 'effect_id', None)
@@ -876,10 +899,7 @@ class ShowEngine:
         if effect is None:
             return {}
         try:
-            # Tiempo relativo al clip (elapsed time desde el start)
-            elapsed = t - (clip.start_ms / 1000.0)
             result = effect.render(elapsed, audio_context, getattr(clip, 'params', None) or {})
-            # Garantizar que todos los valores son int 0-255
             return {k: max(0, min(255, int(round(v)))) for k, v in result.items()}
         except Exception as e:
             print(f"[!] ChannelEffect {eff_id} render error: {e}")

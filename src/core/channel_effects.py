@@ -587,9 +587,74 @@ class ChanStrobeRandom(ChannelEffect):
 # Librería global
 # ════════════════════════════════════════════════════════════════
 
+class PanTiltWaveEffect(ChannelEffect):
+    """Pan/tilt con modos: circle, fig8, bounce_pan, bounce_tilt.
+
+    Parámetros compatibles con F2 (PARAM_SCHEMA en base Effect):
+      pan_center / tilt_center : 0..1 (posición central, default 0.5)
+      pan_range  / tilt_range  : amplitud máxima (0..0.5, default 0.25)
+      speed                    : Hz (default 0.5)
+      mode                     : circle | fig8 | bounce_pan | bounce_tilt
+
+    Convención de fase (circle):
+      t=0 → pan = center + range (máximo)
+      t=T/4 → tilt = center + range (máximo)
+    """
+    effect_id = 'pos_pantilt_wave'
+    name = 'Pan/Tilt Wave'
+    category = 'position'
+    required_channels = ['pan', 'tilt']
+
+    PARAM_SCHEMA = {
+        "pan_center":  {"type": "float", "min": 0.0, "max": 1.0, "default": 0.5, "label": "Pan centro"},
+        "tilt_center": {"type": "float", "min": 0.0, "max": 1.0, "default": 0.5, "label": "Tilt centro"},
+        "pan_range":   {"type": "float", "min": 0.0, "max": 0.5, "default": 0.25, "label": "Rango pan"},
+        "tilt_range":  {"type": "float", "min": 0.0, "max": 0.5, "default": 0.25, "label": "Rango tilt"},
+        "speed":       {"type": "float", "min": 0.1, "max": 4.0, "default": 0.5, "label": "Velocidad (Hz)"},
+        "mode":        {"type": "enum", "options": ["circle", "fig8", "bounce_pan", "bounce_tilt"],
+                        "default": "circle", "label": "Modo"},
+    }
+
+    default_params = {
+        "pan_center": 0.5, "tilt_center": 0.5,
+        "pan_range": 0.25, "tilt_range": 0.25,
+        "speed": 0.5, "mode": "circle",
+    }
+
+    def render(self, t: float, audio_context: Optional[Dict], params: Optional[Dict] = None) -> Dict[str, int]:
+        p = {**self.default_params, **(params or {})}
+        cp = float(p.get("pan_center", 0.5))
+        ct = float(p.get("tilt_center", 0.5))
+        pr = float(p.get("pan_range", 0.25))
+        tr = float(p.get("tilt_range", 0.25))
+        spd = float(p.get("speed", 0.5))
+        mode = str(p.get("mode", "circle"))
+        ω = 2.0 * math.pi * spd * t
+
+        if mode == "circle":
+            pan  = cp + pr * math.cos(ω)
+            tilt = ct + tr * math.sin(ω)
+        elif mode == "fig8":
+            pan  = cp + pr * math.sin(ω)
+            tilt = ct + tr * math.sin(2 * ω) / 2.0
+        elif mode == "bounce_pan":
+            pan  = cp + pr * math.sin(ω)
+            tilt = ct
+        elif mode == "bounce_tilt":
+            pan  = cp
+            tilt = ct + tr * math.sin(ω)
+        else:
+            pan, tilt = cp, ct
+
+        return {
+            "pan":  self._clamp(pan * 255),
+            "tilt": self._clamp(tilt * 255),
+        }
+
+
 _ALL_EFFECTS: List[ChannelEffect] = [
     # position
-    ChanCircle(), ChanFigure8(), ChanSway(), ChanBeatSnap(), ChanPanSweep(),
+    PanTiltWaveEffect(), ChanCircle(), ChanFigure8(), ChanSway(), ChanBeatSnap(), ChanPanSweep(),
     # color
     ChanRainbow(), ChanColorFade(), ChanColorFlash(), ChanWarmCold(), ChanColorStrobe(),
     # intensity

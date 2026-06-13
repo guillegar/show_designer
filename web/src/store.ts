@@ -18,6 +18,7 @@ export type Clip = {
   label: string; locked: boolean; muted: boolean; category: string;
   channel_effect_id: string | null; preset_id: string | null; params: Record<string, any>;
   param_links: Record<string, any>[]; events: Record<string, any>[];
+  channel_effects: Array<{ id: string; params: Record<string, any> }>;
 };
 export type Fixture = {
   fixture_id: string; profile_id: string; universe: number; dmx_start: number;

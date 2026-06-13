@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Clip, EffectInfo } from "../store";
+import { Clip, ChannelEffectInfo, EffectInfo } from "../store";
 import { control } from "../api/control";
 import {
   EffectSchema,
@@ -8,6 +8,143 @@ import {
   detectColorGroups,
   colorGroupKeys,
 } from "../api/schema";
+
+// ── G3: Preview SVG trayectoria pan/tilt ────────────────────────────────────
+
+function PanTiltPreview({ mode, speed, panCenter, tiltCenter, panRange, tiltRange }: {
+  mode: string; speed: number; panCenter: number; tiltCenter: number;
+  panRange: number; tiltRange: number;
+}) {
+  const SIZE = 80;
+  const cx = SIZE / 2;
+  const cy = SIZE / 2;
+  const rx = panRange * SIZE;
+  const ry = tiltRange * SIZE;
+
+  // Genera la trayectoria SVG de 1 ciclo completo (64 puntos)
+  const nPts = 64;
+  let points: string[] = [];
+  for (let i = 0; i <= nPts; i++) {
+    const t = (i / nPts) / speed;
+    const omega = 2 * Math.PI * speed * t;
+    let px: number, py: number;
+    if (mode === "circle") { px = Math.cos(omega); py = Math.sin(omega); }
+    else if (mode === "fig8") { px = Math.sin(omega); py = Math.sin(2 * omega) / 2; }
+    else if (mode === "bounce_pan") { px = Math.sin(omega); py = 0; }
+    else { px = 0; py = Math.sin(omega); }
+    points.push(`${cx + px * rx},${cy + py * ry}`);
+  }
+  const pathD = "M " + points.join(" L ");
+
+  // Punto de posición en t=0
+  const dot = {
+    x: mode === "circle" ? cx + rx : mode === "fig8" ? cx : mode === "bounce_pan" ? cx : cx,
+    y: mode === "circle" ? cy : mode === "fig8" ? cy : cy,
+  };
+
+  return (
+    <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}
+      style={{ border: "1px solid var(--line-soft)", borderRadius: 4, display: "block" }}>
+      <circle cx={cx} cy={cy} r={SIZE / 2 - 2} fill="none" stroke="var(--line-soft)" strokeWidth={0.5} />
+      <path d={pathD} fill="none" stroke="var(--acc)" strokeWidth={1.2} opacity={0.7} />
+      <circle cx={dot.x} cy={dot.y} r={3} fill="var(--acc)" />
+    </svg>
+  );
+}
+
+// ── G3: Sección Movimiento en el inspector ────────────────────────────────
+
+function MovimientoSection({ clip, onClipUpdate }: { clip: Clip; onClipUpdate: () => void }) {
+  const [channelEffects, setChannelEffects] = useState<ChannelEffectInfo[]>([]);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    control.call("list_channel_effects", {}).then((r: any) => {
+      if (r?.effects) setChannelEffects(r.effects.filter((e: ChannelEffectInfo) => e.category === "position"));
+    }).catch(() => {});
+  }, []);
+
+  const activeEntry = (clip.channel_effects || []).find((e) =>
+    channelEffects.some((ce) => ce.effect_id === e.id)
+  ) ?? (clip.channel_effect_id ? { id: clip.channel_effect_id, params: clip.params } : null);
+
+  if (clip.category !== "position" && !activeEntry) return null;
+
+  const params = activeEntry?.params ?? {};
+  const mode = String(params.mode ?? "circle");
+  const speed = Number(params.speed ?? 0.5);
+  const panCenter = Number(params.pan_center ?? 0.5);
+  const tiltCenter = Number(params.tilt_center ?? 0.5);
+  const panRange = Number(params.pan_range ?? 0.25);
+  const tiltRange = Number(params.tilt_range ?? 0.25);
+
+  const setEffect = async (effectId: string, newParams: Record<string, any>) => {
+    await control.call("set_clip_channel_effect", {
+      clip_id: clip.id, config: { id: effectId, params: newParams },
+    });
+    onClipUpdate();
+  };
+
+  const currentEffectId = activeEntry?.id ?? "pos_pantilt_wave";
+
+  return (
+    <div className="inspector-section movement-section">
+      <div style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}
+        onClick={() => setCollapsed((c) => !c)}>
+        <label style={{ cursor: "pointer", flex: 1 }}>Movimiento</label>
+        <span style={{ fontSize: 10, color: "var(--txt-4)" }}>{collapsed ? "▸" : "▾"}</span>
+      </div>
+      {!collapsed && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 6 }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <select
+              value={currentEffectId}
+              onChange={(e) => setEffect(e.target.value, params)}
+              style={{ flex: 1, fontSize: 11, background: "var(--bg-2)", color: "var(--txt)", border: "1px solid var(--line-soft)", borderRadius: 4, padding: "2px 4px" }}
+            >
+              {channelEffects.map((ce) => (
+                <option key={ce.effect_id} value={ce.effect_id}>{ce.name}</option>
+              ))}
+            </select>
+            <PanTiltPreview mode={mode} speed={speed}
+              panCenter={panCenter} tiltCenter={tiltCenter}
+              panRange={panRange} tiltRange={tiltRange} />
+          </div>
+          {currentEffectId === "pos_pantilt_wave" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", gap: 4 }}>
+                {(["circle", "fig8", "bounce_pan", "bounce_tilt"] as const).map((m) => (
+                  <button key={m}
+                    className={`btn sm${mode === m ? " active" : " ghost"}`}
+                    style={{ flex: 1, fontSize: 9, padding: "2px 3px" }}
+                    onClick={() => setEffect(currentEffectId, { ...params, mode: m })}>
+                    {m === "circle" ? "○" : m === "fig8" ? "∞" : m === "bounce_pan" ? "↔" : "↕"}
+                  </button>
+                ))}
+              </div>
+              {[
+                { key: "speed", label: "Vel", min: 0.1, max: 4, step: 0.1 },
+                { key: "pan_range", label: "Pan R", min: 0, max: 0.5, step: 0.05 },
+                { key: "tilt_range", label: "Tilt R", min: 0, max: 0.5, step: 0.05 },
+              ].map(({ key, label, min, max, step }) => (
+                <div key={key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <label style={{ fontSize: 10, minWidth: 32, color: "var(--txt-4)" }}>{label}</label>
+                  <input type="range" min={min} max={max} step={step}
+                    value={Number(params[key] ?? (key === "speed" ? 0.5 : 0.25))}
+                    style={{ flex: 1 }}
+                    onChange={(e) => setEffect(currentEffectId, { ...params, [key]: parseFloat(e.target.value) })} />
+                  <span style={{ fontSize: 10, fontFamily: "var(--mono)", minWidth: 28, textAlign: "right" }}>
+                    {Number(params[key] ?? (key === "speed" ? 0.5 : 0.25)).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface ClipInspectorProps {
   clip: Clip | null;
@@ -542,6 +679,9 @@ export function ClipInspector({
 
       {/* Dynamic params */}
       {renderParams()}
+
+      {/* G3: Movimiento (solo si es un clip de canal de posición) */}
+      <MovimientoSection clip={clip} onClipUpdate={onClipUpdate} />
 
       {/* Actions */}
       <div className="inspector-actions">

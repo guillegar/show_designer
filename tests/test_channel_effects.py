@@ -54,7 +54,7 @@ def _all_in_range(d: dict) -> bool:
 
 class TestChannelEffectLibrary:
     def test_all_effects_loaded(self, lib):
-        assert len(lib.all()) == 24
+        assert len(lib.all()) == 25  # G3: +PanTiltWaveEffect
 
     def test_get_known(self, lib):
         e = lib.get('pos_circle')
@@ -70,7 +70,7 @@ class TestChannelEffectLibrary:
 
     def test_by_category_position(self, lib):
         pos = lib.by_category('position')
-        assert len(pos) == 5
+        assert len(pos) == 6  # G3: +PanTiltWaveEffect
         assert all(e.category == 'position' for e in pos)
 
     def test_by_category_color(self, lib):
@@ -88,7 +88,7 @@ class TestChannelEffectLibrary:
 
     def test_describe_all(self, lib):
         descs = lib.describe_all()
-        assert len(descs) == 24
+        assert len(descs) == 25  # G3: +PanTiltWaveEffect
         required_keys = {'effect_id', 'name', 'category', 'required_channels',
                          'optional_channels', 'default_params'}
         for d in descs:

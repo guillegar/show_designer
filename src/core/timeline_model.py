@@ -105,6 +105,9 @@ class Clip:
     param_links: List[Dict[str, Any]] = field(default_factory=list)
     # A4 — Micro-eventos: overrides puntuales en instantes relativos al clip
     events: List[Dict[str, Any]] = field(default_factory=list)
+    # G3 — Channel effects (lista de configs: [{"id": str, "params": dict}])
+    # Complementa a channel_effect_id/params (que sigue siendo el efecto principal legacy).
+    channel_effects: List[Dict[str, Any]] = field(default_factory=list)
 
     @property
     def duration_ms(self) -> int:
@@ -139,6 +142,7 @@ class Clip:
             "preset_id": self.preset_id,
             "param_links": list(self.param_links) if self.param_links else [],
             "events": list(self.events) if self.events else [],
+            "channel_effects": list(self.channel_effects) if self.channel_effects else [],
         }
 
     @classmethod
@@ -164,6 +168,7 @@ class Clip:
                                  else uuid4().hex[:12]),
             param_links=list(d.get('param_links', [])),
             events=list(d.get('events', [])),
+            channel_effects=list(d.get('channel_effects', [])),
         )
 
 
