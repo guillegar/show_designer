@@ -122,7 +122,7 @@ que el show "funcione solo" si el técnico no toca nada. Toggle: `cue_list.timec
 
 ---
 
-## E2 — OSC: entrada y salida (~2 días, Sonnet)
+## E2 — OSC: entrada y salida ✅ APLICADA 2026-06-13
 
 **Qué**: protocolo Open Sound Control para integrarse con QLab, Resolume, LiveProgrammer,
 TouchOSC, etc. — el estándar de facto para comunicación entre softwares de espectáculo.

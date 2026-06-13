@@ -223,6 +223,9 @@ class ShowSession:
         # Evita mostrar el banner de autosave más de una vez por arranque
         self._autosave_banner_shown: bool = False
 
+        # E2: OSC bridge (asignado por web.py tras construir la sesión)
+        self.osc_bridge = None
+
         # E1: estado runtime de cues (no se persiste en show.json)
         self._cue_fade_start_ms: Optional[float] = None    # timeline_ms donde empezó el fade
         self._cue_fade_duration_ms: float = 0.0

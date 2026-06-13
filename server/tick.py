@@ -145,6 +145,13 @@ class TickLoop:
                                 "next_uid": cue_st["next_uid"],
                             })
 
+                    # E2: OSC OUT — throttled internamente a ≤10 Hz por OscBridge.emit_out
+                    osc = getattr(s, "osc_bridge", None)
+                    if osc is not None:
+                        actx_norm = s._cached_actx.get("norm", {}) if hasattr(s, "_cached_actx") else {}
+                        rms_val = float(actx_norm.get("rms", 0.0))
+                        osc.emit_out(int(t * 1000), section, beat, rms_val)
+
                     # Estado DMX de movers/strobes (no-LED). Es caro (itera
                     # fixtures × clips), así que se difunde a ~7.5 FPS (cada 4
                     # ticks), suficiente para movers; los LEDs van a 30 FPS.

@@ -319,6 +319,30 @@ en tiempo real → `live_input_stop` → vuelve al análisis offline (si existe)
 
 ---
 
+## E2 — OSC bridge
+
+UDP IN (puerto 8001) + emitter OUT (puerto 8002). `server/osc_bridge.py` — instanciado en
+`web.py`, referenciado desde `session.osc_bridge`. Config en `output_targets.json["osc"]`.
+Se degrada limpiamente si python-osc no está instalado (`available: false` en get_state).
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `osc_get_state` | — | `{ok, enabled, available, active, port_in, port_out, clients_out, recv_log}` |
+| `osc_set_config` | `port_in?, port_out?, enabled?, clients_out:[{ip,port}]` | `{ok, ...estado}` — guarda en output_targets.json; reinicia servidor IN si cambió puerto/enabled |
+
+**OSC IN** (mensajes que el servidor escucha):
+- `/show/go_cue <número\|uid>` — go_cue() por número decimal o uid; sin args = go_next_cue
+- `/show/goto_t <ms>` — seek del audio al instante t_ms
+- `/macro/brightness <0..1>` — brightness_mul = v×2
+- `/macro/strobe <hz>` — strobe_rate (0..30 Hz)
+- `/live/trigger <idx>` — live_engine.trigger(idx)
+- `/live/stop_all` — live_engine.stop_all()
+
+**OSC OUT** (throttled ≤ 10 Hz, solo si hay clients_out):
+`/show/t_ms` · `/show/section` · `/show/beat` · `/show/rms`
+
+---
+
 ## E1 — Sistema de Cues profesional
 
 Lista de cues accionable (`CueList` en `Timeline.cue_list`, schema v4). Runtime en `session.py`

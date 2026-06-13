@@ -171,6 +171,123 @@ function AddFixtureModal({ profiles, onClose, onAdded }: {
   );
 }
 
+type OscClient = { ip: string; port: number };
+type OscState = {
+  enabled: boolean; available: boolean; active: boolean;
+  port_in: number; port_out: number;
+  clients_out: OscClient[];
+  recv_log: { addr: string; args: unknown[]; ts: number }[];
+};
+
+function OscPanel() {
+  const [osc, setOsc] = useState<OscState | null>(null);
+  const [open, setOpen] = useState(false);
+  const [newIp, setNewIp] = useState("");
+  const [newPort, setNewPort] = useState("8002");
+
+  const load = () => control.call("osc_get_state").then((r) => setOsc(r as OscState)).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  const save = (patch: Partial<OscState>) => {
+    const next = { ...osc, ...patch } as OscState;
+    control.call("osc_set_config", {
+      port_in: next.port_in, port_out: next.port_out,
+      enabled: next.enabled, clients_out: next.clients_out,
+    }).then((r) => setOsc(r as OscState)).catch(() => {});
+  };
+
+  const addClient = () => {
+    if (!newIp || !newPort) return;
+    const clients = [...(osc?.clients_out ?? []), { ip: newIp, port: +newPort }];
+    save({ clients_out: clients });
+    setNewIp(""); setNewPort("8002");
+  };
+  const removeClient = (i: number) => {
+    const clients = (osc?.clients_out ?? []).filter((_, idx) => idx !== i);
+    save({ clients_out: clients });
+  };
+
+  return (
+    <div className="osc-panel" style={{ borderTop: "1px solid var(--line)", flexShrink: 0 }}>
+      <div className="panel-head" style={{ cursor: "pointer" }} onClick={() => setOpen((v) => !v)}>
+        <h3>OSC</h3>
+        <span className="ph-spacer" />
+        {osc && <span className="chip" style={{ color: osc.active ? "var(--good)" : osc.enabled ? "var(--warn)" : "var(--txt-3)" }}>
+          {osc.active ? "activo" : osc.enabled ? "error" : "desactivado"}
+        </span>}
+        <span style={{ marginLeft: 6, opacity: 0.5, fontSize: 11 }}>{open ? "▲" : "▼"}</span>
+      </div>
+      {open && osc && (
+        <div style={{ padding: "0 14px 12px", fontSize: 12 }}>
+          {!osc.available && (
+            <div style={{ color: "var(--warn)", marginBottom: 8 }}>python-osc no instalado — pip install python-osc</div>
+          )}
+          <div className="form-row">
+            <span className="fl">Activar</span>
+            <div className="fv">
+              <input type="checkbox" checked={osc.enabled} onChange={(e) => save({ enabled: e.target.checked })} />
+            </div>
+          </div>
+          <div className="form-row">
+            <span className="fl">Puerto IN</span>
+            <div className="fv">
+              <input className="field" type="number" style={{ width: 70 }} value={osc.port_in}
+                onChange={(e) => setOsc((s) => s ? { ...s, port_in: +e.target.value } : s)}
+                onBlur={() => save({ port_in: osc.port_in })} />
+              <span style={{ marginLeft: 6, color: "var(--txt-3)" }}>UDP escucha</span>
+            </div>
+          </div>
+          <div className="form-row">
+            <span className="fl">Puerto OUT</span>
+            <div className="fv">
+              <input className="field" type="number" style={{ width: 70 }} value={osc.port_out}
+                onChange={(e) => setOsc((s) => s ? { ...s, port_out: +e.target.value } : s)}
+                onBlur={() => save({ port_out: osc.port_out })} />
+            </div>
+          </div>
+
+          <div style={{ marginTop: 8, marginBottom: 4, color: "var(--txt-3)" }}>Destinos OUT</div>
+          {osc.clients_out.map((c, i) => (
+            <div key={i} className="form-row" style={{ gap: 6 }}>
+              <span className="mono" style={{ fontSize: 11 }}>{c.ip}:{c.port}</span>
+              <span className="ph-spacer" />
+              <button className="btn sm ghost" onClick={() => removeClient(i)}>×</button>
+            </div>
+          ))}
+          <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+            <input className="field" placeholder="IP" value={newIp} onChange={(e) => setNewIp(e.target.value)} style={{ width: 110 }} />
+            <input className="field" type="number" placeholder="puerto" value={newPort} onChange={(e) => setNewPort(e.target.value)} style={{ width: 60 }} />
+            <button className="btn sm" onClick={addClient}>+ Add</button>
+          </div>
+
+          {osc.recv_log.length > 0 && (
+            <>
+              <div style={{ marginTop: 10, marginBottom: 4, color: "var(--txt-3)" }}>Recibidos (últimos {osc.recv_log.length})</div>
+              <div style={{ maxHeight: 100, overflow: "auto", background: "var(--bg-1)", borderRadius: 4, padding: "4px 6px" }}>
+                {[...osc.recv_log].reverse().map((e, i) => (
+                  <div key={i} className="mono" style={{ fontSize: 10, color: "var(--txt-2)", borderBottom: "1px solid var(--line)", padding: "2px 0" }}>
+                    <span style={{ color: "var(--acc)" }}>{e.addr}</span>{" "}
+                    {JSON.stringify(e.args)}
+                    <span style={{ float: "right", opacity: 0.5 }}>{new Date(e.ts * 1000).toLocaleTimeString()}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div style={{ marginTop: 8 }}>
+            <button className="btn sm ghost" onClick={load}>↺ Refrescar</button>
+          </div>
+
+          <div style={{ marginTop: 8, color: "var(--txt-3)", lineHeight: 1.4 }}>
+            IN: /show/go_cue · /show/goto_t · /macro/brightness · /macro/strobe · /live/trigger · /live/stop_all
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PatchView() {
   const fixtures = useStore((s) => s.fixtures);
   const sel = useStore((s) => s.selectedFixtureId);
@@ -275,6 +392,7 @@ export function PatchView() {
             </div>
           </div>
         )}
+        <OscPanel />
       </div>
 
       {adding && <AddFixtureModal profiles={profiles} onClose={() => setAdding(false)}

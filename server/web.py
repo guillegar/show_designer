@@ -25,10 +25,12 @@ from server.session import ShowSession
 from server.dispatcher import Dispatcher
 from server.tick import StreamHub, TickLoop
 from server.json_rpc import parse_json_rpc_message
+from server.osc_bridge import OscBridge
 
 _ROOT = Path(__file__).parent.parent
 _DIST = _ROOT / "web" / "dist"
 _VIEWER3D = _ROOT / "src" / "viewer3d"
+_OUTPUT_TARGETS = _ROOT / "output_targets.json"
 
 MCP_COMPAT_HOST = "127.0.0.1"
 MCP_COMPAT_PORT = 9876
@@ -69,6 +71,19 @@ def create_app() -> FastAPI:
         app.state.session = session
         app.state.dispatcher = dispatcher
 
+        # E2: OSC bridge
+        osc_cfg = OscBridge.load_config(_OUTPUT_TARGETS)
+        osc = OscBridge(
+            session,
+            port_in=osc_cfg.get("port_in", 8001),
+            port_out=osc_cfg.get("port_out", 8002),
+        )
+        osc.enabled = osc_cfg.get("enabled", True)
+        clients_raw = osc_cfg.get("clients_out", [])
+        osc.set_clients_out([(c["ip"], c["port"]) for c in clients_raw if "ip" in c and "port" in c])
+        session.osc_bridge = osc
+        asyncio.create_task(osc.start())
+
         tick = TickLoop(session, hub)
         app.state.tick = tick
         asyncio.create_task(tick.run())
@@ -94,8 +109,12 @@ def create_app() -> FastAPI:
     async def _shutdown():
         if app.state.tick:
             app.state.tick.stop()
-        # Liberar recursos: socket Art-Net + OutputRouter (ANALYSIS hallazgo 18).
         sess = app.state.session
+        # E2: detener OSC bridge
+        osc_b = getattr(sess, "osc_bridge", None) if sess else None
+        if osc_b is not None:
+            await osc_b.stop()
+        # Liberar recursos: socket Art-Net + OutputRouter (ANALYSIS hallazgo 18).
         eng = getattr(sess, "show_engine", None) if sess else None
         if eng is not None and hasattr(eng, "close"):
             try:
