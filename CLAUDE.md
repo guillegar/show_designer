@@ -10,7 +10,7 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
 Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4 vistas funcionando.
-**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO.**
+**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO.**
 
 ---
 
@@ -19,6 +19,8 @@ Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4
 - 🗺️ **ROADMAP v2 COMPLETO (2026-06-13): `ROADMAP.md`** — "El Secuenciador" (nivel FL
   Studio): 15 fases en 4 bloques (Composición/Show/Directo/Impro). Tag: `v1.10-roadmap-v2`.
   700 tests verdes. Invariantes I1-I5 respetados en todas las fases.
+  - ✅ **E4 APLICADA (2026-06-13, ROADMAP v3)**: test de output y patch visual. `session.blackout_override` (bool, no muta mixer), `session._identify` (dict fixture_id→t_expires), `session._test_universes` (dict universe→(r,g,b)). Handlers: `identify_fixture` (blanco 2 s, auto-off asyncio), `test_universe` (toggle universo con color), `blackout` (override instantáneo, evento stream `blackout_changed`), `get_output_status` (estado unificado). `FixtureTestPanel` en Patch.tsx: mapa de barras con 🔦 Identify + 🎨 Test + color picker. BLACKOUT toggle grande en cabecera del panel. 8 tests nuevos. **732 verdes.**
+  - ✅ **E3 APLICADA (2026-06-13, ROADMAP v3)**: export video preview. `server/video_export.py` (NEW): `export_preview(npz_path, out_path, format, scale, fps, progress_cb)` — GIF siempre (Pillow), MP4 si ffmpeg en PATH, atomic write, np.kron para escalar. Handler `export_video` con executor (I4) + eventos `{type:'export_progress', pct}`. `_h_get_render_status` ampliado con `has_ffmpeg` y `render_ready`. `RenderPanel` en Live.tsx con botones 🎞 GIF / 🎬 MP4 y aviso "requiere ffmpeg". Pillow añadido a requirements.txt. 5 tests en test_video_export.py.
   - ✅ **E2 APLICADA (2026-06-13, ROADMAP v3)**: OSC entrada y salida. `server/osc_bridge.py`
     (NEW): `OscBridge` — AsyncIOOSCUDPServer IN (8001) + SimpleUDPClient OUT (8002).
     Handlers IN: /show/go_cue, /show/goto_t, /macro/brightness, /macro/strobe, /live/trigger,

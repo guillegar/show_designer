@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { control } from "../api/control";
 import { stream, LEDS } from "../api/stream";
-import type { AutosaveAvailableEvent } from "../api/stream";
+import type { AutosaveAvailableEvent, ExportProgressEvent } from "../api/stream";
 import { useStore } from "../store";
 import { Ico, fmtTime } from "../icons";
 import type { TrackChain, MixerState, LiveSlot, LiveState, MacrosState, CueEntry } from "../api/types";
@@ -302,39 +302,44 @@ function VersionesModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ── Panel Render offline (B3) ────────────────────────────────────────────────
+// ── Panel Render offline (B3) + Export video (E3) ───────────────────────────
 
 function RenderPanel() {
   const [status, setStatus] = useState<"idle" | "rendering" | "ready">("idle");
   const [pct, setPct] = useState(0);
   const [baked, setBaked] = useState(false);
-  const [invalidated, setInvalidated] = useState(false);  // true cuando timeline cambió con baked activo
+  const [invalidated, setInvalidated] = useState(false);
+  const [hasFFmpeg, setHasFFmpeg] = useState(false);
+  const [exportPct, setExportPct] = useState<number | null>(null);
   const rev = useStore((s) => s.rev);
 
-  // Detectar cambios del timeline mientras baked está activo
   useEffect(() => {
     if (baked) setInvalidated(true);
   }, [rev]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Cargar estado inicial
   const loadStatus = useCallback(() => {
     control.call("get_render_status").then((r) => {
-      if (r.ok) setStatus(r.status as "idle" | "rendering" | "ready");
+      if (r.ok) {
+        setStatus(r.status as "idle" | "rendering" | "ready");
+        setHasFFmpeg(!!r.has_ffmpeg);
+      }
     }).catch(() => {});
   }, []);
 
   useEffect(() => { loadStatus(); }, [loadStatus]);
 
-  // Suscribirse a eventos de progreso del stream
   useEffect(() => {
     return stream.onRenderProgress((e) => {
       setPct(Math.round(e.pct));
-      if (e.done) {
-        setStatus("ready");
-        setPct(100);
-      } else {
-        setStatus("rendering");
-      }
+      if (e.done) { setStatus("ready"); setPct(100); }
+      else setStatus("rendering");
+    });
+  }, []);
+
+  useEffect(() => {
+    return stream.onExportProgress((e: ExportProgressEvent) => {
+      if (e.done) setExportPct(null);
+      else setExportPct(Math.round(e.pct));
     });
   }, []);
 
@@ -356,6 +361,14 @@ function RenderPanel() {
         else alert(r.error || "Sin render válido");
       }).catch(() => {});
     }
+  };
+
+  const exportVideo = (fmt: "gif" | "mp4") => {
+    if (exportPct !== null) return;
+    setExportPct(0);
+    control.call("export_video", { format: fmt, scale: 4 }).then((r) => {
+      if (!r.ok) { setExportPct(null); alert(r.error || "Error al exportar"); }
+    }).catch(() => setExportPct(null));
   };
 
   return (
@@ -391,6 +404,34 @@ function RenderPanel() {
       {invalidated && baked && (
         <div className="render-status warn">
           ⚠ Timeline modificado — render invalidado. Desactiva Baked o re-renderiza.
+        </div>
+      )}
+
+      {status === "ready" && (
+        <div className="render-export-row">
+          <span style={{ fontSize: 11, color: "var(--txt-3)" }}>Export:</span>
+          <button
+            className={"btn sm" + (exportPct !== null ? " disabled" : "")}
+            disabled={exportPct !== null}
+            onClick={() => exportVideo("gif")}
+            title="Exportar GIF animado del show (siempre disponible)"
+          >🎞 GIF</button>
+          <button
+            className={"btn sm" + (exportPct !== null || !hasFFmpeg ? " disabled" : "")}
+            disabled={exportPct !== null || !hasFFmpeg}
+            onClick={() => exportVideo("mp4")}
+            title={hasFFmpeg ? "Exportar MP4 del show" : "Requiere ffmpeg en PATH"}
+          >🎬 MP4</button>
+          {!hasFFmpeg && (
+            <span style={{ fontSize: 10, color: "var(--warn)" }}>requiere ffmpeg</span>
+          )}
+        </div>
+      )}
+
+      {exportPct !== null && (
+        <div className="render-progress-wrap">
+          <div className="render-progress-bar" style={{ width: `${exportPct}%`, background: "var(--acc-2)" }} />
+          <span className="render-progress-label">Export {exportPct}%</span>
         </div>
       )}
     </div>

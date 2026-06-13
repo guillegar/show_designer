@@ -226,6 +226,11 @@ class ShowSession:
         # E2: OSC bridge (asignado por web.py tras construir la sesión)
         self.osc_bridge = None
 
+        # E4: estado runtime de herramientas de test de output (no persiste)
+        self.blackout_override: bool = False   # blackout duro de pánico (instantáneo)
+        self._identify: Dict[str, float] = {}  # fixture_id → t_expires (monotonic)
+        self._test_universes: Dict[int, tuple] = {}  # universe → (r, g, b)
+
         # E1: estado runtime de cues (no se persiste en show.json)
         self._cue_fade_start_ms: Optional[float] = None    # timeline_ms donde empezó el fade
         self._cue_fade_duration_ms: float = 0.0
@@ -801,6 +806,9 @@ class ShowSession:
                 else:
                     pct_b = max(0.0, elapsed_b / self._cue_fade_duration_ms)
                     frame = (frame.astype(np.float32) * pct_b).clip(0, 255).astype(np.uint8)
+            # E4: blackout duro (prioridad máxima, ambas rutas)
+            if self.blackout_override:
+                frame[:] = 0
             return frame
 
         from src.core.param_pipeline import resolve_params
@@ -916,6 +924,25 @@ class ShowSession:
             else:
                 pct = max(0.0, elapsed / self._cue_fade_duration_ms)
                 frame = (frame.astype(np.float32) * pct).clip(0, 255).astype(np.uint8)
+
+        # E4: identify fixture — blanco sobre las barras del fixture (posterior a postfx)
+        if self._identify:
+            import time as _time
+            now = _time.monotonic()
+            expired = [fid for fid, exp in self._identify.items() if now >= exp]
+            for fid in expired:
+                del self._identify[fid]
+            if self._identify and self.fixture_rig is not None:
+                for fid in list(self._identify.keys()):
+                    for fx in getattr(self.fixture_rig, 'fixtures', []):
+                        if getattr(fx, 'fixture_id', None) == fid:
+                            bar = getattr(fx, 'legacy_bar_idx', None)
+                            if bar is not None and 0 <= bar < NUM_BARS:
+                                frame[bar] = 255
+
+        # E4: blackout duro — prioridad máxima (sobre identify, sobre todo)
+        if self.blackout_override:
+            frame[:] = 0
 
         return frame
 

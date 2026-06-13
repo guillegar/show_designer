@@ -1047,50 +1047,6 @@ def _h_render_offline(session, params):
     return {"ok": True, "message": "Render iniciado en background"}
 
 
-def _h_get_render_status(session, params):
-    """get_render_status() → {ok, status, pct, hash}.
-
-    status: 'rendering' | 'ready' | 'idle'
-      - rendering: render en curso
-      - ready: hay npz válido en disco (hash coincide con timeline actual)
-      - idle: no hay render válido
-    """
-    import json as _json
-    from server.offline_render import compute_timeline_hash
-
-    if getattr(session, 'render_in_progress', False):
-        return {
-            "ok": True,
-            "status": "rendering",
-            "pct": getattr(session, 'render_pct', 0.0),
-            "hash": None,
-        }
-
-    out_path = session.project.folder / "render.npz"
-    meta_path = session.project.folder / "render_meta.json"
-    if not out_path.is_file() or not meta_path.is_file():
-        return {"ok": True, "status": "idle", "pct": 0.0, "hash": None}
-
-    try:
-        with open(meta_path, encoding='utf-8') as f:
-            meta = _json.load(f)
-        current_hash = compute_timeline_hash(session.timeline.to_dict())
-        stored_hash = meta.get("show_hash")
-        if stored_hash == current_hash:
-            return {
-                "ok": True,
-                "status": "ready",
-                "pct": 100.0,
-                "hash": stored_hash,
-                "n_frames": meta.get("n_frames"),
-                "duration_s": meta.get("duration_s"),
-            }
-    except Exception:
-        pass
-
-    return {"ok": True, "status": "idle", "pct": 0.0, "hash": None}
-
-
 # ── B4 — Autosave + versiones de show ────────────────────────────────────────
 
 def _h_list_autosaves(session, params):
@@ -1683,6 +1639,264 @@ def _h_get_cue_state(session, params):
     return {"ok": True, **session.get_cue_state()}
 
 
+# ── E3 — Export de video preview ─────────────────────────────────────────────
+
+def _h_export_video(session, params):
+    """export_video(format='gif', scale=4) → {ok} + eventos export_progress.
+
+    Lanza el export en executor (I4). Solo un export a la vez (flag
+    export_in_progress en session). Emite {type:'export_progress', pct:float}
+    al stream.
+    Si no hay render.npz → {ok: False, error}.
+    """
+    import asyncio
+    import shutil
+
+    if getattr(session, 'export_in_progress', False):
+        return {"ok": False, "error": "Ya hay un export en curso"}
+
+    fmt = params.get("format", "gif")
+    if fmt not in ("gif", "mp4"):
+        return {"ok": False, "error": "format debe ser 'gif' o 'mp4'"}
+
+    if fmt == "mp4" and shutil.which("ffmpeg") is None:
+        return {"ok": False, "error": "ffmpeg no encontrado en PATH"}
+
+    npz_path = session.project.folder / "render.npz"
+    if not npz_path.is_file():
+        return {"ok": False, "error": "Sin render. Ejecuta render_offline primero."}
+
+    scale = int(params.get("scale", 4))
+    if scale < 1 or scale > 16:
+        return {"ok": False, "error": "scale debe ser 1..16"}
+
+    out_path = session.project.folder / f"preview.{fmt}"
+    session.export_in_progress = True
+
+    async def _run():
+        loop = asyncio.get_event_loop()
+
+        def _progress_fn(pct: float):
+            hub = getattr(session, "hub", None)
+            if hub:
+                try:
+                    asyncio.run_coroutine_threadsafe(
+                        hub.broadcast_json({"type": "export_progress", "pct": pct}),
+                        loop,
+                    )
+                except Exception:
+                    pass
+
+        def _worker():
+            from server.video_export import export_preview
+            export_preview(str(npz_path), str(out_path), format=fmt,
+                           scale=scale, progress_cb=_progress_fn)
+
+        try:
+            await loop.run_in_executor(None, _worker)
+        except Exception as e:
+            print(f"[export_video] error: {e}")
+        finally:
+            session.export_in_progress = False
+            hub = getattr(session, "hub", None)
+            if hub:
+                try:
+                    await hub.broadcast_json({"type": "export_progress", "pct": 100.0, "done": True})
+                except Exception:
+                    pass
+
+    try:
+        asyncio.ensure_future(_run())
+    except RuntimeError as e:
+        session.export_in_progress = False
+        return {"ok": False, "error": f"No se pudo lanzar export: {e}"}
+    return {"ok": True, "message": f"Export {fmt} iniciado"}
+
+
+def _h_get_render_status(session, params):
+    """get_render_status() → {ok, status, pct, hash, has_ffmpeg, render_ready}.
+
+    Amplía la versión de B3 con has_ffmpeg (E3) para que el frontend
+    sepa si mostrar el botón de MP4.
+    """
+    import json as _json
+    import shutil
+    from server.offline_render import compute_timeline_hash
+
+    has_ffmpeg = shutil.which("ffmpeg") is not None
+
+    if getattr(session, 'render_in_progress', False):
+        return {
+            "ok": True,
+            "status": "rendering",
+            "pct": getattr(session, 'render_pct', 0.0),
+            "hash": None,
+            "has_ffmpeg": has_ffmpeg,
+            "render_ready": False,
+        }
+
+    out_path = session.project.folder / "render.npz"
+    meta_path = session.project.folder / "render_meta.json"
+    if not out_path.is_file() or not meta_path.is_file():
+        return {"ok": True, "status": "idle", "pct": 0.0, "hash": None,
+                "has_ffmpeg": has_ffmpeg, "render_ready": False}
+
+    try:
+        with open(meta_path, encoding='utf-8') as f:
+            meta = _json.load(f)
+        current_hash = compute_timeline_hash(session.timeline.to_dict())
+        stored_hash = meta.get("show_hash")
+        if stored_hash == current_hash:
+            return {
+                "ok": True,
+                "status": "ready",
+                "pct": 100.0,
+                "hash": stored_hash,
+                "n_frames": meta.get("n_frames"),
+                "duration_s": meta.get("duration_s"),
+                "has_ffmpeg": has_ffmpeg,
+                "render_ready": True,
+            }
+    except Exception:
+        pass
+
+    return {"ok": True, "status": "idle", "pct": 0.0, "hash": None,
+            "has_ffmpeg": has_ffmpeg, "render_ready": False}
+
+
+# ── E4 — Test de output y patch visual ───────────────────────────────────────
+
+def _h_identify_fixture(session, params):
+    """identify_fixture(fixture_id, duration_ms=2000) → {ok}.
+
+    Enciende el fixture a blanco (255,255,255) durante duration_ms ms.
+    Estado efímero en session._identify (fixture_id → t_expires).
+    Tras duration_ms se auto-apaga (asyncio.create_task con sleep).
+    Sin tocar el timeline.
+    """
+    import asyncio
+    import time
+
+    fixture_id = params.get("fixture_id")
+    if not fixture_id:
+        return {"ok": False, "error": "fixture_id requerido"}
+
+    # Validar que el fixture existe
+    rig = getattr(session, 'fixture_rig', None)
+    if rig is None:
+        return {"ok": False, "error": "No hay rig cargado"}
+
+    fx = None
+    for f in getattr(rig, 'fixtures', []):
+        if getattr(f, 'fixture_id', None) == fixture_id:
+            fx = f
+            break
+    if fx is None:
+        return {"ok": False, "error": f"Fixture '{fixture_id}' no encontrado"}
+
+    duration_ms = int(params.get("duration_ms", 2000))
+    if duration_ms < 100 or duration_ms > 30000:
+        return {"ok": False, "error": "duration_ms debe ser 100..30000"}
+
+    t_expires = time.monotonic() + duration_ms / 1000.0
+    if not hasattr(session, '_identify'):
+        session._identify = {}
+    session._identify[fixture_id] = t_expires
+
+    async def _auto_off():
+        await asyncio.sleep(duration_ms / 1000.0)
+        if hasattr(session, '_identify'):
+            session._identify.pop(fixture_id, None)
+
+    try:
+        asyncio.ensure_future(_auto_off())
+    except RuntimeError:
+        pass  # sin event loop (tests)
+
+    return {"ok": True, "fixture_id": fixture_id, "duration_ms": duration_ms}
+
+
+def _h_test_universe(session, params):
+    """test_universe(universe, r, g, b) → {ok}.
+
+    Llena ese universo Art-Net con el color dado.
+    Toggle: segunda llamada con el mismo universo lo apaga.
+    universe: 1..10, r/g/b: 0..255.
+    """
+    try:
+        universe = int(params.get("universe", 0))
+        r = int(params.get("r", 255))
+        g = int(params.get("g", 255))
+        b = int(params.get("b", 255))
+    except (TypeError, ValueError) as e:
+        return {"ok": False, "error": f"Parámetro inválido: {e}"}
+
+    if universe < 1 or universe > 10:
+        return {"ok": False, "error": "universe debe ser 1..10"}
+    for name, v in [("r", r), ("g", g), ("b", b)]:
+        if v < 0 or v > 255:
+            return {"ok": False, "error": f"{name} debe ser 0..255"}
+
+    if not hasattr(session, '_test_universes'):
+        session._test_universes = {}
+
+    # Toggle: si ya está activo con esos mismos datos, apagar
+    current = session._test_universes.get(universe)
+    if current is not None and current == (r, g, b):
+        del session._test_universes[universe]
+        return {"ok": True, "universe": universe, "active": False}
+
+    session._test_universes[universe] = (r, g, b)
+    return {"ok": True, "universe": universe, "active": True, "r": r, "g": g, "b": b}
+
+
+def _h_blackout(session, params):
+    """blackout(enabled: bool) → {ok, blackout: bool}.
+
+    Override instantáneo de master brightness a 0 cuando enabled=True.
+    No muta timeline.mixer (para no perder el valor del usuario).
+    Estado en session.blackout_override (no se persiste en show.json).
+    Distinto de blackout_fade (B2): este es de pánico, instantáneo.
+    """
+    enabled = bool(params.get("enabled", False))
+    session.blackout_override = enabled
+
+    # Emitir evento al stream
+    import asyncio
+    hub = getattr(session, "hub", None)
+    if hub:
+        try:
+            asyncio.ensure_future(
+                hub.broadcast_json({"type": "blackout_changed", "enabled": enabled})
+            )
+        except Exception:
+            pass
+
+    return {"ok": True, "blackout": enabled}
+
+
+def _h_get_output_status(session, params):
+    """get_output_status() → {ok, blackout, has_ffmpeg, render_ready, active_test_universe}.
+
+    Estado unificado de las herramientas de output de E3/E4.
+    """
+    import shutil
+
+    blackout = getattr(session, 'blackout_override', False)
+    has_ffmpeg = shutil.which("ffmpeg") is not None
+    render_ready = (session.project.folder / "render.npz").is_file()
+    test_uni = getattr(session, '_test_universes', {})
+    active_test_universe = list(test_uni.keys())[0] if test_uni else None
+
+    return {
+        "ok": True,
+        "blackout": blackout,
+        "has_ffmpeg": has_ffmpeg,
+        "render_ready": render_ready,
+        "active_test_universe": active_test_universe,
+    }
+
+
 _LOCAL = {
     "undo": _h_undo,
     "redo": _h_redo,
@@ -1736,7 +1950,6 @@ _LOCAL = {
     "get_mixer": _h_get_mixer,
     # B3 — Render offline + playback baked
     "render_offline": _h_render_offline,
-    "get_render_status": _h_get_render_status,
     "toggle_baked": _h_toggle_baked,
     # B4 — Autosave + versiones de show
     "list_autosaves": _h_list_autosaves,
@@ -1775,6 +1988,14 @@ _LOCAL = {
     "go_next_cue": _h_go_next_cue,
     "go_prev_cue": _h_go_prev_cue,
     "get_cue_state": _h_get_cue_state,
+    # E3 — Export de video preview (ROADMAP v3)
+    "export_video": _h_export_video,
+    "get_render_status": _h_get_render_status,
+    # E4 — Test de output y patch visual (ROADMAP v3)
+    "identify_fixture": _h_identify_fixture,
+    "test_universe": _h_test_universe,
+    "blackout": _h_blackout,
+    "get_output_status": _h_get_output_status,
 }
 
 

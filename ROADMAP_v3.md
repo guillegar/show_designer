@@ -180,7 +180,7 @@ recibe `/show/t_ms` en sync con el playback.
 
 ---
 
-## E3 — Export de video preview (~2 días, Haiku)
+## E3 — Export de video preview ✅ APLICADA 2026-06-13
 
 **Qué**: reutilizar `render.npz` (B3) para generar un MP4 o GIF de preview del show — útil
 para enviar al cliente o verificar el timing en pantalla.
@@ -234,7 +234,7 @@ Handler: `export_video(format="mp4", scale=4)` → `{status: "started"}` + event
 
 ---
 
-## E4 — Test de output y patch visual (~2 días, Sonnet)
+## E4 — Test de output y patch visual ✅ APLICADA 2026-06-13
 
 **Qué**: herramientas imprescindibles la noche del bolo para verificar el rig físico y
 reaccionar rápido si un universo no responde.

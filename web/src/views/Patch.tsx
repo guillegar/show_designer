@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { control } from "../api/control";
 import { stream, LEDS, DmxState } from "../api/stream";
+import type { BlackoutChangedEvent } from "../api/stream";
 import { useStore, Fixture } from "../store";
 
 function barAvg(barIdx: number): [number, number, number] {
@@ -288,6 +289,151 @@ function OscPanel() {
   );
 }
 
+// ── E4: Panel de test de output (mapa de barras + Blackout) ─────────────────
+
+function FixtureTestPanel({ fixtures }: { fixtures: Fixture[] }) {
+  const [blackout, setBlackout] = useState(false);
+  const [testColor, setTestColor] = useState("#ffffff");
+  const [testActive, setTestActive] = useState<number | null>(null);
+  const [identifying, setIdentifying] = useState<string | null>(null);
+
+  // Sincronizar blackout con eventos del stream
+  useEffect(() => {
+    return stream.onBlackoutChanged((e: BlackoutChangedEvent) => {
+      setBlackout(e.enabled);
+    });
+  }, []);
+
+  const toggleBlackout = () => {
+    const next = !blackout;
+    control.call("blackout", { enabled: next }).catch(() => {});
+    setBlackout(next);
+  };
+
+  const hexToRgb = (hex: string) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return { r, g, b };
+  };
+
+  const identify = (f: Fixture) => {
+    setIdentifying(f.fixture_id);
+    control.call("identify_fixture", { fixture_id: f.fixture_id, duration_ms: 2000 })
+      .catch(() => {});
+    setTimeout(() => setIdentifying(null), 2100);
+  };
+
+  const testUniverse = (universe: number) => {
+    const { r, g, b } = hexToRgb(testColor);
+    control.call("test_universe", { universe, r, g, b }).then((res) => {
+      if (res.ok) {
+        if (res.active) setTestActive(universe);
+        else if (testActive === universe) setTestActive(null);
+      }
+    }).catch(() => {});
+  };
+
+  const barFixtures = fixtures.filter((f) => f.legacy_bar_idx != null)
+    .sort((a, b) => (a.legacy_bar_idx ?? 0) - (b.legacy_bar_idx ?? 0));
+
+  return (
+    <div className="output-test-panel" style={{ padding: "10px 14px", borderTop: "1px solid var(--line)" }}>
+      {/* Header con BLACKOUT */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        <span style={{ fontWeight: 600, fontSize: 12, color: "var(--txt-2)" }}>Output Test</span>
+        <span className="ph-spacer" style={{ flex: 1 }} />
+        <span style={{
+          fontSize: 11,
+          color: blackout ? "var(--bad)" : "var(--good)",
+          fontWeight: 600,
+        }}>
+          {blackout ? "BLACKOUT ACTIVO" : "Output OK"}
+        </span>
+        <button
+          className={"btn" + (blackout ? " on" : "")}
+          style={{
+            background: blackout ? "var(--bad)" : undefined,
+            color: blackout ? "#fff" : undefined,
+            fontWeight: 700,
+            fontSize: 12,
+            padding: "4px 12px",
+          }}
+          onClick={toggleBlackout}
+          title="Blackout duro instantáneo (E4)"
+        >⬛ BLACKOUT</button>
+      </div>
+
+      {/* Color picker para test */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 11, color: "var(--txt-3)" }}>Color test:</span>
+        <input
+          type="color"
+          value={testColor}
+          onChange={(e) => setTestColor(e.target.value)}
+          style={{ width: 30, height: 22, border: "none", cursor: "pointer", background: "none" }}
+        />
+        <span className="mono" style={{ fontSize: 10, color: "var(--txt-3)" }}>{testColor.toUpperCase()}</span>
+      </div>
+
+      {/* Mapa de barras */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        {barFixtures.map((f) => {
+          const universe = f.universe ?? (f.legacy_bar_idx != null ? f.legacy_bar_idx + 1 : null);
+          const isIdentifying = identifying === f.fixture_id;
+          const isTestActive = universe != null && testActive === universe;
+          const [r, g, b] = fixtureColor(f);
+          return (
+            <div
+              key={f.fixture_id}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "3px 6px",
+                borderRadius: 4,
+                border: isTestActive ? "1px solid var(--acc-2)" : "1px solid transparent",
+                background: isIdentifying ? "rgba(255,255,255,0.06)" : undefined,
+              }}
+            >
+              <span
+                style={{
+                  width: 14, height: 14, borderRadius: 2, flexShrink: 0,
+                  background: `rgb(${r},${g},${b})`,
+                  border: "1px solid rgba(255,255,255,0.15)",
+                }}
+              />
+              <span style={{ fontSize: 11, minWidth: 70, color: "var(--txt-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {f.label || f.fixture_id}
+              </span>
+              <span className="mono" style={{ fontSize: 10, color: "var(--txt-3)", minWidth: 30 }}>
+                {universe != null ? `U${universe}` : "—"}
+              </span>
+              <span className="ph-spacer" style={{ flex: 1 }} />
+              <button
+                className={"btn sm ghost" + (isIdentifying ? " on" : "")}
+                style={{ fontSize: 10, padding: "1px 6px" }}
+                onClick={() => identify(f)}
+                title="Identificar: enciende a blanco 2 s"
+              >🔦</button>
+              <button
+                className={"btn sm ghost" + (isTestActive ? " on acc" : "")}
+                style={{ fontSize: 10, padding: "1px 6px" }}
+                onClick={() => universe != null && testUniverse(universe)}
+                disabled={universe == null}
+                title={isTestActive ? "Desactivar test" : "Test universo con color seleccionado"}
+              >🎨</button>
+            </div>
+          );
+        })}
+        {barFixtures.length === 0 && (
+          <div style={{ fontSize: 11, color: "var(--txt-3)", padding: "4px 0" }}>
+            Sin barras LED en el rig
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function PatchView() {
   const fixtures = useStore((s) => s.fixtures);
   const sel = useStore((s) => s.selectedFixtureId);
@@ -392,6 +538,7 @@ export function PatchView() {
             </div>
           </div>
         )}
+        <FixtureTestPanel fixtures={fixtures} />
         <OscPanel />
       </div>
 

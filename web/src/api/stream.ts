@@ -32,9 +32,11 @@ function wsUrl(path: string): string {
 }
 
 export type RenderProgressEvent = { pct: number; done?: boolean };
+export type ExportProgressEvent = { pct: number; done?: boolean };
 export type AutosaveAvailableEvent = { type: "autosave_available"; path: string; ts: string; filename: string };
 export type LiveStateChangedEvent = { type: "live_state_changed"; slots: unknown[]; active: string[]; armed: string[] };
 export type CueChangedEvent = { type: "cue_changed"; active_uid: string | null; fade_pct: number; next_uid: string | null };
+export type BlackoutChangedEvent = { type: "blackout_changed"; enabled: boolean };
 
 class StreamClient {
   latestFrame: Uint8Array | null = null;
@@ -43,9 +45,11 @@ class StreamClient {
   private stateSubs = new Set<(s: TransportState) => void>();
   private dmxSubs = new Set<(d: DmxState) => void>();
   private renderProgressSubs = new Set<(e: RenderProgressEvent) => void>();
+  private exportProgressSubs = new Set<(e: ExportProgressEvent) => void>();
   private autosaveSubs = new Set<(e: AutosaveAvailableEvent) => void>();
   private liveStateSubs = new Set<(e: LiveStateChangedEvent) => void>();
   private cueChangedSubs = new Set<(e: CueChangedEvent) => void>();
+  private blackoutChangedSubs = new Set<(e: BlackoutChangedEvent) => void>();
 
   constructor() {
     this.connect();
@@ -73,12 +77,16 @@ class StreamClient {
         for (const f of this.dmxSubs) f(this.latestDmx);
       } else if (m.type === "render_progress") {
         for (const f of this.renderProgressSubs) f({ pct: m.pct, done: m.done });
+      } else if (m.type === "export_progress") {
+        for (const f of this.exportProgressSubs) f({ pct: m.pct, done: m.done });
       } else if (m.type === "autosave_available") {
         for (const f of this.autosaveSubs) f(m as AutosaveAvailableEvent);
       } else if (m.type === "live_state_changed") {
         for (const f of this.liveStateSubs) f(m as LiveStateChangedEvent);
       } else if (m.type === "cue_changed") {
         for (const f of this.cueChangedSubs) f(m as CueChangedEvent);
+      } else if (m.type === "blackout_changed") {
+        for (const f of this.blackoutChangedSubs) f(m as BlackoutChangedEvent);
       }
     };
     ws.onclose = () => setTimeout(() => this.connect(), 1000);
@@ -96,6 +104,14 @@ class StreamClient {
   onRenderProgress(fn: (e: RenderProgressEvent) => void): () => void {
     this.renderProgressSubs.add(fn);
     return () => this.renderProgressSubs.delete(fn);
+  }
+  onExportProgress(fn: (e: ExportProgressEvent) => void): () => void {
+    this.exportProgressSubs.add(fn);
+    return () => this.exportProgressSubs.delete(fn);
+  }
+  onBlackoutChanged(fn: (e: BlackoutChangedEvent) => void): () => void {
+    this.blackoutChangedSubs.add(fn);
+    return () => this.blackoutChangedSubs.delete(fn);
   }
   onAutosaveAvailable(fn: (e: AutosaveAvailableEvent) => void): () => void {
     this.autosaveSubs.add(fn);
