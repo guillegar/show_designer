@@ -127,6 +127,73 @@ class ArtnetNodeTarget(OutputTarget):
         return {"type": "artnet_node", "ip": self.ip}
 
 
+class SacnNodeTarget(OutputTarget):
+    """Nodo sACN (E1.31) — envía universos DMX vía UDP unicast o multicast.
+
+    Usa la librería `sacn` (PyPI: sacn). El sender se instancia una sola vez
+    y se reutiliza para todos los envíos del mismo target. Llamar a `close()`
+    al cerrar el server para detener el hilo interno de sacn.
+    """
+    type_name = "sacn"
+
+    def __init__(self, ip: str, port: int = 5568, multicast: bool = False,
+                 source_name: str = "ShowDesigner"):
+        self.ip = str(ip)
+        self.port = int(port)
+        self.multicast = bool(multicast)
+        self._sender = None
+        self._active_universes: set = set()
+        self._init_sender(source_name)
+
+    def _init_sender(self, source_name: str) -> None:
+        try:
+            import sacn as sacn_lib
+            self._sender = sacn_lib.sACNsender(source_name=source_name)
+            self._sender.start()
+        except Exception as e:
+            log_throttled(_log, logging.ERROR, "sacn_init", f"sACN init falló: {e}")
+            self._sender = None
+
+    def _ensure_universe(self, universe: int) -> None:
+        if self._sender is None:
+            return
+        if universe not in self._active_universes:
+            try:
+                self._sender.activate_output(universe)
+                out = self._sender[universe]
+                out.multicast = self.multicast
+                if not self.multicast:
+                    out.destination = self.ip
+                self._active_universes.add(universe)
+            except Exception as e:
+                log_throttled(_log, logging.ERROR, f"sacn_uni:{universe}",
+                              f"sACN activate_output({universe}) falló: {e}")
+
+    def send(self, universe: int, dmx_bytes: bytes) -> None:
+        if self._sender is None:
+            return
+        try:
+            self._ensure_universe(universe)
+            dmx = bytearray(512)
+            dmx[:len(dmx_bytes)] = dmx_bytes
+            self._sender[universe].dmx_data = tuple(dmx)
+        except Exception as e:
+            log_throttled(_log, logging.ERROR, f"sacn_send:{universe}",
+                          f"sACN send universe {universe} falló: {e}")
+
+    def close(self) -> None:
+        if self._sender is not None:
+            try:
+                self._sender.stop()
+            except Exception:
+                pass
+            self._sender = None
+
+    def describe(self) -> Dict:
+        return {"type": "sacn", "ip": self.ip, "port": self.port,
+                "multicast": self.multicast}
+
+
 class SimOnlyTarget(OutputTarget):
     """No envía nada por red. Mantiene el último bytes(512) para inspección
     (viewer 3D, tests, debug MCP)."""
@@ -192,6 +259,12 @@ class OutputRouter:
                 targets[uni] = WledTarget(cfg["ip"], sock=shared_sock)
             elif ttype == "artnet_node":
                 targets[uni] = ArtnetNodeTarget(cfg["ip"], sock=shared_sock)
+            elif ttype == "sacn":
+                targets[uni] = SacnNodeTarget(
+                    ip=cfg.get("ip", "239.255.0.1"),
+                    port=int(cfg.get("port", 5568)),
+                    multicast=bool(cfg.get("multicast", False)),
+                )
             elif ttype == "sim_only":
                 targets[uni] = SimOnlyTarget()
             else:

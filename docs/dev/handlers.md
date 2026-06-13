@@ -437,3 +437,29 @@ devuelve el resultado como PNG base64 (scale 2× con Pillow).
 - Fallback `LUCES_NO_PILLOW=1`: devuelve `frame_raw` (lista Python, sin dependencia de Pillow).
 - Efecto no encontrado → `{ok: false, error}`. Tiempo < 50 ms (síncrono, sin executor).
 - Registrado en `_LOCAL` (no disponible vía MCP bridge).
+
+---
+
+## G1 — sACN (E1.31) como protocolo adicional
+
+No hay handlers nuevos — G1 es puramente en el OutputRouter. Para configurar sACN añadir una
+entrada en `output_targets.json`:
+
+```json
+{
+  "1": {"type": "sacn", "ip": "192.168.1.50"},
+  "2": {"type": "sacn", "ip": "239.255.0.1", "multicast": true}
+}
+```
+
+Campos:
+- `type`: `"sacn"`
+- `ip`: destino (IP unicast o grupo multicast)
+- `port`: default 5568
+- `multicast`: `false` (unicast) o `true` (multicast E1.31 group)
+
+`SacnNodeTarget` (en `src/io/outputs/router.py`): instancia un `sacn.sACNsender` único,
+activa universos de forma lazy (`activate_output(universe)` solo la primera vez que se envía),
+y hace `sender.stop()` en `close()`. Compatible con `OutputRouter.close()` al shutdown del server.
+
+Requisito PyPI: `sacn>=1.6` (ya en `requirements.txt`).

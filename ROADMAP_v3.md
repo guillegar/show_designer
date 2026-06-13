@@ -542,7 +542,7 @@ miniatura cambia al instante (debounce 200 ms) sin reproducir el show.
 
 > *Las 10 barras WLED son el punto de partida, no el límite.*
 
-## G1 — sACN (E1.31) como protocolo adicional (~2 días, Sonnet)
+## ✅ G1 — sACN (E1.31) como protocolo adicional (~2 días, Sonnet) — APLICADA 2026-06-13
 
 **Qué**: Art-Net no es el único estándar en el mercado. sACN (Streaming ACN, ANSI E1.31) es
 más moderno y preferido por muchos nodos y consolas. Añadirlo como opción en `OutputRouter`.
