@@ -120,17 +120,25 @@ No se requiere ninguna otra configuración.
 
 ## Testear con el harness
 
+El harness (`tests/plugin_test_harness.py`) verifica automáticamente que tu efecto cumple el contrato:
+
 ```python
-from src.core.effects_engine import EffectLibrary
-import numpy as np
+# En tu test o en el REPL
+from tests.plugin_test_harness import assert_valid_plugin_effect
+from plugins.effects.mi_efecto import MyEffect
 
-lib = EffectLibrary()
-effect = lib.get_effect(2000)  # tu ID
-bars  = np.zeros((10, 93, 3), dtype=np.uint8)
-ctx   = {"norm": {"rms": 0.5}, "energy": 0.5}
-
-out = effect.render(0, bars, ctx, speed=1.0, r=255, g=0, b=128)
-assert out.shape == (1, 93, 3)
-assert out.dtype == np.uint8
-assert (out >= 0).all() and (out <= 255).all()
+assert_valid_plugin_effect(MyEffect())  # lanza AssertionError si algo falla
 ```
+
+Qué comprueba el harness:
+- Shape y dtype correctos en t=0, 500, 1000 ms.
+- Valores en [0, 255].
+- No muta `bars_state` (invariante de pureza).
+- `PARAM_SCHEMA` coherente: tipos válidos, default dentro de [min, max], enum con options.
+
+Tests de ejemplo en `tests/test_sdk_harness.py`.
+
+## Punto de partida
+
+Copia `plugins/effects/plugin_template.py` como base — tiene comentarios en cada campo
+explicando las convenciones. El template pasa el harness de serie.
