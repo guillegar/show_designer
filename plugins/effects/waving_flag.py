@@ -29,6 +29,15 @@ class WavingColorEffect(Effect):
     geometry    = EffectGeometry.GEOMETRY_3D
     symmetry    = EffectSymmetry.SYMMETRIC
     description = "Color sólido por barra con onda de brillo (bandera ondeante)"
+    PARAM_SCHEMA = {
+        "r":         {"type": "int",   "min": 0,   "max": 255,  "step": 1,    "default": 255, "label": "Rojo"},
+        "g":         {"type": "int",   "min": 0,   "max": 255,  "step": 1,    "default": 255, "label": "Verde"},
+        "b":         {"type": "int",   "min": 0,   "max": 255,  "step": 1,    "default": 255, "label": "Azul"},
+        "speed":     {"type": "float", "min": 0.1, "max": 5.0,  "step": 0.1,  "default": 1.0, "label": "Velocidad", "unit": "ciclos/s"},
+        "amplitude": {"type": "float", "min": 0.0, "max": 1.0,  "step": 0.05, "default": 0.55, "label": "Amplitud"},
+        "bar_k":     {"type": "float", "min": 0.0, "max": 10.0, "step": 0.1,  "default": 2.2, "label": "Desfase barras"},
+        "led_k":     {"type": "float", "min": 0.0, "max": 5.0,  "step": 0.1,  "default": 1.6, "label": "Ondas LED"},
+    }
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
                audio_context: Dict[str, Any], **params) -> np.ndarray:

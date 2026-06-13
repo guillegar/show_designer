@@ -7,7 +7,7 @@ import math
 import numpy as np
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional, Tuple, Dict, Any
+from typing import ClassVar, Optional, Tuple, Dict, Any
 from enum import Enum
 
 
@@ -83,6 +83,15 @@ class Effect(ABC):
     geometry: EffectGeometry = EffectGeometry.GEOMETRY_3D
     symmetry: EffectSymmetry = EffectSymmetry.ASYMMETRIC
     description: str = "Efecto sin descripción"
+
+    # Schema de parámetros para la UI auto-generada (F2).
+    # {} = sin schema → controles de texto genéricos (sin regresión para efectos legacy).
+    # Formato de cada entrada:
+    #   {"type": "float"|"int"|"color"|"bool"|"enum",
+    #    "min": ..., "max": ..., "step": ...,   # float/int
+    #    "options": ["a","b"],                  # enum
+    #    "default": ..., "label": "...", "unit": "..."}
+    PARAM_SCHEMA: ClassVar[Dict[str, dict]] = {}
 
     def __init__(self):
         pass

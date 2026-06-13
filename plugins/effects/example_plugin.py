@@ -38,6 +38,11 @@ class MeteorShowerEffect(Effect):
     geometry    = EffectGeometry.GEOMETRY_3D
     symmetry    = EffectSymmetry.ASYMMETRIC
     description = "Meteoros de colores cayendo por las barras (plugin ejemplo)"
+    PARAM_SCHEMA = {
+        "speed":     {"type": "float", "min": 0.1, "max": 5.0,  "step": 0.1, "default": 1.5, "label": "Velocidad"},
+        "n_meteors": {"type": "int",   "min": 1,   "max": 10,   "step": 1,   "default": 4,   "label": "Nº meteoros"},
+        "tail_len":  {"type": "int",   "min": 1,   "max": 30,   "step": 1,   "default": 12,  "label": "Estela", "unit": "px"},
+    }
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
                audio_context: Dict[str, Any], **params) -> np.ndarray:
@@ -100,6 +105,13 @@ class HeartbeatEffect(Effect):
     geometry    = EffectGeometry.GEOMETRY_3D
     symmetry    = EffectSymmetry.SYMMETRIC
     description = "Pulso latido que expande desde el centro (plugin ejemplo)"
+    PARAM_SCHEMA = {
+        "bpm":         {"type": "float", "min": 40,   "max": 240,  "step": 1,    "default": 120.0, "label": "BPM"},
+        "hue_r":       {"type": "int",   "min": 0,    "max": 255,  "step": 1,    "default": 255,   "label": "Rojo"},
+        "hue_g":       {"type": "int",   "min": 0,    "max": 255,  "step": 1,    "default": 30,    "label": "Verde"},
+        "hue_b":       {"type": "int",   "min": 0,    "max": 255,  "step": 1,    "default": 60,    "label": "Azul"},
+        "pulse_width": {"type": "float", "min": 0.05, "max": 1.0,  "step": 0.05, "default": 0.3,   "label": "Ancho pulso"},
+    }
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
                audio_context: Dict[str, Any], **params) -> np.ndarray:

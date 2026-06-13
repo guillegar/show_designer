@@ -23,7 +23,11 @@ class FireEffect(Effect):
     duration_ms = 2000
     scope       = EffectScope.PER_BAR
     description = "Simulación de llama (Fire2012)"
-    PARAM_SCHEMA = {}
+    PARAM_SCHEMA = {
+        "intensity": {"type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "default": 0.6, "label": "Intensidad"},
+        "cooling":   {"type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "default": 0.5, "label": "Enfriamiento"},
+        "sparking":  {"type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "default": 0.5, "label": "Chispas"},
+    }
 
     def __init__(self):
         super().__init__()

@@ -30,6 +30,10 @@ class SpanishFlagWaveEffect(Effect):
     geometry    = EffectGeometry.GEOMETRY_3D
     symmetry    = EffectSymmetry.SYMMETRIC
     description = "Bandera española ondeante con animación sinusoidal"
+    PARAM_SCHEMA = {
+        "wave_speed":      {"type": "float", "min": 0.1, "max": 10.0, "step": 0.1,  "default": 2.0,  "label": "Velocidad", "unit": "ciclos/s"},
+        "wave_amplitude":  {"type": "float", "min": 0.0, "max": 0.5,  "step": 0.01, "default": 0.15, "label": "Amplitud"},
+    }
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
                audio_context: Dict[str, Any], **params) -> np.ndarray:
@@ -107,6 +111,7 @@ class SpanishFlagStaticEffect(Effect):
     geometry    = EffectGeometry.GEOMETRY_3D
     symmetry    = EffectSymmetry.SYMMETRIC
     description = "Bandera española estática"
+    PARAM_SCHEMA = {}
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
                audio_context: Dict[str, Any], **params) -> np.ndarray:

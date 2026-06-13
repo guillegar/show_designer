@@ -16,7 +16,13 @@ class StrobeColorEffect(Effect):
     duration_ms = 1000
     scope       = EffectScope.PER_BAR
     description = "Estrobo de color por barra con duty cycle"
-    PARAM_SCHEMA = {}
+    PARAM_SCHEMA = {
+        "r":          {"type": "int",   "min": 0,   "max": 255,  "step": 1,    "default": 255, "label": "Rojo"},
+        "g":          {"type": "int",   "min": 0,   "max": 255,  "step": 1,    "default": 255, "label": "Verde"},
+        "b":          {"type": "int",   "min": 0,   "max": 255,  "step": 1,    "default": 255, "label": "Azul"},
+        "rate_hz":    {"type": "float", "min": 0.5, "max": 60.0, "step": 0.5,  "default": 8.0, "label": "Frecuencia", "unit": "Hz"},
+        "duty_cycle": {"type": "float", "min": 0.1, "max": 0.9,  "step": 0.05, "default": 0.5, "label": "Duty cycle"},
+    }
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
                audio_context: Dict[str, Any], **params) -> np.ndarray:

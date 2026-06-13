@@ -16,7 +16,12 @@ class RainbowWaveEffect(Effect):
     duration_ms = 2000
     scope       = EffectScope.PER_BAR
     description = "Arcoíris animado por la barra (vectorizado)"
-    PARAM_SCHEMA = {}
+    PARAM_SCHEMA = {
+        "speed":      {"type": "float", "min": 0.1, "max": 10.0, "step": 0.1,  "default": 1.0, "label": "Velocidad", "unit": "ciclos/s"},
+        "saturation": {"type": "float", "min": 0.5, "max": 1.0,  "step": 0.05, "default": 1.0, "label": "Saturación"},
+        "value":      {"type": "float", "min": 0.1, "max": 1.0,  "step": 0.05, "default": 1.0, "label": "Brillo"},
+        "reverse":    {"type": "bool",                                           "default": False, "label": "Inverso"},
+    }
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
                audio_context: Dict[str, Any], **params) -> np.ndarray:

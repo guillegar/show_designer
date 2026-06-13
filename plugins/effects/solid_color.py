@@ -30,6 +30,11 @@ class SolidColorEffect(Effect):
     geometry    = EffectGeometry.GEOMETRY_3D
     symmetry    = EffectSymmetry.SYMMETRIC
     description = "Color sólido fijo por barra (params r,g,b)"
+    PARAM_SCHEMA = {
+        "r": {"type": "int", "min": 0, "max": 255, "step": 1, "default": 255, "label": "Rojo"},
+        "g": {"type": "int", "min": 0, "max": 255, "step": 1, "default": 255, "label": "Verde"},
+        "b": {"type": "int", "min": 0, "max": 255, "step": 1, "default": 255, "label": "Azul"},
+    }
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
                audio_context: Dict[str, Any], **params) -> np.ndarray:

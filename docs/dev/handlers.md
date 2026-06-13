@@ -367,3 +367,22 @@ cambio de fade (evita flood). Solo emitido mientras hay fade activo (`_cue_fade_
 **Undo (I1)**: `cue_list` entra en `get_extra`/`restore_extra` del UndoManager desde el día 1.
 **CueEntry vs CuePoint**: son entidades separadas. Borrar una `CueEntry` NO afecta los `CuePoint`
 pasivos del timeline (marcadores de sección/estructurales).
+
+---
+
+## F2 — Plugin UI auto-generada
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `get_effect_schema` | `effect_id: int` | `{ok, schema: dict}` — PARAM_SCHEMA del efecto |
+
+**`get_effect_schema`**: devuelve el `PARAM_SCHEMA` de la clase del efecto indicado.
+Schema vacío `{}` si el efecto no tiene schema (efectos legacy). Usado por `ClipInspector.tsx`
+al abrir el inspector, cacheado por `effect_id` en el componente (no en el store).
+
+**Integración de validación**: `set_clip_effect` y `set_clip_preset` llaman internamente a
+`validate_params_against_schema(params, schema)` (en `server/validators.py`). Si los params
+están fuera de rango o contienen enums inválidos, devuelven `{ok: false, error}` sin mutar.
+
+Véase también `docs/dev/plugin-sdk.md` para la convención de PARAM_SCHEMA y los tipos de
+control que genera la UI.

@@ -18,7 +18,15 @@ class ScannerEffect(Effect):
     duration_ms = 2000
     scope       = EffectScope.PER_BAR
     description = "Spot oscilante tipo scanner (vectorizado)"
-    PARAM_SCHEMA = {}
+    PARAM_SCHEMA = {
+        "r":              {"type": "int",   "min": 0,   "max": 255,  "step": 1,    "default": 255,   "label": "Rojo"},
+        "g":              {"type": "int",   "min": 0,   "max": 255,  "step": 1,    "default": 255,   "label": "Verde"},
+        "b":              {"type": "int",   "min": 0,   "max": 255,  "step": 1,    "default": 255,   "label": "Azul"},
+        "speed":          {"type": "float", "min": 0.1, "max": 10.0, "step": 0.1,  "default": 1.0,   "label": "Velocidad", "unit": "ciclos/s"},
+        "width":          {"type": "float", "min": 1.0, "max": 30.0, "step": 0.5,  "default": 8.0,   "label": "Ancho", "unit": "px"},
+        "mode":           {"type": "enum",  "options": ["sin", "bounce"],           "default": "sin", "label": "Modo"},
+        "brightness_env": {"type": "bool",                                           "default": False, "label": "React. audio"},
+    }
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
                audio_context: Dict[str, Any], **params) -> np.ndarray:

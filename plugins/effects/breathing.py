@@ -18,7 +18,15 @@ class BreathingEffect(Effect):
     duration_ms = 2000
     scope       = EffectScope.PER_BAR
     description = "Fade senoidal in/out, opcionalmente reactivo al audio"
-    PARAM_SCHEMA = {}
+    PARAM_SCHEMA = {
+        "r":              {"type": "int",   "min": 0,   "max": 255,  "step": 1,   "default": 255,   "label": "Rojo"},
+        "g":              {"type": "int",   "min": 0,   "max": 255,  "step": 1,   "default": 255,   "label": "Verde"},
+        "b":              {"type": "int",   "min": 0,   "max": 255,  "step": 1,   "default": 255,   "label": "Azul"},
+        "rate_hz":        {"type": "float", "min": 0.1, "max": 5.0,  "step": 0.1, "default": 0.5,   "label": "Velocidad", "unit": "ciclos/s"},
+        "min_brightness": {"type": "float", "min": 0.0, "max": 0.5,  "step": 0.05, "default": 0.0,  "label": "Brillo mínimo"},
+        "audio_reactive": {"type": "bool",                                          "default": False, "label": "Reactivo al audio"},
+        "audio_source":   {"type": "enum",  "options": ["rms", "flux"],             "default": "rms", "label": "Fuente audio"},
+    }
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
                audio_context: Dict[str, Any], **params) -> np.ndarray:

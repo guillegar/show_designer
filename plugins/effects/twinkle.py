@@ -16,7 +16,14 @@ class TwinkleEffect(Effect):
     duration_ms = 2000
     scope       = EffectScope.PER_BAR
     description = "Destellos aleatorios reproducibles"
-    PARAM_SCHEMA = {}
+    PARAM_SCHEMA = {
+        "r":              {"type": "int",   "min": 0,   "max": 255, "step": 1,    "default": 255, "label": "Rojo"},
+        "g":              {"type": "int",   "min": 0,   "max": 255, "step": 1,    "default": 255, "label": "Verde"},
+        "b":              {"type": "int",   "min": 0,   "max": 255, "step": 1,    "default": 255, "label": "Azul"},
+        "density":        {"type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "default": 0.3, "label": "Densidad"},
+        "speed":          {"type": "float", "min": 0.1, "max": 20.0, "step": 0.1, "default": 3.0, "label": "Velocidad"},
+        "min_brightness": {"type": "float", "min": 0.0, "max": 1.0, "step": 0.05, "default": 0.0, "label": "Brillo mínimo"},
+    }
 
     def __init__(self):
         super().__init__()

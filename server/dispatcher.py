@@ -123,6 +123,20 @@ _RIG_MUTATORS = {
 }
 
 
+def _h_get_effect_schema(session, params):
+    """get_effect_schema(effect_id) → {ok, schema: dict}
+    Devuelve el PARAM_SCHEMA del efecto indicado. Schema vacío ({}) si no tiene."""
+    try:
+        effect_id = require_int(params, "effect_id", min_val=0)
+    except ValidationError as e:
+        return {"ok": False, "error": str(e)}
+    lib = getattr(session, "library", None)
+    effect = lib.get_effect(effect_id) if lib else None
+    if effect is None:
+        return {"ok": False, "error": f"effect_id {effect_id} no encontrado"}
+    return {"ok": True, "schema": getattr(effect, "PARAM_SCHEMA", {})}
+
+
 def _h_set_clip_effect(session, params):
     """Cambia el efecto (effect_id) de un clip pixel. No existe en el bridge."""
     try:
@@ -133,6 +147,18 @@ def _h_set_clip_effect(session, params):
     c = session.find_clip_by_id(clip_id)
     if c is None:
         return {"ok": False, "error": "clip_id no encontrado"}
+    # Validar params opcionales contra el schema del efecto destino
+    extra_params = params.get("params")
+    if extra_params:
+        lib = getattr(session, "library", None)
+        effect = lib.get_effect(effect_id) if lib else None
+        schema = getattr(effect, "PARAM_SCHEMA", {}) if effect else {}
+        try:
+            from server.validators import validate_params_against_schema
+            validate_params_against_schema(extra_params, schema)
+        except ValidationError as e:
+            return {"ok": False, "error": str(e)}
+        c.params = dict(extra_params)
     c.effect_id = effect_id
     if params.get("label") is not None:
         c.label = params["label"]
@@ -155,6 +181,16 @@ def _h_set_clip_preset(session, params):
     p = session.presets.get(preset_id)
     if p is None:
         return {"ok": False, "error": "preset no encontrado"}
+    # Validar params del preset contra el schema del efecto destino
+    if p.params and p.kind != "channel":
+        lib = getattr(session, "library", None)
+        effect = lib.get_effect(p.base_effect_id) if lib else None
+        schema = getattr(effect, "PARAM_SCHEMA", {}) if effect else {}
+        try:
+            from server.validators import validate_params_against_schema
+            validate_params_against_schema(p.params, schema)
+        except ValidationError as e:
+            return {"ok": False, "error": f"preset params inválidos: {e}"}
     c.params = dict(p.params)
     c.color = p.color
     c.label = p.name
@@ -1996,6 +2032,8 @@ _LOCAL = {
     "test_universe": _h_test_universe,
     "blackout": _h_blackout,
     "get_output_status": _h_get_output_status,
+    # F2 — Plugin UI auto-generada (ROADMAP v3)
+    "get_effect_schema": _h_get_effect_schema,
 }
 
 

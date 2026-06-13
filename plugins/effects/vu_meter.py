@@ -16,7 +16,16 @@ class VuMeterEffect(Effect):
     duration_ms = 1000
     scope       = EffectScope.PER_BAR
     description = "VU meter reactivo al RMS con peak hold"
-    PARAM_SCHEMA = {}
+    PARAM_SCHEMA = {
+        "r_low":        {"type": "int",   "min": 0,   "max": 255,    "step": 1,    "default": 0,    "label": "R bajo"},
+        "g_low":        {"type": "int",   "min": 0,   "max": 255,    "step": 1,    "default": 255,  "label": "G bajo"},
+        "b_low":        {"type": "int",   "min": 0,   "max": 255,    "step": 1,    "default": 0,    "label": "B bajo"},
+        "r_high":       {"type": "int",   "min": 0,   "max": 255,    "step": 1,    "default": 255,  "label": "R alto"},
+        "g_high":       {"type": "int",   "min": 0,   "max": 255,    "step": 1,    "default": 0,    "label": "G alto"},
+        "b_high":       {"type": "int",   "min": 0,   "max": 255,    "step": 1,    "default": 0,    "label": "B alto"},
+        "smoothing":    {"type": "float", "min": 0.0, "max": 0.95,   "step": 0.05, "default": 0.7,  "label": "Suavizado"},
+        "peak_hold_ms": {"type": "float", "min": 0.0, "max": 2000.0, "step": 50.0, "default": 500.0, "label": "Peak hold", "unit": "ms"},
+    }
 
     def __init__(self):
         super().__init__()

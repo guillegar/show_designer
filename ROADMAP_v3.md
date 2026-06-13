@@ -392,7 +392,7 @@ los 10 se ven distintos y ninguno lanza excepción.
 
 ---
 
-## F2 — Plugin UI auto-generada (~2 días, Sonnet)
+## F2 — Plugin UI auto-generada ✅ APLICADA 2026-06-13
 
 **Qué**: hoy el `ClipInspector` muestra los params como inputs genéricos (un `<input
 type="text">` por cada key del dict). Con tipos declarados, la UI puede ser mucho mejor:

@@ -66,6 +66,54 @@ def require_order(start: int, end: int, start_label: str = "start", end_label: s
         raise ValidationError(f"'{end_label}' debe ser mayor que '{start_label}'")
 
 
+def validate_params_against_schema(params: dict, schema: dict) -> None:
+    """Valida params contra PARAM_SCHEMA. Lanza ValidationError si algo es inválido.
+    Schema vacío → pasa sin error (backwards-compat para efectos legacy).
+
+    Tipos soportados:
+      int/float  → valida min/max si están presentes
+      enum       → valida que el valor esté en options
+      bool       → acepta cualquier valor truthy/falsy
+      color      → no aplica (los canales r/g/b se validan como int)
+    """
+    if not schema:
+        return
+    for key, spec in schema.items():
+        if key not in params:
+            continue
+        typ = spec.get("type")
+        val = params[key]
+        if typ == "int":
+            try:
+                v = int(val)
+            except (ValueError, TypeError):
+                raise ValidationError(f"'{key}' debe ser un entero")
+            min_v = spec.get("min")
+            max_v = spec.get("max")
+            if min_v is not None and v < min_v:
+                raise ValidationError(f"'{key}' fuera de rango (mín {min_v})")
+            if max_v is not None and v > max_v:
+                raise ValidationError(f"'{key}' fuera de rango (máx {max_v})")
+        elif typ == "float":
+            try:
+                v = float(val)
+            except (ValueError, TypeError):
+                raise ValidationError(f"'{key}' debe ser un número")
+            min_v = spec.get("min")
+            max_v = spec.get("max")
+            if min_v is not None and v < min_v:
+                raise ValidationError(f"'{key}' fuera de rango (mín {min_v})")
+            if max_v is not None and v > max_v:
+                raise ValidationError(f"'{key}' fuera de rango (máx {max_v})")
+        elif typ == "enum":
+            options = spec.get("options", [])
+            if val not in options:
+                raise ValidationError(
+                    f"'{key}' valor '{val}' no es válido (opciones: {options})"
+                )
+        # bool: cualquier valor es válido (truthy/falsy)
+
+
 def require_key(params: dict, key: str, expected_type: type | None = None):
     """
     Requiere la presencia de una clave; opcionalmente castea tipo.

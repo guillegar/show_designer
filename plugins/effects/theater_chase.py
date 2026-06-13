@@ -16,7 +16,14 @@ class TheaterChaseEffect(Effect):
     duration_ms = 2000
     scope       = EffectScope.PER_BAR
     description = "Grupos alternos de LEDs que avanzan (marquesina)"
-    PARAM_SCHEMA = {}
+    PARAM_SCHEMA = {
+        "r":          {"type": "int",   "min": 0,   "max": 255,  "step": 1,   "default": 255, "label": "Rojo"},
+        "g":          {"type": "int",   "min": 0,   "max": 255,  "step": 1,   "default": 255, "label": "Verde"},
+        "b":          {"type": "int",   "min": 0,   "max": 255,  "step": 1,   "default": 255, "label": "Azul"},
+        "group_size": {"type": "int",   "min": 1,   "max": 20,   "step": 1,   "default": 4,   "label": "Tamaño grupo"},
+        "gap_size":   {"type": "int",   "min": 1,   "max": 20,   "step": 1,   "default": 4,   "label": "Espacio vacío"},
+        "speed":      {"type": "float", "min": 0.1, "max": 20.0, "step": 0.1, "default": 2.0, "label": "Velocidad", "unit": "grupos/s"},
+    }
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
                audio_context: Dict[str, Any], **params) -> np.ndarray:

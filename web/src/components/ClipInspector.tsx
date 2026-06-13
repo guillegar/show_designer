@@ -1,6 +1,13 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Clip, EffectInfo } from "../store";
 import { control } from "../api/control";
+import {
+  EffectSchema,
+  hexToRgb,
+  rgbToHex,
+  detectColorGroups,
+  colorGroupKeys,
+} from "../api/schema";
 
 interface ClipInspectorProps {
   clip: Clip | null;
@@ -10,6 +17,181 @@ interface ClipInspectorProps {
   onClipUpdate: () => void;
 }
 
+// ── Color picker agrupado ──────────────────────────────────────────────────
+
+function ColorGroupControl({
+  label,
+  rKey,
+  gKey,
+  bKey,
+  params,
+  clipId,
+  onClipUpdate,
+}: {
+  label: string;
+  rKey: string;
+  gKey: string;
+  bKey: string;
+  params: Record<string, unknown>;
+  clipId: string;
+  onClipUpdate: () => void;
+}) {
+  const r = Number(params[rKey] ?? 255);
+  const g = Number(params[gKey] ?? 255);
+  const b = Number(params[bKey] ?? 255);
+  const hex = rgbToHex(r, g, b);
+
+  return (
+    <div className="param-field param-field--color">
+      <label>{label}</label>
+      <div className="param-color-row">
+        <input
+          type="color"
+          value={hex}
+          onChange={async (e) => {
+            const rgb = hexToRgb(e.target.value);
+            await control.call("set_clip_params", {
+              clip_id: clipId,
+              params: { [rKey]: rgb.r, [gKey]: rgb.g, [bKey]: rgb.b },
+            });
+            onClipUpdate();
+          }}
+        />
+        <span
+          className="color-swatch"
+          style={{ background: hex, width: 24, height: 24, display: "inline-block", borderRadius: 3, border: "1px solid #555", verticalAlign: "middle" }}
+        />
+        <span className="param-value">{hex}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Control individual por tipo ────────────────────────────────────────────
+
+function ParamControl({
+  name,
+  spec,
+  value,
+  clipId,
+  onClipUpdate,
+}: {
+  name: string;
+  spec: EffectSchema[string];
+  value: unknown;
+  clipId: string;
+  onClipUpdate: () => void;
+}) {
+  const label = spec.label ?? name;
+  const unit = spec.unit ? ` ${spec.unit}` : "";
+
+  const sendParam = async (val: unknown) => {
+    await control.call("set_clip_params", {
+      clip_id: clipId,
+      params: { [name]: val },
+    });
+    onClipUpdate();
+  };
+
+  if (spec.type === "float" || spec.type === "int") {
+    const min = spec.min ?? 0;
+    const max = spec.max ?? 1;
+    const step = spec.step ?? (spec.type === "int" ? 1 : 0.01);
+    const cur = Number(value ?? spec.default ?? min);
+
+    return (
+      <div className="param-field param-field--range">
+        <label>
+          {label}
+          {unit && <span className="param-unit">{unit}</span>}
+        </label>
+        <div className="param-range-row">
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step={step}
+            value={cur}
+            onChange={async (e) => {
+              const v = spec.type === "int" ? parseInt(e.target.value) : parseFloat(e.target.value);
+              await sendParam(v);
+            }}
+          />
+          <input
+            type="number"
+            min={min}
+            max={max}
+            step={step}
+            value={cur}
+            className="param-number"
+            onChange={async (e) => {
+              const v = spec.type === "int" ? parseInt(e.target.value) : parseFloat(e.target.value);
+              if (!isNaN(v)) await sendParam(v);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (spec.type === "bool") {
+    const checked = Boolean(value ?? spec.default ?? false);
+    return (
+      <div className="param-field param-field--bool">
+        <label>{label}</label>
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={async (e) => {
+            await sendParam(e.target.checked);
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (spec.type === "enum") {
+    const options = spec.options ?? [];
+    const cur = String(value ?? spec.default ?? options[0] ?? "");
+    return (
+      <div className="param-field param-field--enum">
+        <label>{label}</label>
+        <select
+          value={cur}
+          onChange={async (e) => {
+            await sendParam(e.target.value);
+          }}
+        >
+          {options.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  // fallback: texto genérico
+  return (
+    <div className="param-field">
+      <label>{label}</label>
+      <input
+        type="text"
+        defaultValue={String(value ?? "")}
+        onBlur={async (e) => {
+          let val: unknown = e.target.value;
+          const n = Number(val);
+          if ((val as string).trim() !== "" && !isNaN(n)) val = n;
+          await sendParam(val);
+        }}
+      />
+    </div>
+  );
+}
+
+// ── Inspector principal ────────────────────────────────────────────────────
+
 export function ClipInspector({
   clip,
   effects,
@@ -17,7 +199,30 @@ export function ClipInspector({
   onDurationChange,
   onClipUpdate,
 }: ClipInspectorProps) {
-  const [editingDuration, setEditingDuration] = React.useState(false);
+  const [editingDuration, setEditingDuration] = useState(false);
+  const [schema, setSchema] = useState<EffectSchema | null>(null);
+  const schemaCacheRef = useRef<Record<number, EffectSchema | null>>({});
+
+  // Carga el schema al cambiar el effect_id del clip
+  useEffect(() => {
+    if (!clip) { setSchema(null); return; }
+    const id = clip.effect_id;
+    if (id in schemaCacheRef.current) {
+      setSchema(schemaCacheRef.current[id]);
+      return;
+    }
+    control
+      .call("get_effect_schema", { effect_id: id })
+      .then((res: { ok: boolean; schema?: EffectSchema }) => {
+        const s = res?.ok ? (res.schema ?? null) : null;
+        schemaCacheRef.current[id] = s;
+        setSchema(s);
+      })
+      .catch(() => {
+        schemaCacheRef.current[id] = null;
+        setSchema(null);
+      });
+  }, [clip?.effect_id]);
 
   if (!clip) {
     return (
@@ -29,12 +234,12 @@ export function ClipInspector({
 
   const effect = effects.find((e) => e.id === clip.effect_id);
   const dur = (clip.end_ms - clip.start_ms) / 1000;
-  const paramCount = Object.keys(clip.params || {}).length;
+  const clipParams = clip.params || {};
+  const hasSchema = schema && Object.keys(schema).length > 0;
 
   const handleDurationChange = async (newSec: number) => {
     const newMs = Math.max(100, Math.min(60000, newSec * 1000));
     const newEnd = clip.start_ms + newMs;
-
     try {
       await control.call("move_clip", {
         clip_id: clip.id,
@@ -43,19 +248,99 @@ export function ClipInspector({
       });
       onDurationChange(newMs);
       onClipUpdate();
-      // Create undo snapshot
-      try {
-        await control.call("snapshot");
-      } catch (e) {
-        // Undo not available
-      }
+      try { await control.call("snapshot"); } catch (_) { /* undo not available */ }
     } catch (err) {
       console.error("Duration change failed:", err);
     }
   };
 
+  // Construye los controles de parámetros según el schema
+  const renderParams = () => {
+    if (!hasSchema) {
+      // Sin schema → inputs de texto genéricos (backwards compat)
+      const paramCount = Object.keys(clipParams).length;
+      if (paramCount === 0) return null;
+      return (
+        <div className="inspector-section params-section">
+          <h4>Parámetros</h4>
+          {Object.entries(clipParams).map(([k, v]) => (
+            <div key={k} className="param-field">
+              <label>{k}</label>
+              <input
+                type="text"
+                defaultValue={String(v)}
+                onBlur={(e) => {
+                  let val: unknown = e.target.value;
+                  const n = Number(val);
+                  if ((val as string).trim() !== "" && !isNaN(n)) val = n;
+                  control.call("set_clip_params", { clip_id: clip.id, params: { [k]: val } });
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    const colorGroups = detectColorGroups(schema);
+    const colorKeys = colorGroupKeys(schema);
+    // Params del schema que NO son parte de un color group
+    const individualEntries = Object.entries(schema).filter(([k]) => !colorKeys.has(k));
+
+    return (
+      <div className="inspector-section params-section">
+        <h4>Parámetros</h4>
+
+        {/* Color pickers agrupados */}
+        {colorGroups.map((grp) => (
+          <ColorGroupControl
+            key={grp.keys[0]}
+            label={grp.label}
+            rKey={grp.keys[0]}
+            gKey={grp.keys[1]}
+            bKey={grp.keys[2]}
+            params={clipParams}
+            clipId={clip.id}
+            onClipUpdate={onClipUpdate}
+          />
+        ))}
+
+        {/* Controles individuales (sliders, bool, enum) */}
+        {individualEntries.map(([k, spec]) => (
+          <ParamControl
+            key={k}
+            name={k}
+            spec={spec}
+            value={clipParams[k]}
+            clipId={clip.id}
+            onClipUpdate={onClipUpdate}
+          />
+        ))}
+
+        {/* Params adicionales no cubiertos por el schema → texto genérico */}
+        {Object.entries(clipParams)
+          .filter(([k]) => !(k in schema) && !colorKeys.has(k))
+          .map(([k, v]) => (
+            <div key={k} className="param-field">
+              <label>{k}</label>
+              <input
+                type="text"
+                defaultValue={String(v)}
+                onBlur={(e) => {
+                  let val: unknown = e.target.value;
+                  const n = Number(val);
+                  if ((val as string).trim() !== "" && !isNaN(n)) val = n;
+                  control.call("set_clip_params", { clip_id: clip.id, params: { [k]: val } });
+                }}
+              />
+            </div>
+          ))}
+      </div>
+    );
+  };
+
   return (
-    <div className="inspector" data-param-count={paramCount}>
+    <div className="inspector" data-param-count={Object.keys(clipParams).length}>
       <div className="inspector-header">
         <h3>{effect?.name || "Desconocido"}</h3>
         <span className="inspector-id">#{clip.id}</span>
@@ -85,10 +370,7 @@ export function ClipInspector({
               autoFocus
             />
           ) : (
-            <span
-              onClick={() => setEditingDuration(true)}
-              className="duration-value"
-            >
+            <span onClick={() => setEditingDuration(true)} className="duration-value">
               {dur.toFixed(2)}s
             </span>
           )}
@@ -123,10 +405,7 @@ export function ClipInspector({
         <select
           value={clip.scope}
           onChange={async (e) => {
-            await control.call("set_clip_scope", {
-              clip_id: clip.id,
-              scope: e.target.value,
-            });
+            await control.call("set_clip_scope", { clip_id: clip.id, scope: e.target.value });
             onClipUpdate();
           }}
         >
@@ -136,56 +415,27 @@ export function ClipInspector({
         </select>
       </div>
 
-      {/* Color */}
+      {/* Color del clip (color visual en el timeline, no params del efecto) */}
       <div className="inspector-section">
-        <label>Color</label>
+        <label>Color clip</label>
         <input
           type="color"
           value={clip.color || "#ccf"}
           onChange={async (e) => {
-            await control.call("set_clip_color", {
-              clip_id: clip.id,
-              color: e.target.value,
-            });
+            await control.call("set_clip_color", { clip_id: clip.id, color: e.target.value });
             onClipUpdate();
           }}
         />
       </div>
 
       {/* Dynamic params */}
-      {paramCount > 0 && (
-        <div className="inspector-section params-section">
-          <h4>Parámetros</h4>
-          {Object.entries(clip.params || {}).map(([k, v]) => (
-            <div key={k} className="param-field">
-              <label>{k}</label>
-              <input
-                type="text"
-                defaultValue={String(v)}
-                onBlur={(e) => {
-                  let val: any = e.target.value;
-                  const n = Number(val);
-                  if (val.trim() !== "" && !isNaN(n)) val = n;
-
-                  control.call("set_clip_params", {
-                    clip_id: clip.id,
-                    params: { [k]: val },
-                  });
-                }}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      {renderParams()}
 
       {/* Actions */}
       <div className="inspector-actions">
         <button
           onClick={async () => {
-            await control.call("set_clip_lock", {
-              clip_id: clip.id,
-              locked: !clip.locked,
-            });
+            await control.call("set_clip_lock", { clip_id: clip.id, locked: !clip.locked });
             onClipUpdate();
           }}
           className={clip.locked ? "active" : ""}
@@ -195,10 +445,7 @@ export function ClipInspector({
         </button>
         <button
           onClick={async () => {
-            await control.call("set_clip_mute", {
-              clip_id: clip.id,
-              muted: !clip.muted,
-            });
+            await control.call("set_clip_mute", { clip_id: clip.id, muted: !clip.muted });
             onClipUpdate();
           }}
           className={clip.muted ? "active" : ""}

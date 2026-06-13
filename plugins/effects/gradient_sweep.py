@@ -16,7 +16,16 @@ class GradientSweepEffect(Effect):
     duration_ms = 2000
     scope       = EffectScope.PER_BAR
     description = "Gradiente de color que barre con el tiempo"
-    PARAM_SCHEMA = {}
+    PARAM_SCHEMA = {
+        "color1_r": {"type": "int",   "min": 0,   "max": 255, "step": 1,   "default": 255, "label": "Color1 R"},
+        "color1_g": {"type": "int",   "min": 0,   "max": 255, "step": 1,   "default": 0,   "label": "Color1 G"},
+        "color1_b": {"type": "int",   "min": 0,   "max": 255, "step": 1,   "default": 0,   "label": "Color1 B"},
+        "color2_r": {"type": "int",   "min": 0,   "max": 255, "step": 1,   "default": 0,   "label": "Color2 R"},
+        "color2_g": {"type": "int",   "min": 0,   "max": 255, "step": 1,   "default": 0,   "label": "Color2 G"},
+        "color2_b": {"type": "int",   "min": 0,   "max": 255, "step": 1,   "default": 255, "label": "Color2 B"},
+        "speed":    {"type": "float", "min": 0.1, "max": 10.0, "step": 0.1, "default": 1.0, "label": "Velocidad", "unit": "ciclos/s"},
+        "offset":   {"type": "float", "min": 0.0, "max": 1.0,  "step": 0.01, "default": 0.0, "label": "Offset"},
+    }
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
                audio_context: Dict[str, Any], **params) -> np.ndarray:
