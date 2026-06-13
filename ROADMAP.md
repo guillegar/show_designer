@@ -1,7 +1,7 @@
 # ROADMAP v2 — "El Secuenciador"
 
 **Objetivo**: llevar Show Designer del nivel "editor de clips" al nivel "FL Studio de la luz".
-**Fecha**: 2026-06-13 · **Estado**: D1 APLICADA (2026-06-13) — siguiente: D2 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
+**Fecha**: 2026-06-13 · **Estado**: D2 APLICADA (2026-06-13) — Bloque D COMPLETO · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
 
 > **F0 APLICADA (2026-06-12, pendiente de commit)**: F0.0 actx real en `session.compute_frame`
 > (verificado: 0.004 ms/frame, cero regresión), F0.1 `src/core/param_pipeline.py` cableado
@@ -788,29 +788,25 @@ música. Es la resurrección, hecha bien, del viejo `event_mapping` (borrado en 
 espectáculo decente sin un solo clip.
 **Commit**: `roadmap-v2 fase D1: auto-VJ por reglas`.
 
-## D2 — Análisis en vivo (entrada de audio) (~4 días, EXPLORATORIA)
+## D2 — Análisis en vivo (entrada de audio) ✅ APLICADA (2026-06-13)
 
 **Qué**: que IMPRO funcione con música que NO está analizada: entrada de línea/micro.
 
-- **Honestidad técnica**: detectar beats en tiempo real es MÁS difícil que offline y los
-  resultados son peores. Plan realista: `sounddevice` (PyPI) para capturar audio →
-  features baratas en vivo (RMS, flux espectral, onsets por umbral con scipy/numpy, SIN
-  madmom en tiempo real) → publicarlas como `audio_context` sintético al pipeline.
-  Beats: estimador simple por autocorrelación de onsets (aceptable para 4/4 estable);
-  documentar la limitación.
-- Con eso, D1 funciona en vivo: `on_kick` ≈ onset de banda grave, `signal_above(rms)`...
-  Los triggers de sección no aplican (no hay análisis estructural en vivo) — la UI los
-  deshabilita en este modo.
-- `server/live_input.py`: hilo de captura → ring buffer → features cada ~33 ms.
-  Selector de dispositivo de entrada en la UI. Toggle claro OFFLINE/LIVE.
-- **Criterio para no atascarse**: timebox de 4 días. Si la detección de onsets no es
-  satisfactoria, se entrega solo RMS/flux reactivo (que ya luce) y se documenta el resto
-  como futuro. NO perseguir el beat-tracking perfecto.
-- **Tests**: features sobre WAVs sintéticos (un click-track generado con numpy: los onsets
-  detectados deben coincidir ±50 ms).
+**Entregado**:
+- `server/live_input.py`: `LiveInput` — sounddevice InputStream → deque(maxlen≈30s) de bloques
+  → RMS + flux espectral (FFT rfft + diff positivo) → onset (RMS > 1.5×EMA, cooldown 150ms)
+  → BPM por mediana de IOI en 300-2000ms + EMA α=0.8 → beats sintéticos desde fase del último onset.
+- Interfaz compatible con AnalysisService: `list_beats`, `list_downbeats`, `section_at` (→None),
+  `get_audio_context` (rms/flux/norm), `has_timeseries`. Testeable sin HW: `_process_block()` público.
+- `session.live_input` + `session._live_mode`: activa en `_get_audio_context` y en la evaluación D1.
+- Handlers: `live_input_list_devices`, `live_input_start(device_index?)`, `live_input_stop`,
+  `live_input_get_state`.
+- 32 tests en `tests/test_live_input.py` (click-tracks numpy, sin HW real). 700 verdes.
 
-**Aceptación**: enchufo el móvil a la entrada de línea, pongo cualquier canción, activo
-"Fiesta" y las barras reaccionan con latencia < 100 ms.
+**Limitaciones documentadas**: `section_at` siempre None (sin análisis estructural en vivo);
+BPM best-effort para 4/4 estable; sin madmom; `signal_above:rms` y `on_kick` (onset proxy)
+son los triggers más fiables en modo live.
+
 **Commit**: `roadmap-v2 fase D2: análisis en vivo`.
 
 ---

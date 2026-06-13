@@ -188,6 +188,10 @@ class ShowSession:
         if _autovj_path.is_file():
             self.autovj_engine.load(_autovj_path)
 
+        # ── D2: entrada de audio en vivo (None hasta que el usuario la active) ─
+        self.live_input = None   # LiveInput | None
+        self._live_mode = False  # True = usar live_input en vez de analysis
+
         # ── C2: macros en vivo (estado live, NO se persisten en show.json) ──
         self.macros: Dict[str, float] = {
             "brightness_mul": 1.0,
@@ -577,12 +581,21 @@ class ShowSession:
     def _get_audio_context(self, t_s: float) -> dict:
         """Audio context REAL en t (F0.0, ROADMAP v2).
 
-        Delegado en AnalysisService.get_audio_context: tras la Fase 5 de la
-        auditoría cuesta UN searchsorted + lerp vectorizado por frame — barato.
-        Fallback al contexto estático SOLO si el proyecto no tiene timeseries
-        (sin esto, la modulación de A1 vería señales congeladas y las luces
-        no reaccionarían a la música — ver ANALYSIS/ROADMAP F0.0).
+        D2: si live_mode activo usa LiveInput (features del ring buffer en vivo).
+        Offline: delega en AnalysisService (un searchsorted + lerp vectorizado).
+        Fallback al contexto estático si no hay timeseries disponible.
         """
+        # D2: modo live — features del stream de audio de entrada
+        if self._live_mode and self.live_input is not None:
+            try:
+                return self.live_input.get_audio_context(t_s)
+            except Exception as e:
+                import logging
+                from src.log import get_logger, log_throttled
+                log_throttled(get_logger(__name__), logging.WARNING,
+                              'session.actx_live',
+                              f"live_input.get_audio_context error: {e}")
+
         svc = self.analysis
         try:
             if svc is not None and getattr(svc, 'has_timeseries', False):
@@ -716,12 +729,17 @@ class ShowSession:
             except Exception:
                 pass
 
-        # D1: AutoVJ — evalúa reglas ANTES de compute_live_frame para que
-        # los disparos lleguen al mismo frame que los desencadenó.
-        # Solo activo si hay ruleset habilitado.
+        # D1: AutoVJ — evalúa reglas ANTES de compute_live_frame.
+        # D2: si live_mode activo, pasa live_input como fuente de análisis
+        # (misma interfaz: list_beats/list_downbeats/section_at/get_audio_context).
         if (self.autovj_engine.ruleset is not None
                 and self.autovj_engine.ruleset.enabled):
-            self.autovj_engine.evaluate(t_ms, actx, self.analysis,
+            _analysis_src = (
+                self.live_input
+                if self._live_mode and self.live_input is not None
+                else self.analysis
+            )
+            self.autovj_engine.evaluate(t_ms, actx, _analysis_src,
                                         self.live_engine)
 
         # C1: capa live — patterns lanzados + D1 patterns efímeros del AutoVJ.

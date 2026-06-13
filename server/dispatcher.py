@@ -1435,6 +1435,65 @@ def _h_autovj_load(session, params):
     }
 
 
+# ── D2 — Análisis en vivo (entrada de audio) ─────────────────────────────────
+
+def _h_live_input_list_devices(session, params):
+    """live_input_list_devices() → {ok, devices: [{index, name, channels, default_sr}]}"""
+    from server.live_input import LiveInput
+    return {"ok": True, "devices": LiveInput.list_devices()}
+
+
+def _h_live_input_start(session, params):
+    """live_input_start(device_index?) → {ok, device_index, bpm}
+
+    Arranca la captura de audio desde el dispositivo de entrada seleccionado
+    (por defecto el dispositivo del SO) y activa el modo live: _get_audio_context
+    usará las features del ring buffer en vez del análisis offline.
+    """
+    device = params.get("device_index", None)
+    if device is not None:
+        device = require_int(params, "device_index")
+    if session.live_input is None:
+        from server.live_input import LiveInput
+        session.live_input = LiveInput()
+    try:
+        session.live_input.start(device=device)
+    except Exception as e:
+        return {"ok": False, "error": f"No se pudo abrir el dispositivo: {e}"}
+    session._live_mode = True
+    return {
+        "ok": True,
+        "device_index": device,
+        "bpm": session.live_input.summary.get("bpm"),
+    }
+
+
+def _h_live_input_stop(session, params):
+    """live_input_stop() → {ok}
+
+    Detiene la captura y desactiva el modo live.
+    El sistema vuelve a usar el análisis offline para actx y AutoVJ.
+    """
+    if session.live_input is not None:
+        session.live_input.stop()
+    session._live_mode = False
+    return {"ok": True}
+
+
+def _h_live_input_get_state(session, params):
+    """live_input_get_state() → {ok, active, live_mode, bpm?, duration_s}"""
+    li = session.live_input
+    active = li is not None and li.is_active
+    summary = li.summary if li is not None else {}
+    return {
+        "ok": True,
+        "active": active,
+        "live_mode": bool(getattr(session, '_live_mode', False)),
+        "bpm": summary.get("bpm"),
+        "duration_s": summary.get("duration_s", 0.0),
+    }
+
+
 _LOCAL = {
     "undo": _h_undo,
     "redo": _h_redo,
@@ -1509,6 +1568,11 @@ _LOCAL = {
     "autovj_update_rule": _h_autovj_update_rule,
     "autovj_save": _h_autovj_save,
     "autovj_load": _h_autovj_load,
+    # D2 — Análisis en vivo (entrada de audio)
+    "live_input_list_devices": _h_live_input_list_devices,
+    "live_input_start": _h_live_input_start,
+    "live_input_stop": _h_live_input_stop,
+    "live_input_get_state": _h_live_input_get_state,
 }
 
 

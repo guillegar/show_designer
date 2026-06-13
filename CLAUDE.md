@@ -10,7 +10,7 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
 Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4 vistas funcionando.
-**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D iniciado.**
+**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO.**
 
 ---
 
@@ -78,7 +78,7 @@ Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4
     del show.json). `MidiPanel` plegable: estado/dispositivos/tabla/export/import JSON.
     `MacroStrip` refactorizada a controlada (estado elevado a `LiveView`). CERO cambios de
     backend. 15 tests nuevos Vitest. **628 verdes.**
-  - ✅ **D1 APLICADA (2026-06-13)**: Auto-VJ por reglas. **Bloque D iniciado.**
+  - ✅ **D1 APLICADA (2026-06-13)**: Auto-VJ por reglas.
     `src/core/autovj.py`: Rule, RuleSet, AutoVJEngine, _EphemeralSlot (duck-typed, sin imports
     de server/). Triggers: on_beat/on_downbeat (±20ms searchsorted), on_kick (proxy norm),
     on_section_change, signal_above (histéresis thr_off=thr×0.8). Actions: fire_effect (pattern
@@ -87,7 +87,18 @@ Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4
     `timeline.patterns + _ephemeral_patterns` (cero duplicación C1). Persistencia: autovj.json
     atómico, auto-carga al arrancar. 6 handlers en dispatcher: `autovj_get/set_ruleset`,
     `autovj_activate_preset`, `autovj_update_rule`, `autovj_save/load`. 40 tests nuevos.
-    **668 verdes. Siguiente: D2.**
+    668 verdes.
+  - ✅ **D2 APLICADA (2026-06-13)**: Análisis en vivo (entrada de audio). **Bloque D COMPLETO.**
+    `server/live_input.py`: `LiveInput` (captura sounddevice, ring buffer con deque maxlen,
+    detección de onset por umbral EMA + cooldown _ONSET_GAP_MS=150ms, estimación BPM por
+    mediana de IOI + EMA α=0.8, beats sintéticos con fase del onset más reciente).
+    Interfaz compatible con AnalysisService: `list_beats`, `list_downbeats`, `section_at`
+    (siempre None), `get_audio_context` (rms/flux/norm; siempre el frame más reciente).
+    `session.live_input`, `session._live_mode`: toggle D2 en `_get_audio_context` y en
+    D1 `evaluate` (se pasa `live_input` como analysis cuando `_live_mode=True`).
+    4 handlers: `live_input_list_devices`, `live_input_start`, `live_input_stop`,
+    `live_input_get_state`. Tests sin HW real: `_process_block()` inyectable con PCM
+    sintético (click-tracks numpy). 32 tests nuevos. **700 verdes. Bloque D COMPLETO.**
   - ✅ **C1 APLICADA (2026-06-13)**: performance grid (lanzar patterns en vivo). `server/live_engine.py`:
     `LiveSlot` (config: pattern_uid, key, quantize, mode) × 16 slots + `LiveEngine` (runtime: `_active`,
     `_armed` dicts, `compute_live_frame`). Cuantización bar/beat/free con degradación automática a free

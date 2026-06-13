@@ -177,3 +177,29 @@ Se carga automáticamente al arrancar la sesión si el archivo existe. Los prese
 
 **Slot reservado**: el slot 15 de LiveEngine es el destino por defecto de `fire_pattern` cuando
 ningún slot del grid tiene el pattern_uid. No lo asignes manualmente en la UI del performance grid.
+
+### D2 — Análisis en vivo
+
+`session.live_input: LiveInput | None` + `session._live_mode: bool`.
+Cuando `_live_mode=True`, `_get_audio_context` usa las features del ring buffer en vez del
+análisis offline, y D1 AutoVJ recibe `live_input` como fuente de beats/downbeats.
+
+`section_at` devuelve siempre `None` en modo live (sin análisis estructural). Los triggers
+`on_section_change` no disparan. Los más fiables en live son `signal_above:rms` y `on_kick`
+(proxy de onset transiente).
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `live_input_list_devices` | — | `{ok, devices:[{index, name, channels, default_sr}]}` |
+| `live_input_start` | `device_index?: int` (default = dispositivo del SO) | `{ok, device_index, bpm}` |
+| `live_input_stop` | — | `{ok}` |
+| `live_input_get_state` | — | `{ok, active, live_mode, bpm?, duration_s}` |
+
+**Flujo típico**: `live_input_start` → activa captura + `_live_mode=True` → D1 reacciona a la música
+en tiempo real → `live_input_stop` → vuelve al análisis offline (si existe).
+
+**Pipeline interno** (hilo de audio, 23ms por bloque):
+- RMS + flux espectral (rfft)
+- Onset: `RMS > 1.5 × EMA_RMS` y cooldown ≥ 150ms
+- BPM: mediana de IOI + EMA α=0.8 → beats sintéticos con fase del último onset
+- Historial: `deque(maxlen≈30s)` — sin crecimiento indefinido
