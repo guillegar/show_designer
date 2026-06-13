@@ -10,7 +10,7 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
 Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4 vistas funcionando.
-**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo. **Bloque B COMPLETO. C1+C2 APLICADAS.**
+**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI. **Bloque B COMPLETO. Bloque C COMPLETO.**
 
 ---
 
@@ -69,7 +69,15 @@ Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4
     `apply_master` (sin mutar el dict del timeline). Strobe al final de `compute_frame` (ambas
     rutas: live y baked). Handler `set_macro` con validación de nombre y rango.
     `MacroStrip` en `Live.tsx`: 4 sliders con throttle, doble clic = reset, botón Reset all.
-    9 tests nuevos. **628 verdes. Siguiente: C3.**
+    9 tests nuevos. **628 verdes.**
+  - ✅ **C3 APLICADA (2026-06-13)**: soporte MIDI (Web MIDI API). **Bloque C COMPLETO.**
+    `web/src/api/midi.ts`: funciones puras `parseMidiKey`/`scaleCCToMacro` + `initMidi` async
+    con handle degradado limpio. Note On/Off → `live_trigger`/`live_release`. CC → macros
+    (lerp al rango del knob). MIDI Learn: toggle en MidiPanel, clic en slot/macro → toca
+    control → queda mapeado. Mapa en localStorage `"show_designer_midi_map"` (independiente
+    del show.json). `MidiPanel` plegable: estado/dispositivos/tabla/export/import JSON.
+    `MacroStrip` refactorizada a controlada (estado elevado a `LiveView`). CERO cambios de
+    backend. 15 tests nuevos Vitest. **628 verdes. Siguiente: D1.**
   - ✅ **C1 APLICADA (2026-06-13)**: performance grid (lanzar patterns en vivo). `server/live_engine.py`:
     `LiveSlot` (config: pattern_uid, key, quantize, mode) × 16 slots + `LiveEngine` (runtime: `_active`,
     `_armed` dicts, `compute_live_frame`). Cuantización bar/beat/free con degradación automática a free

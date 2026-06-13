@@ -94,3 +94,6 @@ export type MacrosState = {
   hue_shift:      number;   // -180..180, default 0
   strobe_rate:    number;   // 0..30 Hz, default 0
 };
+
+// Re-exports MIDI (C3): importar desde aquí, no desde midi.ts directamente.
+export type { MacroKey, MidiTarget, MidiMapping } from "./midi";

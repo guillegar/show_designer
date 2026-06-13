@@ -5,6 +5,8 @@ import type { AutosaveAvailableEvent } from "../api/stream";
 import { useStore } from "../store";
 import { Ico, fmtTime } from "../icons";
 import type { TrackChain, MixerState, LiveSlot, LiveState, MacrosState } from "../api/types";
+import { initMidi } from "../api/midi";
+import type { MidiHandle, MidiTarget, MacroKey } from "../api/midi";
 
 const FEEDBACK_CATS = [
   { key: "intensity_ok", label: "Intensidad OK", pos: true },
@@ -421,29 +423,14 @@ const MACRO_DEFS: MacroDef[] = [
   { key: "strobe_rate",    label: "Strobe Hz",      icon: "🔦", min: 0, max: 30, step: 0.5, center: 0 },
 ];
 
-function MacroStrip() {
-  const [macros, setMacros] = useState<MacrosState>({ ...MACRO_DEFAULTS });
-  const lastSent = useRef<Record<string, number>>({});
+type MacroStripProps = {
+  macros: MacrosState;
+  onMacroChange: (key: keyof MacrosState, value: number) => void;
+  midiLearnActive: boolean;
+  onLearnMacro: (key: MacroKey) => void;
+};
 
-  const sendMacro = useCallback((key: keyof MacrosState, value: number) => {
-    const now = Date.now();
-    if ((now - (lastSent.current[key] ?? 0)) >= SLIDER_THROTTLE_MS) {
-      lastSent.current[key] = now;
-      control.call("set_macro", { name: key, value }).catch(() => {});
-    }
-  }, []);
-
-  const handleChange = (key: keyof MacrosState, value: number) => {
-    setMacros((m) => ({ ...m, [key]: value }));
-    sendMacro(key, value);
-  };
-
-  const handleDoubleClick = (def: MacroDef) => {
-    const dflt = MACRO_DEFAULTS[def.key];
-    setMacros((m) => ({ ...m, [def.key]: dflt }));
-    control.call("set_macro", { name: def.key, value: dflt }).catch(() => {});
-  };
-
+function MacroStrip({ macros, onMacroChange, midiLearnActive, onLearnMacro }: MacroStripProps) {
   const fmtVal = (def: MacroDef, v: number) => {
     if (def.key === "hue_shift") return `${v > 0 ? "+" : ""}${v.toFixed(0)}°`;
     if (def.key === "strobe_rate") return v === 0 ? "OFF" : `${v.toFixed(1)} Hz`;
@@ -458,9 +445,8 @@ function MacroStrip() {
           className="btn ghost"
           style={{ fontSize: 10 }}
           onClick={() => {
-            setMacros({ ...MACRO_DEFAULTS });
             for (const def of MACRO_DEFS) {
-              control.call("set_macro", { name: def.key, value: MACRO_DEFAULTS[def.key] }).catch(() => {});
+              onMacroChange(def.key, MACRO_DEFAULTS[def.key]);
             }
           }}
           title="Resetear todas las macros a su valor por defecto"
@@ -471,7 +457,12 @@ function MacroStrip() {
           const v = macros[def.key];
           const isDefault = v === MACRO_DEFAULTS[def.key];
           return (
-            <div key={def.key} className={"macro-row" + (isDefault ? "" : " active")}>
+            <div
+              key={def.key}
+              className={"macro-row" + (isDefault ? "" : " active") + (midiLearnActive ? " midi-learn-hover" : "")}
+              onClick={() => midiLearnActive && onLearnMacro(def.key)}
+              title={midiLearnActive ? `Clic para mapear MIDI → ${def.label}` : undefined}
+            >
               <div className="macro-label-row">
                 <span className="macro-icon">{def.icon}</span>
                 <span className="macro-label">{def.label}</span>
@@ -481,10 +472,14 @@ function MacroStrip() {
                 type="range"
                 min={def.min} max={def.max} step={def.step}
                 value={v}
-                onChange={(e) => handleChange(def.key, parseFloat(e.target.value))}
-                onDoubleClick={() => handleDoubleClick(def)}
+                onChange={(e) => {
+                  if (midiLearnActive) return;  // en learn mode: no cambiar valor, el click del div lo gestiona
+                  onMacroChange(def.key, parseFloat(e.target.value));
+                }}
+                onDoubleClick={() => !midiLearnActive && onMacroChange(def.key, MACRO_DEFAULTS[def.key])}
                 className="macro-slider"
                 title={`${def.label} · doble clic para resetear`}
+                style={midiLearnActive ? { pointerEvents: "none" } : undefined}
               />
             </div>
           );
@@ -568,7 +563,12 @@ function SlotConfigModal({ slot, patterns, onSave, onClose }: {
   );
 }
 
-function PerformanceGrid() {
+type PerformanceGridProps = {
+  midiLearnActive: boolean;
+  onLearnSlot: (slot_idx: number) => void;
+};
+
+function PerformanceGrid({ midiLearnActive, onLearnSlot }: PerformanceGridProps) {
   const patterns = useStore((s) => s.patterns);
   const [liveState, setLiveState] = useState<LiveState>({
     slots: [], active: [], armed: [],
@@ -680,10 +680,14 @@ function PerformanceGrid() {
           ].filter(Boolean).join(" ");
 
           return (
-            <div key={slot.uid} className={cls}
+            <div key={slot.uid} className={cls + (midiLearnActive ? " midi-learn-hover" : "")}
               style={color ? { "--slot-color": color } as React.CSSProperties : undefined}
-              onMouseDown={() => hasPattern && triggerSlot(slot)}
-              onMouseUp={() => slot.mode === "hold" && releaseSlot(slot)}
+              title={midiLearnActive ? `Clic para mapear MIDI → Slot ${slot.idx + 1}` : undefined}
+              onMouseDown={() => {
+                if (midiLearnActive) { onLearnSlot(slot.idx); return; }
+                if (hasPattern) triggerSlot(slot);
+              }}
+              onMouseUp={() => !midiLearnActive && slot.mode === "hold" && releaseSlot(slot)}
             >
               {/* Barra de color del pattern */}
               {hasPattern && (
@@ -733,6 +737,168 @@ function PerformanceGrid() {
   );
 }
 
+// ── C3: Panel MIDI ───────────────────────────────────────────────────────────
+
+const MACRO_LABEL: Record<MacroKey, string> = {
+  brightness_mul: "Brightness ×",
+  speed_mul:      "Speed ×",
+  hue_shift:      "Hue Shift",
+  strobe_rate:    "Strobe Hz",
+};
+
+function fmtMidiKey(k: string): string {
+  if (k.startsWith("note:")) return `Note ${k.slice(5)}`;
+  if (k.startsWith("cc:"))   return `CC ${k.slice(3)}`;
+  return k;
+}
+
+function fmtMidiTarget(t: MidiTarget): string {
+  if (t.type === "slot")  return `Slot ${t.slot_idx + 1}`;
+  if (t.type === "macro") return MACRO_LABEL[t.key] ?? t.key;
+  return "?";
+}
+
+type MidiPanelProps = {
+  handle: MidiHandle | null;
+  devices: string[];
+  ready: boolean;
+  unsupported: boolean;
+  learnActive: boolean;
+  learnTarget: MidiTarget | null;
+  onLearnToggle: () => void;
+  onLearnStop: () => void;
+};
+
+function MidiPanel({ handle, devices, ready, unsupported, learnActive, learnTarget, onLearnToggle, onLearnStop }: MidiPanelProps) {
+  const [expanded, setExpanded] = useState(false);
+  const mapping = handle?.getMapping() ?? {};
+  const entries = Object.entries(mapping);
+
+  // Estado del indicador
+  let chipCls = "midi-chip err";
+  let chipLabel = "No soportado";
+  if (!unsupported && !ready) { chipCls = "midi-chip warn"; chipLabel = "Iniciando…"; }
+  else if (ready && devices.length > 0) { chipCls = "midi-chip ok"; chipLabel = "Conectado"; }
+  else if (ready && devices.length === 0) { chipCls = "midi-chip warn"; chipLabel = "Sin dispositivos"; }
+
+  const exportMap = () => {
+    if (!handle) return;
+    const json = JSON.stringify(handle.getMapping(), null, 2);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+    a.download = "midi_map.json";
+    a.click();
+  };
+
+  const importMap = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file || !handle) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          handle.setMapping(JSON.parse(e.target?.result as string));
+        } catch { alert("JSON inválido"); }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
+  const deleteEntry = (key: string) => {
+    if (!handle) return;
+    const m = { ...handle.getMapping() };
+    delete m[key];
+    handle.setMapping(m);
+  };
+
+  return (
+    <div className="midi-panel">
+      <div className="midi-header" onClick={() => setExpanded((e) => !e)}>
+        <span className="midi-title">MIDI</span>
+        <span className={chipCls}>{chipLabel}</span>
+        <span className="ph-spacer" style={{ flex: 1 }} />
+        <span className="midi-toggle">{expanded ? "▾" : "▸"}</span>
+      </div>
+
+      {expanded && (
+        <div className="midi-body">
+          {/* Indicador de navegador */}
+          <div className="midi-status-row">
+            <span>Web MIDI · Chrome/Edge</span>
+          </div>
+
+          {/* Dispositivos conectados */}
+          <div className="midi-devices">
+            {unsupported
+              ? "No disponible en este navegador. Usa Chrome o Edge."
+              : devices.length === 0
+                ? "Sin dispositivos detectados"
+                : devices.map((d, i) => <div key={i}>🎹 {d}</div>)
+            }
+          </div>
+
+          {/* MIDI Learn toggle */}
+          {!unsupported && (
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                className={"btn" + (learnActive ? " on acc" : "")}
+                style={{ fontSize: 11, flex: 1 }}
+                onClick={learnActive ? onLearnStop : onLearnToggle}
+                disabled={!ready}
+              >
+                {learnActive ? "⏹ Cancelar learn" : "⌨ MIDI Learn"}
+              </button>
+            </div>
+          )}
+
+          {/* Banner de instrucciones durante learn */}
+          {learnActive && (
+            <div className="midi-learn-banner">
+              {learnTarget
+                ? `Toca el control físico para mapearlo a: ${fmtMidiTarget(learnTarget)}`
+                : "Haz clic en un slot o macro, luego toca el control físico"}
+            </div>
+          )}
+
+          {/* Tabla del mapa actual */}
+          {entries.length > 0 && (
+            <table className="midi-map-table">
+              <thead>
+                <tr><th>MIDI</th><th>Target</th><th></th></tr>
+              </thead>
+              <tbody>
+                {entries.map(([k, t]) => (
+                  <tr key={k}>
+                    <td style={{ fontFamily: "var(--mono)", fontSize: 10 }}>{fmtMidiKey(k)}</td>
+                    <td>{fmtMidiTarget(t)}</td>
+                    <td>
+                      <button className="midi-map-del" onClick={() => deleteEntry(k)} title="Eliminar mapeo">×</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {/* Acciones */}
+          <div className="midi-actions">
+            <button className="btn ghost" style={{ fontSize: 10 }}
+              onClick={() => { if (confirm("¿Limpiar todo el mapa MIDI?")) handle?.clearMapping(); }}>
+              Limpiar todo
+            </button>
+            <button className="btn ghost" style={{ fontSize: 10 }} onClick={exportMap}>Exportar JSON</button>
+            <button className="btn ghost" style={{ fontSize: 10 }} onClick={importMap}>Importar JSON</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Vista principal ──────────────────────────────────────────────────────────
 
 export function LiveView() {
@@ -752,6 +918,73 @@ export function LiveView() {
 
   useEffect(() => {
     return stream.onAutosaveAvailable((e) => setAutosaveEvent(e));
+  }, []);
+
+  // C2: estado de macros elevado (antes en MacroStrip) para que MIDI pueda actualizarlo
+  const [macros, setMacros] = useState<MacrosState>({ ...MACRO_DEFAULTS });
+  const macroLastSent = useRef<Record<string, number>>({});
+
+  const handleMacroChange = useCallback((key: keyof MacrosState, value: number) => {
+    setMacros((m) => ({ ...m, [key]: value }));
+    const now = Date.now();
+    if ((now - (macroLastSent.current[key] ?? 0)) >= SLIDER_THROTTLE_MS) {
+      macroLastSent.current[key] = now;
+      control.call("set_macro", { name: key, value }).catch(() => {});
+    }
+  }, []);
+
+  // C3: MIDI
+  const midiHandle = useRef<MidiHandle | null>(null);
+  const [midiDevices, setMidiDevices] = useState<string[]>([]);
+  const [midiReady, setMidiReady] = useState(false);
+  const [midiUnsupported, setMidiUnsupported] = useState(false);
+  const [midiLearnActive, setMidiLearnActive] = useState(false);
+  const [learnTarget, setLearnTarget] = useState<MidiTarget | null>(null);
+
+  useEffect(() => {
+    initMidi({
+      onSlotTrigger: (slot_idx, on) => {
+        control.call(on ? "live_trigger" : "live_release", { slot_idx }).catch(() => {});
+      },
+      onMacroChange: (key: MacroKey, value: number) => {
+        setMacros((m) => ({ ...m, [key]: value }));
+        control.call("set_macro", { name: key, value }).catch(() => {});
+      },
+      onDeviceChange: setMidiDevices,
+      onLearnComplete: () => {
+        setLearnTarget(null);
+        setMidiLearnActive(false);
+      },
+    }).then((h) => {
+      midiHandle.current = h;
+      setMidiDevices(h.getDevices());
+      setMidiReady(true);
+    }).catch(() => setMidiUnsupported(true));
+
+    return () => midiHandle.current?.destroy();
+  }, []);
+
+  const handleLearnSlot = useCallback((slot_idx: number) => {
+    const target: MidiTarget = { type: "slot", slot_idx };
+    midiHandle.current?.startLearn(target);
+    setLearnTarget(target);
+  }, []);
+
+  const handleLearnMacro = useCallback((key: MacroKey) => {
+    const target: MidiTarget = { type: "macro", key };
+    midiHandle.current?.startLearn(target);
+    setLearnTarget(target);
+  }, []);
+
+  const handleLearnToggle = useCallback(() => {
+    setMidiLearnActive(true);
+    setLearnTarget(null);
+  }, []);
+
+  const handleLearnStop = useCallback(() => {
+    midiHandle.current?.stopLearn();
+    setLearnTarget(null);
+    setMidiLearnActive(false);
   }, []);
 
   // barras LED ordenadas por legacy_bar_idx
@@ -814,10 +1047,29 @@ export function LiveView() {
             🕐 Versiones…
           </button>
         </div>
+        {/* C3: Panel MIDI */}
+        <MidiPanel
+          handle={midiHandle.current}
+          devices={midiDevices}
+          ready={midiReady}
+          unsupported={midiUnsupported}
+          learnActive={midiLearnActive}
+          learnTarget={learnTarget}
+          onLearnToggle={handleLearnToggle}
+          onLearnStop={handleLearnStop}
+        />
         {/* C2: Macros en vivo */}
-        <MacroStrip />
+        <MacroStrip
+          macros={macros}
+          onMacroChange={handleMacroChange}
+          midiLearnActive={midiLearnActive}
+          onLearnMacro={handleLearnMacro}
+        />
         {/* C1: Performance Grid */}
-        <PerformanceGrid />
+        <PerformanceGrid
+          midiLearnActive={midiLearnActive}
+          onLearnSlot={handleLearnSlot}
+        />
         {/* Panel Render offline (B3) */}
         <RenderPanel />
         {/* Panel Mixer (B2) */}

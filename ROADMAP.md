@@ -1,7 +1,7 @@
 # ROADMAP v2 — "El Secuenciador"
 
 **Objetivo**: llevar Show Designer del nivel "editor de clips" al nivel "FL Studio de la luz".
-**Fecha**: 2026-06-13 · **Estado**: C2 APLICADA (2026-06-13) — siguiente: C3 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
+**Fecha**: 2026-06-13 · **Estado**: C3 APLICADA (2026-06-13) — siguiente: D1 · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
 
 > **F0 APLICADA (2026-06-12, pendiente de commit)**: F0.0 actx real en `session.compute_frame`
 > (verificado: 0.004 ms/frame, cero regresión), F0.1 `src/core/param_pipeline.py` cableado
@@ -718,18 +718,28 @@ Strobe rate... que actúan AHORA sobre todo lo que suena.
 **Aceptación**: subo "Speed" y TODO se acelera al instante, sin tocar el show guardado.
 **Commit**: `roadmap-v2 fase C2: macros en vivo`.
 
-## C3 — MIDI (Web MIDI API) (~2 días)
+## ✅ C3 — MIDI (Web MIDI API) (APLICADA 2026-06-13)
 
 **Qué**: controlador físico para C1/C2 (lanzar slots, mover macros).
 
-- TODO en frontend: Web MIDI API (Chrome la soporta; documentar que requiere
-  navegador Chromium). `web/src/api/midi.ts`: enumerar dispositivos, modo "MIDI learn"
-  (tocas un control físico con un slot/macro seleccionado → se mapea), mapa persistido en
-  `localStorage` + export/import JSON.
-- Sin cambios de backend (reusa los handlers de C1/C2). CC → macros (0-127 → 0..1),
-  notas → slots.
-- **Tests**: parsing de mensajes MIDI (unit en TS si hay test runner; si no, módulo puro y
-  test manual documentado con un checklist).
+**Estado de entrega:**
+- ✅ `web/src/api/midi.ts` — módulo puro: `parseMidiKey`, `scaleCCToMacro` (testables sin hardware),
+  `initMidi` async con handle degradado limpio si Web MIDI no disponible.
+- ✅ Mapa en localStorage `"show_designer_midi_map"` — independiente de show.json.
+  `setMapping`/`clearMapping` persistentes. Export/import JSON en MidiPanel.
+- ✅ Note On/Off → `live_trigger`/`live_release` por slot. CC 0-127 → macros escaladas
+  por rango (brightness_mul 0-2, speed_mul 0-4, hue_shift ±180, strobe_rate 0-30).
+- ✅ "MIDI Learn": botón toggle en MidiPanel → clic en slot/macro → toca control físico
+  → queda mapeado. Auto-sale del learn al mapear. Visual: outline dashed en modo learn.
+- ✅ `MidiPanel` plegable en `Live.tsx`: chip de estado (ok/warn/err), lista de dispositivos,
+  tabla de mapa con × por fila, botones Exportar/Importar JSON, Limpiar todo.
+- ✅ `MacroStrip` refactorizada a componente controlado (estado elevado a `LiveView`).
+- ✅ CERO cambios de backend — reutiliza `live_trigger`/`live_release`/`live_stop_all`/`set_macro`.
+- ✅ `web/src/api/midi.test.ts` — 15 tests Vitest: `parseMidiKey` (6), `scaleCCToMacro` (7),
+  mapping roundtrip con localStorage mock (2). 21 tests frontend verdes.
+- ✅ 628 tests Python verdes (sin cambios de backend).
+- ✅ `npx tsc --noEmit` limpio + `npm run build` OK.
+- Nota: solo funciona en Chromium (Chrome/Edge) — documentado en la UI con chip de estado.
 
 **Aceptación**: mapeo un nanoKONTROL/Launchpad en 2 minutos con MIDI learn y lanzo el grid
 sin tocar el ratón.

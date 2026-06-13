@@ -724,3 +724,85 @@
   cursor: pointer;
   height: 4px;
 }
+
+/* Indicador visual de que el elemento es clickeable en modo learn */
+.midi-learn-hover {
+  cursor: crosshair !important;
+  outline: 1px dashed color-mix(in oklab, var(--acc) 60%, transparent);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+.midi-learn-hover:hover {
+  background: color-mix(in oklab, var(--acc) 8%, transparent) !important;
+}
+
+/* ---------- C3: MIDI PANEL ---------- */
+
+.midi-panel {
+  flex: none;
+  border-top: 1px solid var(--line-soft);
+  display: flex; flex-direction: column;
+}
+
+.midi-header {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 10px; cursor: pointer;
+  user-select: none;
+}
+.midi-header:hover { background: var(--bg-2); }
+
+.midi-title {
+  font-size: 11px; font-weight: 700; color: var(--txt-2);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+
+.midi-toggle { font-size: 11px; color: var(--txt-4); }
+
+.midi-body {
+  padding: 7px 10px 10px;
+  display: flex; flex-direction: column; gap: 7px;
+}
+
+.midi-chip {
+  padding: 1px 7px; border-radius: 999px;
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+}
+.midi-chip.ok   { background: color-mix(in oklab, var(--ok)     20%, transparent); color: var(--ok); }
+.midi-chip.warn { background: color-mix(in oklab, var(--warn)   15%, transparent); color: var(--warn); }
+.midi-chip.err  { background: color-mix(in oklab, #c44         15%, transparent); color: #c44; }
+
+.midi-status-row {
+  font-size: 10.5px; color: var(--txt-3);
+}
+
+.midi-devices {
+  font-size: 10.5px; color: var(--txt-4); line-height: 1.6;
+}
+
+.midi-learn-banner {
+  padding: 6px 9px;
+  background: color-mix(in oklab, var(--acc) 12%, transparent);
+  border: 1px solid color-mix(in oklab, var(--acc) 40%, transparent);
+  border-radius: var(--r-sm);
+  font-size: 10.5px; color: var(--txt-2); line-height: 1.4;
+}
+
+.midi-map-table {
+  width: 100%; border-collapse: collapse; font-size: 10.5px;
+}
+.midi-map-table th {
+  color: var(--txt-4); font-weight: 600; text-align: left;
+  padding: 2px 4px; border-bottom: 1px solid var(--line-soft);
+}
+.midi-map-table td { padding: 3px 4px; color: var(--txt-2); vertical-align: middle; }
+.midi-map-table tr:hover td { background: var(--bg-2); }
+
+.midi-map-del {
+  background: none; border: none; cursor: pointer;
+  color: var(--txt-4); font-size: 13px; line-height: 1; padding: 0 3px;
+}
+.midi-map-del:hover { color: var(--warn); }
+
+.midi-actions {
+  display: flex; gap: 5px; flex-wrap: wrap;
+}
