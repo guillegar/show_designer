@@ -1,7 +1,13 @@
-# ROADMAP v2 — "El Secuenciador"
+# ROADMAP v2 — "El Secuenciador" ✅ COMPLETO (2026-06-13)
 
 **Objetivo**: llevar Show Designer del nivel "editor de clips" al nivel "FL Studio de la luz".
-**Fecha**: 2026-06-13 · **Estado**: D2 APLICADA (2026-06-13) — Bloque D COMPLETO · **Rev. arquitectónica v2.1 aplicada** (ver §0.5)
+**Fecha de cierre**: 2026-06-13 · **Estado**: ✅ COMPLETO — 15 fases, 4 bloques, 700 tests verdes.
+
+> **Resumen de ejecución**: F0 + A1–A5 (Composición) + B1–B4 (Show) + C1–C3 (Directo) + D1–D2
+> (Impro). Ejecutado en 1 jornada (2026-06-12/13). Modelos: Claude Sonnet 4.6.
+> Tag de versión: `v1.10-roadmap-v2`. Ver commit de cierre: "roadmap-v2 cierre".
+
+**Rev. arquitectónica v2.1 aplicada** (ver §0.5)
 
 > **F0 APLICADA (2026-06-12, pendiente de commit)**: F0.0 actx real en `session.compute_frame`
 > (verificado: 0.004 ms/frame, cero regresión), F0.1 `src/core/param_pipeline.py` cableado

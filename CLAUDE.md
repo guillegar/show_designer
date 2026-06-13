@@ -16,11 +16,9 @@ Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4
 
 ## 0. TL;DR
 
-- 🗺️ **ROADMAP v2 ACTIVO (2026-06-12): `ROADMAP.md`** — plan "El Secuenciador" (nivel FL
-  Studio): 15 fases en 4 bloques (Composición/Show/Directo/Impro), ~44 días. Reglas: un
-  commit por fase (`roadmap-v2 fase <ID>: ...`), doc actualizada en el mismo commit, core
-  sin imports de red/UI, handlers JSON-RPC existentes no cambian de firma, invariantes
-  I1-I5 (§0.5 del ROADMAP), checklist de cierre al final del ROADMAP.
+- 🗺️ **ROADMAP v2 COMPLETO (2026-06-13): `ROADMAP.md`** — "El Secuenciador" (nivel FL
+  Studio): 15 fases en 4 bloques (Composición/Show/Directo/Impro). Tag: `v1.10-roadmap-v2`.
+  700 tests verdes. Invariantes I1-I5 respetados en todas las fases.
   - ✅ **F0 APLICADA (2026-06-12)**: actx real, param_pipeline (stages), schema v3, ADRs. 448→495 verdes.
   - ✅ **A1 APLICADA (2026-06-12)**: modulación (`brightness ← rms`). ParamLink, ModulationStage, actx['norm'].
     25 tests. Regresión ~5% (I5).
@@ -77,7 +75,7 @@ Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4
     control → queda mapeado. Mapa en localStorage `"show_designer_midi_map"` (independiente
     del show.json). `MidiPanel` plegable: estado/dispositivos/tabla/export/import JSON.
     `MacroStrip` refactorizada a controlada (estado elevado a `LiveView`). CERO cambios de
-    backend. 15 tests nuevos Vitest. **628 verdes.**
+    backend. 15 tests nuevos Vitest. **700 verdes (incluyendo D1+D2). Bloque D COMPLETO. ROADMAP v2 COMPLETO.**
   - ✅ **D1 APLICADA (2026-06-13)**: Auto-VJ por reglas.
     `src/core/autovj.py`: Rule, RuleSet, AutoVJEngine, _EphemeralSlot (duck-typed, sin imports
     de server/). Triggers: on_beat/on_downbeat (±20ms searchsorted), on_kick (proxy norm),
@@ -114,9 +112,7 @@ Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4
     Handlers: `list_autosaves`, `restore_autosave` (path traversal bloqueado), `discard_autosave_prompt`.
     `stream.ts`: tipo `AutosaveAvailableEvent` + `onAutosaveAvailable()`.
     Frontend: `AutosaveBanner` (top-center, una sola vez), botón "Versiones…" + `VersionesModal`
-    (tabla fecha/tamaño + "Cargar como copia"). 15 tests nuevos. **608 verdes. Siguiente: C1**.
-  - Pasos pendientes del usuario: `cd web && npm install` (vitest), `pytest tests/` completo
-    en Windows, y el commit: `roadmap-v2 fase F0: actx real + param pipeline + schema v3 + bench`.
+    (tabla fecha/tamaño + "Cargar como copia"). 15 tests nuevos. **608 verdes.**
 
 - **Entry point (v1.10, web):** `python -m server.main` → http://localhost:8000. Dev frontend:
   `cd web && npm run dev` (Vite :5173 proxea WS a :8000). Rebuild: `cd web && npm run build`.

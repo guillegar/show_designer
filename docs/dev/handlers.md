@@ -117,6 +117,31 @@ Devuelven el clip completo (invariante I3) para que el frontend actualice el sto
 Fast path: si `clip.events == []`, devuelve `params` sin copiar (cero allocs).
 Los `events` van en `clip.to_dict()`, por lo que el undo por snapshot (I1) los cubre automáticamente.
 
+### A5 — Ergonomía de composición
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `duplicate_range` | `t0_ms: int`, `t1_ms: int`, `dest_ms: int` | `{ok, clips: [...]}` |
+
+**`duplicate_range`**: copia todos los clips con `start_ms ∈ [t0_ms, t1_ms)` al offset `dest_ms`.
+El desplazamiento aplicado es `dest_ms - t0_ms`; los clips originales no se tocan; los duplicados
+reciben UIDs nuevos. Llama `snapshot()` antes de mutar (I1). Los clips nuevos se añaden a
+`timeline.clips`; devuelve la lista de nuevos clips (I3).
+
+---
+
+### B1 — Waveform en el timeline
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `get_waveform` | — | `{ok, peaks_max, peaks_min, rms, n_buckets, duration_sec, bpm}` |
+
+Devuelve la forma de onda del audio del show en `n_buckets=8000` cubos (min/max/rms por cubo).
+La primera llamada tarda ~2-5 s (librosa carga el audio); las siguientes son instantáneas
+porque el resultado se cachea en `<analysis_dir>/waveform.json` (escritura atómica).
+
+Devuelve `{ok: False, error}` si librosa no está disponible o el audio no se encuentra.
+
 ### B2 — Mixer: cadena por pista + master
 
 El mixer vive en `timeline.mixer` (contenedor v3, persistido en show.json, incluido en undo).
@@ -143,6 +168,94 @@ ya evalúa este target en `AutomationStage`.
 
 Fast path: si todos los parámetros son identidad (brightness=1, gamma=1, hue_shift=0,
 white_limit=1, blackout_fade=1), se devuelve la referencia original sin copiar (cero allocs, I4).
+
+### B3 — Render offline + playback baked
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `render_offline` | — | `{ok, message}` inmediato |
+| `get_render_status` | — | `{ok, status, pct, hash, n_frames?, duration_s?}` |
+| `toggle_baked` | `enabled: bool` | `{ok, baked: bool}` |
+
+**`render_offline`**: lanza el render del timeline completo en background (executor thread pool,
+I4 — no bloquea el tick). El progreso se emite como `{type:'render_progress', pct:float}` en el
+stream. Devuelve inmediatamente; solo un render simultáneo (devuelve error si ya hay uno en curso).
+
+**`get_render_status`**: comprueba si hay un render en curso o un `render.npz` válido en disco.
+`status`: `'rendering'` | `'ready'` (hash MD5 del timeline coincide con el npz) | `'idle'`.
+
+**`toggle_baked`**: cuando `enabled=True`, carga los frames bakeados desde `render.npz` en memoria
+(`session.baked_frames`). Si no hay render válido (hash no coincide), devuelve error. Cuando
+`enabled=False`, descarga los frames y vuelve al modo live.
+
+El modo baked aplica igualmente los postfx/master (B2) sobre el frame bakeado, por lo que
+los sliders del mixer siguen funcionando sin relanzar el render.
+
+### B4 — Autosave + versiones de show
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `list_autosaves` | — | `{ok, autosaves: [{filename, ts, size_kb}]}` desc por fecha |
+| `restore_autosave` | `filename: str` (solo nombre, sin rutas) | `{ok, filename}` |
+| `discard_autosave_prompt` | — | `{ok}` — solo cierra el banner en el frontend |
+
+Autosave automático: cada `LUCES_AUTOSAVE_INTERVAL` s (default 60), guardado atómico en
+`projects/<slug>/autosave/show_<ts>.json`. Máximo 20 archivos rotatorios.
+
+Al arrancar, si hay un autosave más reciente que `show.json`, el frontend muestra un banner
+(evento `{type:'autosave_available'}`). El usuario elige cargar o descartar.
+
+**`restore_autosave`**: valida que `filename` sea un nombre simple (sin separadores de
+directorio, `show_*.json`) para prevenir path traversal. Carga el autosave como timeline
+activo preservando `duration_ms` del show actual.
+
+### C1 — Performance grid: lanzar patterns en vivo
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `live_assign_slot` | `slot_idx: int (0..15)`, `pattern_uid?: str`, `key?: str`, `quantize?: str`, `mode?: str` | `{ok, slot}` |
+| `live_trigger` | `slot_idx: int (0..15)` | `{ok, slot, armed_at_ms}` |
+| `live_release` | `slot_idx: int (0..15)` | `{ok, slot}` |
+| `live_stop_all` | — | `{ok}` |
+| `get_live_state` | — | `{ok, slots, active, armed}` |
+
+Grid de 16 slots (4×4). Cada slot asocia un pattern a una tecla del teclado, modo de
+lanzamiento y cuantización.
+
+**`quantize`**: `'bar'` (espera siguiente compás — requiere downbeats), `'beat'` (espera
+siguiente beat), `'free'` (activa inmediatamente). Si se pide `'bar'` sin downbeats disponibles,
+degrada automáticamente a `'free'` (`armed_at_ms` = t actual).
+
+**`mode`**: `'toggle'` (lanzar/parar en el mismo botón), `'hold'` (solo activo mientras se
+mantiene pulsado), `'oneshot'` (termina al final del pattern).
+
+Emite `{type:'live_state_changed'}` al stream tras cualquier cambio de estado.
+El estado de los slots se persiste en `show.json` (`live_slots`). Cubre I1 (undo por snapshot).
+
+**Slot 15 reservado**: D1 AutoVJ usa el slot 15 para `fire_pattern`. No asignar manualmente.
+
+### C2 — Macros en vivo
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `set_macro` | `name: str`, `value: float` | `{ok, macros: dict}` |
+
+Las macros son controles globales en tiempo real (estado de sesión, **no persisten** en show.json).
+Throttle recomendado en el cliente: ≤ 20 llamadas/s.
+
+| Macro | Rango | Efecto |
+|-------|-------|--------|
+| `brightness_mul` | 0.0 .. 2.0 | Multiplica el brillo global del frame |
+| `speed_mul` | 0.0 .. 4.0 | Factor de velocidad de efectos (MacroStage) |
+| `hue_shift` | -180.0 .. 180.0 | Rotación de tono global (sumado al master antes de apply_master) |
+| `strobe_rate` | 0.0 .. 30.0 | Hz de estroboscópico global (aplicado al final de compute_frame) |
+
+Las macros son el 4º stage del param_pipeline (`MacroStage`). Fast path: sin coste si
+`brightness_mul==1.0` y `speed_mul==1.0`. El strobe se aplica SIEMPRE al final de
+`compute_frame` (tanto en modo live como en modo baked), por lo que funciona sobre el render offline.
+
+C3 (MIDI) es 100 % frontend: no añade handlers de backend. El mapeo MIDI se guarda en
+`localStorage` bajo la clave `show_designer_midi_map` (independiente del show.json).
 
 ### D1 — Auto-VJ por reglas
 
