@@ -806,3 +806,137 @@
 .midi-actions {
   display: flex; gap: 5px; flex-wrap: wrap;
 }
+
+/* ── E1: Panel Cues profesional ───────────────────────────────────────────── */
+
+.cues-panel {
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.cue-fade-bar {
+  height: 4px;
+  background: var(--bg-2);
+  margin: 0 10px 4px;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.cue-fade-fill {
+  height: 100%;
+  background: var(--acc);
+  border-radius: 2px;
+  transition: width 100ms linear;
+}
+
+.cue-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+}
+
+.cue-go {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  background: color-mix(in oklab, var(--ok) 25%, transparent);
+  border: 1px solid color-mix(in oklab, var(--ok) 60%, transparent);
+  color: var(--ok);
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  letter-spacing: .06em;
+}
+.cue-go:hover {
+  background: color-mix(in oklab, var(--ok) 35%, transparent);
+}
+
+.cue-nav {
+  font-size: 10px;
+  padding: 4px 7px;
+  flex: none;
+}
+
+.cue-list {
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 0 4px 6px;
+}
+
+.cue-empty {
+  padding: 10px 10px;
+  font-size: 11px;
+  color: var(--txt-4);
+  text-align: center;
+}
+
+.cue-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-size: 11.5px;
+  color: var(--txt-2);
+  transition: background 80ms;
+}
+
+.cue-row:hover {
+  background: var(--bg-2);
+}
+
+.cue-row.active {
+  background: color-mix(in oklab, var(--acc) 18%, transparent);
+  color: var(--txt-0);
+}
+
+.cue-row.next-cue {
+  border-left: 2px solid color-mix(in oklab, var(--ok) 70%, transparent);
+  padding-left: 4px;
+}
+
+.cue-num {
+  min-width: 24px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--txt-4);
+  font-family: var(--mono);
+}
+
+.cue-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cue-time {
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--txt-3);
+  flex: none;
+}
+
+.cue-meta {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+}
+
+.cue-fade-tag {
+  font-size: 9px;
+  color: var(--acc);
+  font-family: var(--mono);
+}
+
+.cue-af-tag {
+  font-size: 9px;
+  color: var(--txt-4);
+}
+
+.cue-arrow {
+  font-size: 9px;
+  color: var(--ok);
+}

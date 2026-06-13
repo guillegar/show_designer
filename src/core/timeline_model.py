@@ -251,6 +251,63 @@ class PatternInstance:
         )
 
 
+@dataclass
+class CueEntry:
+    """Entrada de la CueList — punto accionable de la lista de cues (E1, ROADMAP v3).
+
+    Distinto de CuePoint (marcadores pasivos del timeline): CueEntry es la entidad
+    de la lista operativa, con número decimal, crossfade de entrada y auto-follow.
+    """
+    uid: str              # uuid4 hex[:12]
+    number: float         # 1, 1.5, 2… (decimal para insertar entre cues)
+    name: str
+    t_ms: int             # instante del timeline al que salta
+    fade_in_ms: int = 0   # crossfade de entrada (0 = corte seco)
+    hold_ms: int = -1     # -1 = esperar GO manual; >= 0 = auto-follow tras N ms
+    auto_follow: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "uid": self.uid,
+            "number": self.number,
+            "name": self.name,
+            "t_ms": self.t_ms,
+            "fade_in_ms": self.fade_in_ms,
+            "hold_ms": self.hold_ms,
+            "auto_follow": self.auto_follow,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> 'CueEntry':
+        return cls(
+            uid=d.get("uid") or uuid4().hex[:12],
+            number=float(d.get("number", 1.0)),
+            name=str(d.get("name", "")),
+            t_ms=int(d.get("t_ms", 0)),
+            fade_in_ms=int(d.get("fade_in_ms", 0)),
+            hold_ms=int(d.get("hold_ms", -1)),
+            auto_follow=bool(d.get("auto_follow", False)),
+        )
+
+
+@dataclass
+class CueList:
+    """Lista de cues operativa (E1, ROADMAP v3). Persistida en show.json como cue_list."""
+    entries: List[CueEntry] = field(default_factory=list)  # ordenadas por number
+    active_uid: Optional[str] = None                       # cue actualmente activo
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "entries": [e.to_dict() for e in self.entries],
+            "active_uid": self.active_uid,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> 'CueList':
+        entries = [CueEntry.from_dict(e) for e in d.get("entries", [])]
+        return cls(entries=entries, active_uid=d.get("active_uid"))
+
+
 class Timeline:
     """Conjunto de clips + persistencia.
 
@@ -261,12 +318,15 @@ class Timeline:
       pattern_instances   → instancias de patterns en el timeline (A3)
       mixer               → estado de master + cadenas por pista (B2)
 
+    Schema v4 (E1, ROADMAP v3): añade cue_list (CueList) para el sistema de
+    cues profesional. Migración tolerante: si falta → CueList(entries=[]).
+
     Regla de versionado: añadir un CAMPO a una entidad existente con default
     tolerante en from_dict NO sube la versión; solo cambios ESTRUCTURALES
     (contenedores nuevos, renombres) la suben.
     """
 
-    SCHEMA_VERSION = 3
+    SCHEMA_VERSION = 4
 
     def __init__(self, clips: Optional[List[Clip]] = None,
                  duration_ms: int = 165_000,
@@ -276,7 +336,8 @@ class Timeline:
                  patterns: Optional[List[Dict]] = None,
                  pattern_instances: Optional[List[Dict]] = None,
                  mixer: Optional[Dict] = None,
-                 live_slots: Optional[List[Dict]] = None):
+                 live_slots: Optional[List[Dict]] = None,
+                 cue_list: Optional['CueList'] = None):
         self.clips: List[Clip] = clips or []
         self.duration_ms = duration_ms
         self.groups: List[BarGroup] = groups or []
@@ -293,6 +354,8 @@ class Timeline:
         # C1: configuración de los 16 slots del performance grid (uid, pattern_uid,
         # key, quantize, mode). El estado _active/_armed NO se persiste.
         self.live_slots: List[Dict] = live_slots or []
+        # E1: lista de cues profesional (schema v4). Migración tolerante: si falta → vacía.
+        self.cue_list: CueList = cue_list or CueList(entries=[])
 
     def add(self, clip: Clip):
         self.clips.append(clip)
@@ -321,6 +384,7 @@ class Timeline:
             'pattern_instances': list(self.pattern_instances),
             'mixer': dict(self.mixer),
             'live_slots': list(self.live_slots),
+            'cue_list': self.cue_list.to_dict(),
         }
 
     @classmethod
@@ -330,16 +394,20 @@ class Timeline:
         groups = [BarGroup.from_dict(d) for d in data.get('groups', [])]
         cues_raw = data.get('cue_points', [])
         cues = [CuePoint.from_dict(d) for d in cues_raw] if cues_raw else None
+        # E1: migración tolerante v3→v4: si falta cue_list → CueList vacía
+        cue_list_raw = data.get('cue_list')
+        cue_list = CueList.from_dict(cue_list_raw) if cue_list_raw else CueList(entries=[])
         return cls(clips, int(data.get('duration_ms', 165_000)), groups, cues,
                    automation=list(data.get('automation', [])),
                    patterns=list(data.get('patterns', [])),
                    pattern_instances=list(data.get('pattern_instances', [])),
                    mixer=dict(data.get('mixer', {})),
-                   live_slots=list(data.get('live_slots', [])))
+                   live_slots=list(data.get('live_slots', [])),
+                   cue_list=cue_list)
 
     def save(self, path=TIMELINE_FILE):
         data = {
-            'version': self.SCHEMA_VERSION,  # v3: contenedores del secuenciador
+            'version': self.SCHEMA_VERSION,  # v4: + cue_list (E1)
             'duration_ms': self.duration_ms,
             'clips': [c.to_dict() for c in self.clips],
             'groups': [g.to_dict() for g in self.groups],
@@ -349,6 +417,7 @@ class Timeline:
             'pattern_instances': list(self.pattern_instances),
             'mixer': dict(self.mixer),
             'live_slots': list(self.live_slots),
+            'cue_list': self.cue_list.to_dict(),
         }
         # Guardado atómico (ANALYSIS hallazgo 18): escribir a .tmp y os.replace,
         # para que un crash a mitad de json.dump no corrompa el archivo real.
@@ -360,11 +429,11 @@ class Timeline:
 
     @classmethod
     def load(cls, path=TIMELINE_FILE) -> 'Timeline':
-        """Carga un show.json de CUALQUIER versión (v1/v2/v3).
+        """Carga un show.json de CUALQUIER versión (v1/v2/v3/v4).
 
-        Migración tolerante (F0.2): los campos que falten reciben su default
+        Migración tolerante (F0.2, E1): los campos que falten reciben su default
         vacío — cargar un show viejo NUNCA falla ni pierde datos. Al guardar,
-        sale como v3.
+        sale como v4.
         """
         p = Path(path)
         if not p.is_file():
@@ -375,12 +444,16 @@ class Timeline:
         groups = [BarGroup.from_dict(d) for d in data.get('groups', [])]
         cues_raw = data.get('cue_points', [])
         cues = [CuePoint.from_dict(d) for d in cues_raw] if cues_raw else None
+        # E1: migración tolerante v3→v4: si falta cue_list → CueList vacía
+        cue_list_raw = data.get('cue_list')
+        cue_list = CueList.from_dict(cue_list_raw) if cue_list_raw else CueList(entries=[])
         return cls(clips, int(data.get('duration_ms', 165_000)), groups, cues,
                    automation=list(data.get('automation', [])),
                    patterns=list(data.get('patterns', [])),
                    pattern_instances=list(data.get('pattern_instances', [])),
                    mixer=dict(data.get('mixer', {})),
-                   live_slots=list(data.get('live_slots', [])))
+                   live_slots=list(data.get('live_slots', [])),
+                   cue_list=cue_list)
 
 
 def make_default_groups() -> List[BarGroup]:

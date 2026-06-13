@@ -97,3 +97,20 @@ export type MacrosState = {
 
 // Re-exports MIDI (C3): importar desde aquí, no desde midi.ts directamente.
 export type { MacroKey, MidiTarget, MidiMapping } from "./midi";
+
+/** Entrada de la CueList profesional (E1, ROADMAP v3). */
+export type CueEntry = {
+  uid: string;
+  number: number;        // 1, 1.5, 2… (decimal para insertar entre cues)
+  name: string;
+  t_ms: number;
+  fade_in_ms: number;    // 0 = corte seco
+  hold_ms: number;       // -1 = GO manual; >=0 = auto-follow tras N ms
+  auto_follow: boolean;
+};
+
+/** Lista de cues operativa (E1). */
+export type CueList = {
+  entries: CueEntry[];
+  active_uid: string | null;
+};

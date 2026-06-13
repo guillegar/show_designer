@@ -316,3 +316,30 @@ en tiempo real → `live_input_stop` → vuelve al análisis offline (si existe)
 - Onset: `RMS > 1.5 × EMA_RMS` y cooldown ≥ 150ms
 - BPM: mediana de IOI + EMA α=0.8 → beats sintéticos con fase del último onset
 - Historial: `deque(maxlen≈30s)` — sin crecimiento indefinido
+
+---
+
+## E1 — Sistema de Cues profesional
+
+Lista de cues accionable (`CueList` en `Timeline.cue_list`, schema v4). Runtime en `session.py`
+(`_cue_fade_*`, `_cue_auto_follow_task`). Fade aplicado al frame en `compute_frame` (ambas rutas).
+Auto-follow: `asyncio.create_task` + `asyncio.sleep` (I4).
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `add_cue` | `name: str, t_ms: int, fade_in_ms: int = 0, hold_ms: int = -1, auto_follow: bool = False, number?: float` | `{ok, uid, number, name, t_ms, fade_in_ms, hold_ms, auto_follow}` |
+| `delete_cue` | `uid: str` | `{ok}` |
+| `update_cue` | `uid: str, **fields` (name, t_ms, fade_in_ms, hold_ms, auto_follow, number) | `{ok, entry}` |
+| `reorder_cues` | — | `{ok, entries}` (lista ordenada por number) |
+| `list_cues` | — | `{ok, entries: [...], active_uid}` |
+| `go_cue` | `uid: str` | `{ok, active_uid, t_ms}` — seek + fade + auto_follow |
+| `go_next_cue` | — | `{ok, active_uid}` o `{ok, active_uid: null}` si no hay siguiente |
+| `go_prev_cue` | — | `{ok, active_uid}` o `{ok, active_uid: null}` si no hay anterior |
+| `get_cue_state` | — | `{ok, active_uid, next_uid, fade_pct}` — O(1) |
+
+**Stream event** `cue_changed`: `{type, active_uid, fade_pct, next_uid}` — throttled al >1 % de
+cambio de fade (evita flood). Solo emitido mientras hay fade activo (`_cue_fade_start_ms is not None`).
+
+**Undo (I1)**: `cue_list` entra en `get_extra`/`restore_extra` del UndoManager desde el día 1.
+**CueEntry vs CuePoint**: son entidades separadas. Borrar una `CueEntry` NO afecta los `CuePoint`
+pasivos del timeline (marcadores de sección/estructurales).

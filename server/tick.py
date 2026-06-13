@@ -127,6 +127,24 @@ class TickLoop:
                             "clip_count": len(s.timeline.clips),
                         })
 
+                    # E1: cue_changed — emitir solo si hay fade activo y pct cambió >1%
+                    cue_fade_start = getattr(s, '_cue_fade_start_ms', None)
+                    if cue_fade_start is not None:
+                        cue_dur = max(1.0, getattr(s, '_cue_fade_duration_ms', 1.0))
+                        t_ms_now = int(t * 1000)
+                        elapsed_c = t_ms_now - cue_fade_start
+                        fade_pct = round(min(1.0, max(0.0, elapsed_c / cue_dur)), 3)
+                        last_pct = getattr(s, '_cue_last_fade_pct', -1.0)
+                        if abs(fade_pct - last_pct) > 0.01:
+                            s._cue_last_fade_pct = fade_pct
+                            cue_st = s.get_cue_state()
+                            await self.hub.broadcast_json({
+                                "type": "cue_changed",
+                                "active_uid": cue_st["active_uid"],
+                                "fade_pct": fade_pct,
+                                "next_uid": cue_st["next_uid"],
+                            })
+
                     # Estado DMX de movers/strobes (no-LED). Es caro (itera
                     # fixtures × clips), así que se difunde a ~7.5 FPS (cada 4
                     # ticks), suficiente para movers; los LEDs van a 30 FPS.

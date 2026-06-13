@@ -42,8 +42,9 @@ def test_reguardar_sale_como_v3(tmp_path):
     out = tmp_path / "show.json"
     tl.save(out)
     data = json.loads(out.read_text(encoding="utf-8"))
-    assert data["version"] == 3
-    for key in ("automation", "patterns", "pattern_instances", "mixer"):
+    # Schema v4 desde E1 (ROADMAP v3): añade cue_list
+    assert data["version"] == 4
+    for key in ("automation", "patterns", "pattern_instances", "mixer", "cue_list"):
         assert key in data
     # Y los datos siguen ahí
     assert len(data["clips"]) == 2

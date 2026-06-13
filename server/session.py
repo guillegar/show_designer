@@ -223,6 +223,13 @@ class ShowSession:
         # Evita mostrar el banner de autosave más de una vez por arranque
         self._autosave_banner_shown: bool = False
 
+        # E1: estado runtime de cues (no se persiste en show.json)
+        self._cue_fade_start_ms: Optional[float] = None    # timeline_ms donde empezó el fade
+        self._cue_fade_duration_ms: float = 0.0
+        self._cue_fade_from_master: float = 1.0             # brightness del master al iniciar
+        self._cue_auto_follow_task = None                   # asyncio.Task activo
+        self._cue_last_fade_pct: float = 1.0                # throttle >1% para cue_changed
+
         # Undo/redo extraído a UndoManager (SRP). A3: se añaden get_extra/restore_extra
         # para que patterns y pattern_instances entren en el snapshot (invariante I1).
         from server.undo_manager import UndoManager
@@ -234,6 +241,7 @@ class ShowSession:
                 "pattern_instances": list(self.timeline.pattern_instances),
                 "mixer": dict(self.timeline.mixer),
                 "live_slots": self.live_engine.slots_to_dicts(),
+                "cue_list": self.timeline.cue_list.to_dict(),  # E1: I1
             },
             restore_extra=self._restore_pattern_state,
         )
@@ -548,7 +556,7 @@ class ShowSession:
         self.notify_changed("undo")
 
     def _restore_pattern_state(self, extra: dict) -> None:
-        """Restaura patterns, pattern_instances, mixer y live_slots (I1)."""
+        """Restaura patterns, pattern_instances, mixer, live_slots y cue_list (I1)."""
         self.timeline.patterns = list(extra.get("patterns", []))
         self.timeline.pattern_instances = list(extra.get("pattern_instances", []))
         if "mixer" in extra:
@@ -556,6 +564,10 @@ class ShowSession:
         if "live_slots" in extra:
             self.live_engine.slots_from_dicts(extra["live_slots"])
             self.timeline.live_slots = self.live_engine.slots_to_dicts()
+        # E1: restaurar cue_list del snapshot (I1)
+        if "cue_list" in extra:
+            from src.core.timeline_model import CueList
+            self.timeline.cue_list = CueList.from_dict(extra["cue_list"])
         self._pattern_rev += 1
         self._clip_bucket_index_n = -1
 
@@ -567,6 +579,108 @@ class ShowSession:
 
     def redo(self) -> bool:
         return self.undo_manager.redo()
+
+    # ── E1: Sistema de Cues profesional ─────────────────────────────────────
+
+    @property
+    def _current_t_ms(self) -> int:
+        """Posición actual del playhead en milisegundos (O(1))."""
+        return int(self.time * 1000)
+
+    def _find_cue_by_uid(self, uid: str):
+        """Busca una CueEntry por uid (O(n), n << 100)."""
+        return next(
+            (e for e in self.timeline.cue_list.entries if e.uid == uid), None
+        )
+
+    def go_cue(self, uid: str):
+        """Salta al cue con el uid dado: seek, fade y auto-follow.
+
+        Devuelve la CueEntry o None si no se encontró.
+        El fade (0→1) se aplica como multiplicador en compute_frame (I4).
+        El auto-follow usa asyncio.create_task (I4 — sin time.sleep).
+        """
+        cue = self._find_cue_by_uid(uid)
+        if cue is None:
+            return None
+        self.timeline.cue_list.active_uid = uid
+        self.audio.seek(cue.t_ms / 1000.0)
+        if cue.fade_in_ms > 0:
+            self._cue_fade_start_ms = float(cue.t_ms)
+            self._cue_fade_duration_ms = float(cue.fade_in_ms)
+        else:
+            self._cue_fade_start_ms = None
+        # Cancelar tarea de auto-follow anterior
+        if self._cue_auto_follow_task is not None:
+            try:
+                self._cue_auto_follow_task.cancel()
+            except Exception:
+                pass
+            self._cue_auto_follow_task = None
+        if cue.auto_follow and cue.hold_ms >= 0:
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                self._cue_auto_follow_task = loop.create_task(
+                    self._auto_follow_task(cue.hold_ms)
+                )
+            except RuntimeError:
+                pass  # sin event loop (contexto de tests)
+        self.notify_changed('cues')
+        return cue
+
+    async def _auto_follow_task(self, hold_ms: int):
+        """Tarea asyncio: tras hold_ms avanza al siguiente cue (I4)."""
+        import asyncio
+        await asyncio.sleep(hold_ms / 1000.0)
+        self.go_next_cue()
+
+    def go_next_cue(self):
+        """Avanza al siguiente CueEntry por número. No-op si ya es el último."""
+        entries = self.timeline.cue_list.entries
+        if not entries:
+            return None
+        active = self.timeline.cue_list.active_uid
+        if active is None:
+            return self.go_cue(entries[0].uid)
+        for i, e in enumerate(entries):
+            if e.uid == active and i + 1 < len(entries):
+                return self.go_cue(entries[i + 1].uid)
+        return None
+
+    def go_prev_cue(self):
+        """Retrocede al CueEntry anterior por número. No-op si ya es el primero."""
+        entries = self.timeline.cue_list.entries
+        if not entries:
+            return None
+        active = self.timeline.cue_list.active_uid
+        if active is None:
+            return None
+        for i, e in enumerate(entries):
+            if e.uid == active and i > 0:
+                return self.go_cue(entries[i - 1].uid)
+        return None
+
+    def get_cue_state(self) -> dict:
+        """Estado actual de la CueList (O(1)): active_uid, fade_pct, next_uid."""
+        active_uid = self.timeline.cue_list.active_uid
+        entries = self.timeline.cue_list.entries
+        # Calcular fade_pct a partir del tiempo del timeline
+        fade_pct = 1.0
+        if self._cue_fade_start_ms is not None and self._cue_fade_duration_ms > 0:
+            elapsed = self._current_t_ms - self._cue_fade_start_ms
+            fade_pct = min(1.0, max(0.0, elapsed / self._cue_fade_duration_ms))
+        # Siguiente cue (para la flecha ▶ en UI)
+        next_uid = None
+        for i, e in enumerate(entries):
+            if e.uid == active_uid and i + 1 < len(entries):
+                next_uid = entries[i + 1].uid
+                break
+        return {
+            "active_uid": active_uid,
+            "fade_pct": round(fade_pct, 4),
+            "next_uid": next_uid,
+        }
 
     def _resolve_clip_effect(self, clip):
         """Devuelve (effect_id, params) del clip, resolviendo el preset si lo tiene.
@@ -676,6 +790,14 @@ class ShowSession:
                 half_period_ms = 500.0 / strobe_rate
                 if (t_ms_b % (2 * half_period_ms)) >= half_period_ms:
                     frame[:] = 0
+            # E1: fade de entrada del cue (multiplicar sobre el frame final, I4)
+            if self._cue_fade_start_ms is not None:
+                elapsed_b = t_ms_b - self._cue_fade_start_ms
+                if elapsed_b >= self._cue_fade_duration_ms:
+                    self._cue_fade_start_ms = None
+                else:
+                    pct_b = max(0.0, elapsed_b / self._cue_fade_duration_ms)
+                    frame = (frame.astype(np.float32) * pct_b).clip(0, 255).astype(np.uint8)
             return frame
 
         from src.core.param_pipeline import resolve_params
@@ -782,6 +904,15 @@ class ShowSession:
             half_period_ms = 500.0 / strobe_rate
             if (t_ms % (2 * half_period_ms)) >= half_period_ms:
                 frame[:] = 0
+
+        # E1: fade de entrada del cue (multiplicar sobre el frame final, I4)
+        if self._cue_fade_start_ms is not None:
+            elapsed = t_ms - self._cue_fade_start_ms
+            if elapsed >= self._cue_fade_duration_ms:
+                self._cue_fade_start_ms = None
+            else:
+                pct = max(0.0, elapsed / self._cue_fade_duration_ms)
+                frame = (frame.astype(np.float32) * pct).clip(0, 255).astype(np.uint8)
 
         return frame
 

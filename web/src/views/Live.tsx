@@ -4,7 +4,7 @@ import { stream, LEDS } from "../api/stream";
 import type { AutosaveAvailableEvent } from "../api/stream";
 import { useStore } from "../store";
 import { Ico, fmtTime } from "../icons";
-import type { TrackChain, MixerState, LiveSlot, LiveState, MacrosState } from "../api/types";
+import type { TrackChain, MixerState, LiveSlot, LiveState, MacrosState, CueEntry } from "../api/types";
 import { initMidi } from "../api/midi";
 import type { MidiHandle, MidiTarget, MacroKey } from "../api/midi";
 
@@ -899,6 +899,143 @@ function MidiPanel({ handle, devices, ready, unsupported, learnActive, learnTarg
   );
 }
 
+// ── Panel Cues (E1, ROADMAP v3) ─────────────────────────────────────────────
+
+function CuesPanel() {
+  const t = useStore((s) => s.t);
+  const [cues, setCues] = useState<CueEntry[]>([]);
+  const [activeUid, setActiveUid] = useState<string | null>(null);
+  const [fadePct, setFadePct] = useState<number>(1);
+  const lastRevRef = useRef<number>(-1);
+
+  const loadCues = useCallback(() => {
+    control.call("list_cues").then((r) => {
+      if (r.ok) {
+        setCues(r.cues as CueEntry[]);
+        setActiveUid(r.active_uid as string | null);
+      }
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => { loadCues(); }, [loadCues]);
+
+  // Recargar al cambiar el modelo (nuevo rev del show)
+  useEffect(() => {
+    return stream.onState((s) => {
+      if (s.rev !== lastRevRef.current) {
+        lastRevRef.current = s.rev;
+        loadCues();
+      }
+    });
+  }, [loadCues]);
+
+  // Actualizar fade_pct en tiempo real via cue_changed
+  useEffect(() => {
+    return stream.onCueChanged((e) => {
+      setActiveUid(e.active_uid);
+      setFadePct(e.fade_pct);
+      if (e.fade_pct >= 1) setFadePct(1);
+    });
+  }, []);
+
+  const goNext = useCallback(() => {
+    control.call("go_next_cue").then((r) => {
+      if (r.ok && r.cue) setActiveUid((r.cue as CueEntry).uid);
+      loadCues();
+    }).catch(() => {});
+  }, [loadCues]);
+
+  const goPrev = useCallback(() => {
+    control.call("go_prev_cue").then((r) => {
+      if (r.ok && r.cue) setActiveUid((r.cue as CueEntry).uid);
+      loadCues();
+    }).catch(() => {});
+  }, [loadCues]);
+
+  const goSpecific = useCallback((uid: string) => {
+    control.call("go_cue", { uid }).then((r) => {
+      if (r.ok) { setActiveUid(uid); setFadePct(0); }
+    }).catch(() => {});
+  }, []);
+
+  const addCueHere = useCallback(() => {
+    const t_ms = Math.round(t * 1000);
+    const num = cues.length + 1;
+    control.call("add_cue", { t_ms, name: `Cue ${num}`, number: num })
+      .then(() => loadCues()).catch(() => {});
+  }, [t, cues.length, loadCues]);
+
+  // Espacio → go_next_cue cuando el foco no está en un input
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.code === "Space") { e.preventDefault(); goNext(); }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [goNext]);
+
+  // Índice del cue activo para marcar el siguiente
+  const activeIdx = cues.findIndex((c) => c.uid === activeUid);
+  const nextUid = activeIdx >= 0 && activeIdx < cues.length - 1
+    ? cues[activeIdx + 1].uid : null;
+
+  return (
+    <div className="cues-panel">
+      <div className="panel-head">
+        <h3>Cues</h3>
+        <span className="ph-spacer" />
+        <button className="btn ghost" style={{ fontSize: 11 }} onClick={addCueHere}>
+          + Cue aquí
+        </button>
+      </div>
+
+      {/* Indicador de fade activo */}
+      {fadePct < 1 && (
+        <div className="cue-fade-bar" title={`Fade: ${Math.round(fadePct * 100)}%`}>
+          <div className="cue-fade-fill" style={{ width: `${fadePct * 100}%` }} />
+        </div>
+      )}
+
+      {/* Controles principales */}
+      <div className="cue-controls">
+        <button className="btn ghost cue-nav" onClick={goPrev} title="Cue anterior">◀ PREV</button>
+        <button className="btn cue-go" onClick={goNext} title="GO (también Espacio)">GO</button>
+        <button className="btn ghost cue-nav" onClick={goNext} title="Siguiente cue">NEXT ▶</button>
+      </div>
+
+      {/* Lista de cues */}
+      <div className="cue-list">
+        {cues.length === 0 && (
+          <div className="cue-empty">Sin cues · pulsa "+ Cue aquí" para añadir</div>
+        )}
+        {cues.map((cue) => {
+          const isActive = cue.uid === activeUid;
+          const isNext = cue.uid === nextUid;
+          return (
+            <div
+              key={cue.uid}
+              className={"cue-row" + (isActive ? " active" : "") + (isNext ? " next-cue" : "")}
+              onClick={() => goSpecific(cue.uid)}
+              title={`Ir a Cue ${cue.number} — ${fmtTime(cue.t_ms / 1000)}`}
+            >
+              <span className="cue-num">{cue.number}</span>
+              <span className="cue-name">{cue.name}</span>
+              <span className="cue-time">{fmtTime(cue.t_ms / 1000)}</span>
+              <span className="cue-meta">
+                {cue.fade_in_ms > 0 && <span className="cue-fade-tag">{cue.fade_in_ms}ms</span>}
+                {cue.auto_follow && <span className="cue-af-tag" title="Auto-follow">⟳</span>}
+                {isNext && <span className="cue-arrow">▶</span>}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Vista principal ──────────────────────────────────────────────────────────
 
 export function LiveView() {
@@ -1047,6 +1184,8 @@ export function LiveView() {
             🕐 Versiones…
           </button>
         </div>
+        {/* E1: Panel de Cues profesional */}
+        <CuesPanel />
         {/* C3: Panel MIDI */}
         <MidiPanel
           handle={midiHandle.current}

@@ -10,7 +10,7 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
 Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4 vistas funcionando.
-**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO.**
+**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1 APLICADAS (2026-06-12/13)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO.**
 
 ---
 
@@ -19,6 +19,11 @@ Estado a **2026-06-13** · **v1.10 (web)**: backend headless + frontend React, 4
 - 🗺️ **ROADMAP v2 COMPLETO (2026-06-13): `ROADMAP.md`** — "El Secuenciador" (nivel FL
   Studio): 15 fases en 4 bloques (Composición/Show/Directo/Impro). Tag: `v1.10-roadmap-v2`.
   700 tests verdes. Invariantes I1-I5 respetados en todas las fases.
+  - ✅ **E1 APLICADA (2026-06-13, ROADMAP v3)**: sistema de cues profesional. `CueEntry`+`CueList`
+    en `timeline_model.py` (schema v4, migración tolerante v3→v4). `go_cue`/`go_next_cue`/`go_prev_cue`
+    + fade frame-a-frame en `compute_frame` (ambas rutas) + auto-follow `asyncio.create_task`.
+    `cue_changed` stream event throttled >1%. 9 handlers en dispatcher. `CuesPanel` en `Live.tsx`
+    (GO/PREV/NEXT + barra de fade + lista). Space → go_next_cue. 10 tests nuevos. **711 verdes.**
   - ✅ **F0 APLICADA (2026-06-12)**: actx real, param_pipeline (stages), schema v3, ADRs. 448→495 verdes.
   - ✅ **A1 APLICADA (2026-06-12)**: modulación (`brightness ← rms`). ParamLink, ModulationStage, actx['norm'].
     25 tests. Regresión ~5% (I5).
