@@ -139,6 +139,96 @@ function PatchStage({ fixtures }: { fixtures: Fixture[] }) {
   return <canvas ref={ref} onMouseDown={onMouseDown} style={{ cursor: "grab" }} />;
 }
 
+// ── J3 — GDTF Browser ────────────────────────────────────────────────────────
+
+type GdtfProfile = { name: string; manufacturer: string; modes: string[]; channel_count: number; path: string };
+
+function GdtfBrowserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+  const [profiles, setProfiles] = useState<GdtfProfile[]>([]);
+  const [search, setSearch] = useState("");
+  const [sel, setSel] = useState<GdtfProfile | null>(null);
+  const [universe, setUniverse] = useState(11);
+  const [dmxStart, setDmxStart] = useState(1);
+  const [customName, setCustomName] = useState("");
+  const [mode, setMode] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    control.call("list_gdtf_profiles").then((r: any) => {
+      const list: GdtfProfile[] = r?.profiles ?? [];
+      setProfiles(list);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => { if (sel) setMode(sel.modes[0] ?? ""); }, [sel]);
+
+  const filtered = profiles.filter((p) => {
+    const q = search.toLowerCase();
+    return !q || p.name.toLowerCase().includes(q) || p.manufacturer.toLowerCase().includes(q);
+  });
+
+  const addFromGdtf = async () => {
+    if (!sel) return;
+    setStatus("Añadiendo...");
+    try {
+      const r: any = await control.call("add_fixture_from_gdtf", {
+        profile_path: sel.path, universe, start_channel: dmxStart,
+        name: customName || sel.name, mode_name: mode || undefined,
+      });
+      if (r?.ok) { setStatus("✓ Añadido"); setTimeout(() => { onAdded(); }, 800); }
+      else setStatus("Error: " + (r?.error ?? "desconocido"));
+    } catch (e: any) { setStatus("Error: " + e.message); }
+  };
+
+  return (
+    <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="preset-editor" style={{ width: 480, maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+        <div className="ci-head"><h4>Biblioteca GDTF</h4><button className="x" onClick={onClose}>×</button></div>
+        <div style={{ padding: "6px 14px" }}>
+          <input className="field" style={{ width: "100%" }} placeholder="Buscar por nombre o fabricante..."
+            value={search} onChange={(e) => setSearch(e.target.value)} autoFocus />
+        </div>
+        <div style={{ flex: 1, overflow: "auto", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}>
+          {filtered.length === 0 ? (
+            <div style={{ padding: 16, color: "var(--txt-3)", fontSize: 12 }}>
+              {profiles.length === 0 ? "No hay perfiles GDTF en profiles/" : "Sin resultados"}
+            </div>
+          ) : filtered.map((p) => (
+            <div key={p.path} onClick={() => setSel(p)}
+              style={{
+                padding: "6px 14px", cursor: "pointer", fontSize: 12,
+                background: sel?.path === p.path ? "rgba(255,255,255,0.06)" : undefined,
+                borderBottom: "1px solid rgba(255,255,255,0.04)",
+              }}>
+              <div style={{ fontWeight: 600 }}>{p.name}</div>
+              <div style={{ color: "var(--txt-3)" }}>{p.manufacturer} · {p.channel_count}ch · {p.modes.length} modo{p.modes.length !== 1 ? "s" : ""}</div>
+            </div>
+          ))}
+        </div>
+        {sel && (
+          <div className="ci-body" style={{ flexShrink: 0 }}>
+            <div style={{ fontSize: 11, color: "var(--txt-3)", marginBottom: 4 }}>{sel.path.split(/[/\\]/).pop()}</div>
+            {sel.modes.length > 1 && (
+              <div className="ci-row"><label>Modo DMX</label>
+                <select value={mode} onChange={(e) => setMode(e.target.value)}>
+                  {sel.modes.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="ci-row"><label>Nombre</label><input value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder={sel.name} /></div>
+            <div className="ci-row"><label>Universo</label><input type="number" value={universe} onChange={(e) => setUniverse(+e.target.value)} style={{ width: 60 }} /></div>
+            <div className="ci-row"><label>DMX start</label><input type="number" value={dmxStart} onChange={(e) => setDmxStart(+e.target.value)} style={{ width: 60 }} /></div>
+            <div className="ci-row" style={{ marginTop: 6 }}>
+              <button className="btn primary sm" style={{ flex: 1 }} onClick={addFromGdtf}>Añadir al rig</button>
+              {status && <span style={{ fontSize: 11, marginLeft: 8, color: status.startsWith("✓") ? "var(--good)" : "var(--bad)" }}>{status}</span>}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AddFixtureModal({ profiles, onClose, onAdded }: {
   profiles: any[]; onClose: () => void; onAdded: () => void;
 }) {
@@ -527,6 +617,7 @@ export function PatchView() {
   const [dmx, setDmx] = useState<DmxState>({});
   const [profiles, setProfiles] = useState<any[]>([]);
   const [adding, setAdding] = useState(false);
+  const [gdtfBrowser, setGdtfBrowser] = useState(false);
   const [edit, setEdit] = useState<Record<string, number>>({});
 
   useEffect(() => { const off = stream.onDmx((d) => setDmx(d)); return off; }, []);
@@ -557,6 +648,7 @@ export function PatchView() {
       <div className="patch-stage">
         <div className="patch-toolbar">
           <button className="btn sm" onClick={() => setAdding(true)}>+ Fixture</button>
+          <button className="btn sm ghost" onClick={() => setGdtfBrowser(true)} title="Añadir fixture desde perfil GDTF">GDTF</button>
         </div>
         <PatchStage fixtures={fixtures} />
         <div className="patch-legend">
@@ -629,6 +721,8 @@ export function PatchView() {
 
       {adding && <AddFixtureModal profiles={profiles} onClose={() => setAdding(false)}
         onAdded={() => { setAdding(false); refreshFixtures(); }} />}
+      {gdtfBrowser && <GdtfBrowserModal onClose={() => setGdtfBrowser(false)}
+        onAdded={() => { setGdtfBrowser(false); refreshFixtures(); }} />}
     </div>
   );
 }

@@ -325,6 +325,22 @@ Usa `server/timeline_export.py::export_patch_pdf`. Escritura atómica via `.tmp 
 
 ---
 
+### J3 — Biblioteca GDTF: browser y búsqueda
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `list_gdtf_profiles` | _(ninguno)_ | `{ok, profiles: [{name, manufacturer, modes, channel_count, path}]}` |
+| `add_fixture_from_gdtf` | `profile_path: str`, `universe: int`, `start_channel: int`, `name?: str`, `mode_name?: str` | `{ok, fixture: Fixture}` |
+
+**`list_gdtf_profiles`**: escanea `PROFILES_DIR/*.gdtf` con `_gdtf_metadata()` (carga metadatos
+ligeros via `pygdtf.FixtureType`; caché `_gdtf_cache` en memoria). Devuelve lista ordenada.
+
+**`add_fixture_from_gdtf`**: `profile_path` acepta ruta absoluta o relativa a `PROFILES_DIR`.
+Carga el GDTF con `load_gdtf_profile(path, mode_name)`. Genera `fixture_id` único a partir
+del nombre. Añade al rig y persiste `rig.json`. Retorna el fixture creado (I3).
+
+---
+
 ### J2 — Soporte DMX completo por canal
 
 | Handler | Params | Devuelve |

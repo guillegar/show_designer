@@ -661,6 +661,15 @@ Panel "GDTF Library" en `Patch.tsx` (drawer lateral o modal):
 rig en universo 3 canal 1 → aparece en el canvas de patch con sus 16 canales configurados.
 **Commit**: `roadmap-v4 fase J3: biblioteca GDTF browser y búsqueda`.
 
+✅ **APLICADA 2026-06-14** — `_h_list_gdtf_profiles`: escanea `PROFILES_DIR/*.gdtf`,
+caché `_gdtf_cache` en memoria con `_gdtf_metadata` (pygdtf extrae name/manufacturer/modes/
+channel_count); retorna lista ordenada. `_h_add_fixture_from_gdtf(profile_path, universe,
+start_channel, name, mode_name)`: carga GDTF via `load_gdtf_profile`, genera fixture_id único,
+añade al rig, persiste rig.json; retorna fixture (I3). Ambos en `_LOCAL`.
+`Patch.tsx`: botón "GDTF" en toolbar; `GdtfBrowserModal` — input búsqueda filtrado local,
+lista de perfiles (nombre/fabricante/canales), selector de modo si hay varios, form add
+(universo/start/nombre). 5 tests en `test_gdtf_browser.py`. **937 tests verdes.**
+
 ---
 
 ## J4 — Test de fixtures avanzado: chase y fade (~1 día, Haiku)
