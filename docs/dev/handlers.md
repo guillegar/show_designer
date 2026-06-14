@@ -325,6 +325,28 @@ Usa `server/timeline_export.py::export_patch_pdf`. Escritura atómica via `.tmp 
 
 ---
 
+### L1 — API REST pública `/api/v1/`
+
+Ver [`docs/api/rest.md`](../api/rest.md) para ejemplos curl completos.
+
+| Endpoint | Método | Handler interno |
+|----------|--------|-----------------|
+| `/api/v1/status` | GET | `get_transport_state` |
+| `/api/v1/clips` | GET | `list_clips` (offset/limit) |
+| `/api/v1/clips` | POST | `add_clip` |
+| `/api/v1/cues` | GET | `get_cue_state` |
+| `/api/v1/cues/go` | POST | `go_next_cue` |
+| `/api/v1/macros/{name}` | POST | `set_macro(name, value)` |
+| `/api/v1/fixtures` | GET | `list_fixtures` |
+
+**Auth**: `X-API-Key` header vs `app.state._rest_api_key` (cargado de
+`output_targets.json["api_key"]`). Sin clave → sin auth. Clave incorrecta → HTTP 401.
+
+**`create_rest_router()`** en `server/rest_api.py`: `APIRouter(prefix="/api/v1")` montado
+en `web.py` con `app.include_router()` antes de la montadura de estáticos.
+
+---
+
 ### K3 — Preview 2D en tiempo real
 
 Sin handlers nuevos — el preview consume el stream binario existente `/ws/stream`.

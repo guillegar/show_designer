@@ -1000,6 +1000,14 @@ JSON sin necesitar WebSocket. `curl -X POST .../api/v1/cues/go -H "X-API-Key: mi
 avanza al siguiente cue.
 **Commit**: `roadmap-v4 fase L1: API REST pública`.
 
+✅ **APLICADA 2026-06-14** — `server/rest_api.py` (NUEVO): `create_rest_router()` APIRouter
+FastAPI; 7 endpoints: `GET /status`, `GET /clips`, `POST /clips`, `GET /cues`,
+`POST /cues/go`, `POST /macros/{name}`, `GET /fixtures`. `_check_auth` contra
+`app.state._rest_api_key`; sin clave → libre; clave incorrecta → 401. Wrappers sobre
+`disp.handle()` sin duplicar lógica. `web.py`: mount `/api/v1` antes de estáticos; carga
+`api_key` de `output_targets.json`. `docs/api/rest.md` con ejemplos curl. 7 tests en
+`test_rest_api.py`. **960 tests verdes.**
+
 ---
 
 ## L2 — Webhooks de eventos (~2 días, Haiku)

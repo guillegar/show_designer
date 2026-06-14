@@ -26,6 +26,7 @@ from server.dispatcher import Dispatcher
 from server.tick import StreamHub, TickLoop
 from server.json_rpc import parse_json_rpc_message
 from server.osc_bridge import OscBridge
+from server.rest_api import create_rest_router
 
 _ROOT = Path(__file__).parent.parent
 _DIST = _ROOT / "web" / "dist"
@@ -58,6 +59,19 @@ def create_app() -> FastAPI:
     app.state.dispatcher = None
     app.state.hub = StreamHub()
     app.state.tick = None
+    app.state._rest_api_key = ""  # L1: vacío = sin auth
+
+    # L1: cargar api_key de output_targets.json si existe
+    try:
+        import json as _json
+        if _OUTPUT_TARGETS.is_file():
+            _cfg = _json.loads(_OUTPUT_TARGETS.read_text("utf-8"))
+            app.state._rest_api_key = _cfg.get("api_key", "") or ""
+    except Exception:
+        pass
+
+    # L1: montar router REST /api/v1 ANTES de los estáticos
+    app.include_router(create_rest_router())
 
     @app.on_event("startup")
     async def _startup():
