@@ -352,6 +352,89 @@ type WebhookCfg = { url: string; events: string[]; secret: string };
 
 const ALL_EVENTS = ["on_cue_change", "on_clip_start", "on_clip_stop", "on_transport_change"];
 
+// ── N2: Panel Bundle (backup / restauración) ──────────────────────────────
+
+function BundlePanel() {
+  const [open, setOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportPath, setExportPath] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ slug?: string; warnings?: string[]; error?: string } | null>(null);
+
+  const doExport = async (includeAudio: boolean) => {
+    setExporting(true);
+    setExportPath(null);
+    try {
+      const r = await control.call("export_show_bundle", { include_audio: includeAudio });
+      if (r.ok) setExportPath(r.path);
+      else setExportPath(`Error: ${r.error}`);
+    } catch {
+      setExportPath("Error de red");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const doImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    const zipPath = (file as any).path ?? file.name;
+    try {
+      const r = await control.call("import_show_bundle", { zip_path: zipPath });
+      setImportResult(r.ok ? { slug: r.slug, warnings: r.warnings } : { error: r.error });
+    } catch {
+      setImportResult({ error: "Error de red" });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <div className="osc-panel">
+      <div className="osc-head" onClick={() => setOpen((o) => !o)} style={{ cursor: "pointer" }}>
+        <span>📦 Bundle (backup)</span>
+        <span style={{ marginLeft: "auto", opacity: 0.5 }}>{open ? "▲" : "▼"}</span>
+      </div>
+      {open && (
+        <div style={{ padding: "8px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button className="btn sm" style={{ flex: 1 }} onClick={() => doExport(false)} disabled={exporting}>
+              {exporting ? "Exportando…" : "📦 Exportar"}
+            </button>
+            <button className="btn sm ghost" onClick={() => doExport(true)} disabled={exporting}>+ audio</button>
+          </div>
+          {exportPath && (
+            <div style={{ fontSize: 10, color: exportPath.startsWith("Error") ? "var(--bad)" : "var(--ok)", wordBreak: "break-all" }}>
+              {exportPath}
+            </div>
+          )}
+          <label style={{ fontSize: 11, cursor: "pointer", color: "var(--accent)" }}>
+            📥 Importar bundle…
+            <input type="file" accept=".zip" style={{ display: "none" }} onChange={doImport} disabled={importing} />
+          </label>
+          {importing && <div style={{ fontSize: 11, color: "var(--txt-4)" }}>Importando…</div>}
+          {importResult && (
+            <div style={{ fontSize: 11 }}>
+              {importResult.error ? (
+                <span style={{ color: "var(--bad)" }}>Error: {importResult.error}</span>
+              ) : (
+                <>
+                  <span style={{ color: "var(--ok)" }}>Importado como "{importResult.slug}"</span>
+                  {(importResult.warnings ?? []).map((w, i) => (
+                    <div key={i} style={{ color: "var(--warn)", marginTop: 2 }}>⚠ {w}</div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function WebhookPanel() {
   const [open, setOpen] = useState(false);
   const [cfgs, setCfgs] = useState<WebhookCfg[]>([]);
@@ -903,6 +986,8 @@ export function PatchView() {
         <DmxUsbPanel />
         <OscPanel />
         <WebhookPanel />
+        {/* N2: Bundle backup */}
+        <BundlePanel />
       </div>
 
       {adding && <AddFixtureModal profiles={profiles} onClose={() => setAdding(false)}

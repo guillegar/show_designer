@@ -325,6 +325,31 @@ Usa `server/timeline_export.py::export_patch_pdf`. Escritura atómica via `.tmp 
 
 ---
 
+### N2 — Backup y restauración completa de show
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `export_show_bundle` | `include_audio: bool = false` | `{ok, path}` — ruta absoluta del ZIP |
+| `import_show_bundle` | `zip_path: str` | `{ok, slug, warnings: [str]}` o `{ok: false, error}` |
+
+**Estructura del ZIP:**
+```
+MANIFEST.json          {version, created_at, show_slug, sd_version, plugins}
+show.json
+autovj.json            (si existe)
+output_targets.json    (api_key / tokens / secrets → <PLACEHOLDER_…>)
+plugins/effects/*.py   (solo plugins no built-in)
+audio/<archivo>        (solo si include_audio=True y < 500 MB)
+```
+
+**Notas:**
+- Escritura atómica: `.tmp` + `os.replace` (nunca ZIP parcial).
+- `import_show_bundle` con ZIP corrupto lanza `ValueError` sin crear directorio parcial.
+- Plugins ya existentes en destino → warning, sin sobreescribir.
+- Audio no incluido en ZIP → warning en `warnings`.
+
+---
+
 ### N1 — Marketplace de plugins
 
 | Handler | Params | Devuelve |

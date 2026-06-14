@@ -3222,6 +3222,32 @@ def _h_install_plugin(session, params):
     return install_plugin(download_url, plugins_dir)
 
 
+# ── N2 — Backup y restauración de show ───────────────────────────────────────
+
+def _h_export_show_bundle(session, params):
+    """export_show_bundle(include_audio?) → {ok, path}."""
+    include_audio = bool(params.get("include_audio", False))
+    from server.show_bundle import export_show_bundle
+    try:
+        path = export_show_bundle(session, include_audio=include_audio)
+        return {"ok": True, "path": path}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def _h_import_show_bundle(session, params):
+    """import_show_bundle(zip_path) → {ok, slug, warnings} or {ok: false, error}."""
+    from server.validators import require_key
+    from server.show_bundle import import_show_bundle
+    from pathlib import Path as _Path
+    zip_path = require_key(params, "zip_path")
+    try:
+        slug, warnings = import_show_bundle(zip_path, _Path("projects"))
+        return {"ok": True, "slug": slug, "warnings": warnings}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
 _LOCAL = {
     # H4 — list_clips con paginación (offset/limit)
     "list_clips": _h_list_clips,
@@ -3389,6 +3415,9 @@ _LOCAL = {
     # N1 — Marketplace de plugins
     "list_marketplace_plugins": _h_list_marketplace_plugins,
     "install_plugin": _h_install_plugin,
+    # N2 — Backup y restauración de show
+    "export_show_bundle": _h_export_show_bundle,
+    "import_show_bundle": _h_import_show_bundle,
 }
 
 

@@ -9,8 +9,19 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > documentación** para que refleje el estado real — este `CLAUDE.md` (arquitectura/estado) y los
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
-Estado a **2026-06-14** · **v2.0 · 998 tests Python + 3 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1 APLICADAS** — backend headless + frontend React + REST API + webhooks + multiusuario + tap BPM + show generator + historial de gestos + marketplace de plugins.
-**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger + exportación PDF/CSV + editor de patch visual. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+Estado a **2026-06-14** · **v2.0 · 1004 tests Python + 3 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1+N2 APLICADAS · BLOQUE N COMPLETO** — backend headless + frontend React + REST API + webhooks + multiusuario + tap BPM + show generator + historial de gestos + marketplace de plugins + bundle backup/restore.
+**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1+N2 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger + exportación PDF/CSV + editor de patch visual. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+  - ✅ **N2 APLICADA (2026-06-14, ROADMAP v4)**: Backup y restauración completa de show. **BLOQUE N COMPLETO.**
+    `server/show_bundle.py` (NUEVO): `export_show_bundle(session, include_audio)` — ZIP atómico
+    (`.tmp+os.replace`) con `show.json`, `autovj.json`, `output_targets.json` sanitizado
+    (api_key+tokens+secrets → placeholders), plugins custom detectados (`_BUILTIN_PLUGINS`),
+    audio opcional (< 500 MB), `MANIFEST.json` con versión/slug/plugins. `import_show_bundle(
+    zip_path, projects_dir)` — valida MANIFEST, slug safe (regex + dedup), extrae show.json/
+    autovj/plugins, avisa si audio no incluido o plugin faltante, no crea proyecto parcial
+    ante ZIP corrupto. Handlers `export_show_bundle` + `import_show_bundle` en `_LOCAL`.
+    `Patch.tsx`: `BundlePanel` plegable — botones "📦 Exportar"/"+ audio" + ruta al completar,
+    input file "📥 Importar bundle…" + lista de warnings post-import. 6 tests en
+    `test_show_bundle.py`. **1004 Python.**
   - ✅ **N1 APLICADA (2026-06-14, ROADMAP v4)**: Marketplace de plugins.
     `server/marketplace.py` (NUEVO): `fetch_manifest(url)` — sync httpx, timeout 10 s,
     cache en memoria 5 min, devuelve `(plugins, cached)`. `install_plugin(url, dir)` —

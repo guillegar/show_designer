@@ -1437,7 +1437,7 @@ hago clic en Instalar → en 3 s el efecto aparece en el Browser y puedo asignar
 
 ---
 
-## N2 — Backup y restauración completa de show (~2 días, Haiku)
+## ✅ APLICADA (2026-06-14) N2 — Backup y restauración completa de show (~2 días, Haiku)
 
 **Qué**: exportar TODO lo necesario para reproducir el show en otra máquina en un ZIP:
 `show.json` + `autovj.json` + `output_targets.json` (sin credenciales) + plugins custom
