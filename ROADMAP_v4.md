@@ -937,6 +937,14 @@ coloreadas actualizándose a 30 FPS sin lag visible. Ajusto el zoom a ×4 → lo
 grandes y claramente distinguibles. Sin hardware conectado.
 **Commit**: `roadmap-v4 fase K3: preview 2D en tiempo real`.
 
+✅ **APLICADA 2026-06-14** — `web/src/views/Preview.tsx` (NUEVO): `buildImageData` pura
+(exportada para tests); `PreviewView` con `requestAnimationFrame`; zoom ×2/4/6/8;
+toggle etiquetas de barra; `stream.latestFrame.buffer` → `tmpCanvas` → `drawImage` escalado.
+`store.ts`: `Tab` + "preview". `App.tsx`: import + tab "Preview" + badge. `vite.config.ts`:
+`test.environment = "happy-dom"`. `web/src/preview.test.ts` (Vitest, 3 tests): buffer correcto
+→ shape correcta; LED rojo → píxel rojo; tamaño incorrecto → negro sin excepción. **953 tests
+Python + 3 Vitest verdes.**
+
 ---
 
 # BLOQUE L — RED Y COLABORACIÓN

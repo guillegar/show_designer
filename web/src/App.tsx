@@ -11,6 +11,7 @@ import { LiveView } from "./views/Live";
 import { AnalyzerView } from "./views/Analyzer";
 import { PatchView } from "./views/Patch";
 import { Viewer3DView } from "./views/Viewer3D";
+import { PreviewView } from "./views/Preview";
 
 type ProjectInfo = { slug: string; name: string; audio_path: string };
 
@@ -84,6 +85,7 @@ const TABS: { id: Tab; label: string; icon: keyof typeof Ico }[] = [
   { id: "analyzer", label: "Analyzer", icon: "analyzer" },
   { id: "patch", label: "Patch", icon: "patch" },
   { id: "viewer3d", label: "3D Viewer", icon: "live" },
+  { id: "preview", label: "Preview", icon: "analyzer" },
 ];
 
 export function App() {
@@ -142,6 +144,7 @@ export function App() {
     analyzer: null,
     patch: fixtures.length || null,
     viewer3d: null,
+    preview: null,
   };
 
   return (
@@ -196,6 +199,7 @@ export function App() {
         {tab === "analyzer" && <AnalyzerView />}
         {tab === "patch" && <PatchView />}
         {tab === "viewer3d" && <Viewer3DView />}
+        {tab === "preview" && <PreviewView />}
       </div>
 
       {/* CUES (modo directo) */}

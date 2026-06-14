@@ -325,6 +325,23 @@ Usa `server/timeline_export.py::export_patch_pdf`. Escritura atómica via `.tmp 
 
 ---
 
+### K3 — Preview 2D en tiempo real
+
+Sin handlers nuevos — el preview consume el stream binario existente `/ws/stream`.
+
+**`web/src/views/Preview.tsx`** (NUEVO):
+- `buildImageData(frameBuffer: ArrayBuffer, pixelSize?: number): ImageData` — función pura
+  exportable. Mapea el buffer `NUM_BARS × PREVIEW_LEDS × 3` bytes → `ImageData` RGBA. Si
+  el tamaño es incorrecto devuelve `ImageData` negro.
+- `PreviewView`: canvas 2D + `requestAnimationFrame` a 30 FPS. Botones de zoom ×2/4/6/8.
+  Toggle de etiquetas de barra.
+- `store.ts`: `Tab` añade `"preview"`. `App.tsx`: tab "Preview" registrado.
+- `vite.config.ts`: `test.environment = "happy-dom"` (para `ImageData` en tests).
+- `web/src/preview.test.ts` (Vitest): 3 tests cubren shape correcta, píxel rojo y buffer
+  incorrecto → negro sin excepción.
+
+---
+
 ### K2 — Pixel mapping: imagen/vídeo → LEDs
 
 | Handler | Params | Devuelve |
