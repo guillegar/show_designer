@@ -304,6 +304,27 @@ Llamar a `undo()` tras `add_marker` o `update_marker` restaura el estado anterio
 
 ---
 
+### I5 — Exportación PDF patch + CSV DMX
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `export_patch_pdf` | _(ninguno)_ | `{ok, path: str}` |
+| `export_dmx_csv` | `fps?: int = 1` | `{ok, path: str}` |
+
+**`export_patch_pdf`**: genera `projects/<slug>/patch.pdf` (o `.txt` si fpdf2 no disponible).
+Usa `server/timeline_export.py::export_patch_pdf`. Escritura atómica via `.tmp → os.replace`.
+
+**`export_dmx_csv`**: genera `projects/<slug>/dmx_export.csv`.
+- Cabecera: `t_ms,universe,ch_1,...,ch_512`.
+- Una fila por frame muestreado (`ceil(duration_s * fps)` filas total).
+- `universe=1` (barra 0, 93 LEDs × RGB = 279 canales activos; rest = 0).
+- Reutiliza `render.npz` (a 30fps) si existe → sin llamar a `compute_frame`.
+- Si `render.npz` no existe → `compute_frame` on-the-fly para cada sample.
+
+**Nota**: los handlers no están en `_TIMELINE_MUTATORS` (son read-only / export).
+
+---
+
 ### I4 — Vista Arranger
 
 | Handler | Params | Devuelve |

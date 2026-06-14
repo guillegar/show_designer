@@ -364,6 +364,29 @@ function RenderPanel() {
     }
   };
 
+  // I5: PDF patch + CSV DMX export
+  const [pdfState, setPdfState] = useState<"idle" | "busy" | "done">("idle");
+  const [csvState, setCsvState] = useState<"idle" | "busy" | "done">("idle");
+  const [pdfPath, setPdfPath] = useState<string | null>(null);
+  const [csvPath, setCsvPath] = useState<string | null>(null);
+
+  const exportPdf = () => {
+    if (pdfState === "busy") return;
+    setPdfState("busy");
+    control.call("export_patch_pdf", {}).then((r: any) => {
+      if (r.ok) { setPdfState("done"); setPdfPath(r.path); }
+      else { setPdfState("idle"); alert(r.error || "Error al exportar PDF"); }
+    }).catch(() => setPdfState("idle"));
+  };
+  const exportCsvDmx = () => {
+    if (csvState === "busy") return;
+    setCsvState("busy");
+    control.call("export_dmx_csv", { fps: 1 }).then((r: any) => {
+      if (r.ok) { setCsvState("done"); setCsvPath(r.path); }
+      else { setCsvState("idle"); alert(r.error || "Error al exportar CSV DMX"); }
+    }).catch(() => setCsvState("idle"));
+  };
+
   const exportVideo = (fmt: "gif" | "mp4") => {
     if (exportPct !== null) return;
     setExportPct(0);
@@ -435,6 +458,23 @@ function RenderPanel() {
           <span className="render-progress-label">Export {exportPct}%</span>
         </div>
       )}
+
+      {/* I5: PDF patch + CSV DMX */}
+      <div className="render-export-row">
+        <span style={{ fontSize: 11, color: "var(--txt-3)" }}>Docs:</span>
+        <button className={"btn sm" + (pdfState === "busy" ? " disabled" : "")}
+          disabled={pdfState === "busy"} onClick={exportPdf}
+          title="Exportar PDF con lista de clips por pista (patch document)">
+          {pdfState === "busy" ? "..." : "📄 PDF Patch"}
+        </button>
+        <button className={"btn sm" + (csvState === "busy" ? " disabled" : "")}
+          disabled={csvState === "busy"} onClick={exportCsvDmx}
+          title="Exportar CSV DMX muestreado a 1 FPS (t_ms, universe, ch_1..512)">
+          {csvState === "busy" ? "..." : "📊 CSV DMX"}
+        </button>
+        {pdfPath && <span className="export-path" title={pdfPath}>✓ {pdfPath.split(/[/\\]/).pop()}</span>}
+        {csvPath && <span className="export-path" title={csvPath}>✓ {csvPath.split(/[/\\]/).pop()}</span>}
+      </div>
     </div>
   );
 }

@@ -9,8 +9,15 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > documentación** para que refleje el estado real — este `CLAUDE.md` (arquitectura/estado) y los
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
-Estado a **2026-06-14** · **v2.0 · 910 tests · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4 APLICADAS** — backend headless + frontend React, 4 vistas funcionando.
-**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+Estado a **2026-06-14** · **v2.0 · 918 tests · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5 APLICADAS** — backend headless + frontend React, 4 vistas funcionando.
+**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4+I5 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger + exportación PDF/CSV. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+  - ✅ **I5 APLICADA (2026-06-14, ROADMAP v4)**: Exportación PDF patch + CSV DMX.
+    `server/timeline_export.py`: `export_patch_pdf` (fpdf2 o txt fallback; escritura
+    atómica via `.tmp → replace`) + `export_dmx_csv` (reutiliza render.npz si existe,
+    compute_frame on-the-fly si no; una fila/frame; t_ms,universe,ch_1..ch_512).
+    Handlers `export_patch_pdf` y `export_dmx_csv` en `_LOCAL`. Live.tsx RenderPanel:
+    botones "📄 PDF Patch" + "📊 CSV DMX" con indicador de ruta al completar.
+    8 tests en `test_timeline_export.py`. **918 tests verdes.**
   - ✅ **I4 APLICADA (2026-06-14, ROADMAP v4)**: Vista Arranger — strip sobre la tira de lanes
     con secciones como bloques coloreados (calculadas desde markers I2). Botón "⊞ Arr" en
     toolbar. Drag horizontal de bloque → `duplicate_range` + `delete_range` (reordena sección).

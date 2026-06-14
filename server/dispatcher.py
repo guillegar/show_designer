@@ -2316,6 +2316,42 @@ def _h_get_render_status(session, params):
             "has_ffmpeg": has_ffmpeg, "render_ready": False}
 
 
+# ── I5 — Exportación PDF patch + CSV DMX ─────────────────────────────────────
+
+def _h_export_patch_pdf(session, params):
+    """export_patch_pdf() → {ok, path}.
+
+    Genera PDF (o TXT fallback) con clips del timeline ordenados por pista y
+    tiempo. Usa fpdf2 si disponible; si no, crea un .txt equivalente.
+    """
+    from server.timeline_export import export_patch_pdf
+    out_path = str(session.project.folder / "patch.pdf")
+    try:
+        path = export_patch_pdf(session, out_path)
+        return {"ok": True, "path": path}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def _h_export_dmx_csv(session, params):
+    """export_dmx_csv(fps=1) → {ok, path}.
+
+    Genera CSV con frames DMX muestreados a fps FPS.
+    Cabecera: t_ms,universe,ch_1,...,ch_512.
+    Reutiliza render.npz si existe y es coherente; si no, compute_frame.
+    """
+    from server.timeline_export import export_dmx_csv
+    fps = int(params.get("fps", 1))
+    if fps < 1:
+        return {"ok": False, "error": "fps debe ser >= 1"}
+    out_path = str(session.project.folder / "dmx_export.csv")
+    try:
+        path = export_dmx_csv(session, out_path, fps=fps)
+        return {"ok": True, "path": path}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 # ── E4 — Test de output y patch visual ───────────────────────────────────────
 
 def _h_identify_fixture(session, params):
@@ -2612,6 +2648,9 @@ _LOCAL = {
     "go_next_cue": _h_go_next_cue,
     "go_prev_cue": _h_go_prev_cue,
     "get_cue_state": _h_get_cue_state,
+    # I5 — Exportación PDF patch + CSV DMX
+    "export_patch_pdf": _h_export_patch_pdf,
+    "export_dmx_csv": _h_export_dmx_csv,
     # E3 — Export de video preview (ROADMAP v3)
     "export_video": _h_export_video,
     "get_render_status": _h_get_render_status,

@@ -401,7 +401,14 @@ final → los clips se reordenan en el timeline; reproduzco y el show sigue el n
 
 ---
 
-## I5 — Exportación de timeline: PDF de patch + CSV DMX (~2 días, Haiku)
+## I5 — Exportación de timeline: PDF de patch + CSV DMX (~2 días, Haiku) ✅ APLICADA 2026-06-14
+
+**Implementación**: `server/timeline_export.py` — `export_patch_pdf` (fpdf2 o txt fallback,
+escritura atómica) + `export_dmx_csv` (reutiliza render.npz a 30fps si existe, compute_frame
+on-the-fly si no; columnas t_ms,universe,ch_1..ch_512; una fila por frame). Handlers
+`export_patch_pdf` y `export_dmx_csv` en `_LOCAL` del dispatcher. Frontend: botones
+"📄 PDF Patch" y "📊 CSV DMX" en RenderPanel de Live.tsx con indicador ✓ de ruta.
+8 tests en `test_timeline_export.py`. Suite total: 918 tests verdes.
 
 **Qué**: dos exportaciones profesionales:
 - **PDF de patch**: lista de clips por pista con tiempos, efectos y params (para el técnico
