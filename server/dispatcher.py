@@ -1377,6 +1377,80 @@ def _h_set_macro(session, params):
     return {"ok": True, "macros": dict(session.macros)}
 
 
+# ── I1 — Grabación en vivo de macros ────────────────────────────────────────
+
+def _h_start_record(session, params):
+    """start_record() → {ok, recording: True}.
+
+    Activa la grabación de macros. Limpia puntos anteriores y registra el
+    tiempo de inicio. Mientras graba, compute_frame captura cada cambio de
+    macro con throttle 50ms.
+    """
+    session._recorded_lanes = {}
+    session._record_last_ms = {}
+    session._record_start_ms = float(session._current_t_ms)
+    session._recording = True
+    return {"ok": True, "recording": True}
+
+
+def _h_stop_record(session, params):
+    """stop_record() → {ok, recording: False, lanes_created: int, lane_uids: [str]}.
+
+    Detiene la grabación y convierte los puntos capturados en AutomationLanes
+    en session.timeline.automation. Es idempotente: llamar sin grabación activa
+    devuelve lanes_created=0. Las lanes son undoables (I1).
+    """
+    if not session._recording and not session._recorded_lanes:
+        return {"ok": True, "recording": False, "lanes_created": 0, "lane_uids": []}
+
+    session._recording = False
+
+    from src.core.automation import AutomationLane, AutomationPoint
+    from uuid import uuid4
+
+    start_ms = session._record_start_ms
+    lane_uids = []
+
+    # Snapshot ANTES de mutar → undo revierte las lanes creadas (I1)
+    session.snapshot()
+
+    for macro_name, points in session._recorded_lanes.items():
+        if not points:
+            continue
+        target = f"master:{macro_name}"
+        auto_points = [
+            {"t_ms": int(pt["t_ms"] - start_ms), "value": float(pt["value"]), "shape": "linear"}
+            for pt in points
+        ]
+        uid = uuid4().hex[:12]
+        lane = AutomationLane(uid=uid, target=target, points=auto_points, enabled=True)
+        session.timeline.automation.append(lane.to_dict())
+        lane_uids.append(uid)
+
+    session._recorded_lanes = {}
+    session._record_last_ms = {}
+    session.invalidate_caches()
+    return {
+        "ok": True,
+        "recording": False,
+        "lanes_created": len(lane_uids),
+        "lane_uids": lane_uids,
+    }
+
+
+def _h_get_record_state(session, params):
+    """get_record_state() → {ok, recording, elapsed_ms, points_captured}."""
+    recording = getattr(session, '_recording', False)
+    elapsed = (float(session._current_t_ms) - session._record_start_ms) if recording else 0.0
+    points = sum(len(v) for v in getattr(session, '_recorded_lanes', {}).values())
+    return {
+        "ok": True,
+        "recording": recording,
+        "elapsed_ms": elapsed,
+        "points_captured": points,
+    }
+
+
 # ── D1 — Auto-VJ por reglas ─────────────────────────────────────────────────
 
 def _h_autovj_get_state(session, params):
@@ -2369,6 +2443,10 @@ _LOCAL = {
     "get_live_state": _h_get_live_state,
     # C2 — Macros en vivo
     "set_macro": _h_set_macro,
+    # I1 — Grabación en vivo de macros
+    "start_record": _h_start_record,
+    "stop_record": _h_stop_record,
+    "get_record_state": _h_get_record_state,
     # D1 — Auto-VJ por reglas
     "autovj_get_state": _h_autovj_get_state,
     "autovj_set_ruleset": _h_autovj_set_ruleset,

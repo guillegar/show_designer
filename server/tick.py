@@ -71,6 +71,7 @@ class TickLoop:
         self._fps_meter = 0.0
         self._n = 0
         self._last_state_sig = None  # throttle del estado JSON (A3)
+        self._record_emit_t: float = 0.0  # I1: último envío de record_state
 
     async def run(self):
         self._running = True
@@ -153,6 +154,21 @@ class TickLoop:
                         actx_norm = s._cached_actx.get("norm", {}) if hasattr(s, "_cached_actx") else {}
                         rms_val = float(actx_norm.get("rms", 0.0))
                         osc.emit_out(int(t * 1000), section, beat, rms_val)
+
+                    # I1: record_state — emitir cada ~500ms durante grabación
+                    if getattr(s, '_recording', False):
+                        if t0 - self._record_emit_t >= 0.5:
+                            self._record_emit_t = t0
+                            points = sum(
+                                len(v) for v in getattr(s, '_recorded_lanes', {}).values()
+                            )
+                            elapsed = (float(s._current_t_ms) - s._record_start_ms)
+                            await self.hub.broadcast_json({
+                                "type": "record_state",
+                                "recording": True,
+                                "elapsed_ms": elapsed,
+                                "points": points,
+                            })
 
                     # Estado DMX de movers/strobes (no-LED). Es caro (itera
                     # fixtures × clips), así que se difunde a ~7.5 FPS (cada 4

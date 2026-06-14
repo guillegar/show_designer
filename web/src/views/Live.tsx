@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { control } from "../api/control";
 import { stream, LEDS } from "../api/stream";
-import type { AutosaveAvailableEvent, ExportProgressEvent, TempoSyncState } from "../api/stream";
+import type { AutosaveAvailableEvent, ExportProgressEvent, TempoSyncState, RecordStateEvent } from "../api/stream";
+import { ToastContainer, useToast } from "../components/Toast";
 import { useStore } from "../store";
 import { Ico, fmtTime } from "../icons";
 import type { TrackChain, MixerState, LiveSlot, LiveState, MacrosState, CueEntry } from "../api/types";
@@ -469,9 +470,12 @@ type MacroStripProps = {
   onMacroChange: (key: keyof MacrosState, value: number) => void;
   midiLearnActive: boolean;
   onLearnMacro: (key: MacroKey) => void;
+  recording: boolean;
+  recordPoints: number;
+  onToggleRecord: () => void;
 };
 
-function MacroStrip({ macros, onMacroChange, midiLearnActive, onLearnMacro }: MacroStripProps) {
+function MacroStrip({ macros, onMacroChange, midiLearnActive, onLearnMacro, recording, recordPoints, onToggleRecord }: MacroStripProps) {
   const fmtVal = (def: MacroDef, v: number) => {
     if (def.key === "hue_shift") return `${v > 0 ? "+" : ""}${v.toFixed(0)}°`;
     if (def.key === "strobe_rate") return v === 0 ? "OFF" : `${v.toFixed(1)} Hz`;
@@ -482,6 +486,14 @@ function MacroStrip({ macros, onMacroChange, midiLearnActive, onLearnMacro }: Ma
     <div className="macro-strip">
       <div className="macro-strip-head">
         <span className="macro-strip-title">Macros en vivo</span>
+        <button
+          className={"btn" + (recording ? " rec-active" : " ghost")}
+          style={{ fontSize: 10, marginRight: 4 }}
+          onClick={onToggleRecord}
+          title={recording ? `Grabando — ${recordPoints} puntos. Clic para parar` : "Grabar gestos de macro como automatización"}
+        >
+          {recording ? "⏹ STOP REC" : "⏺ REC"}
+        </button>
         <button
           className="btn ghost"
           style={{ fontSize: 10 }}
@@ -1184,6 +1196,38 @@ export function LiveView() {
     return stream.onAutosaveAvailable((e) => setAutosaveEvent(e));
   }, []);
 
+  // I1: toasts + estado de grabación de macros
+  const { toasts, addToast, dismissToast } = useToast();
+  const [recording, setRecording] = useState(false);
+  const [recordPoints, setRecordPoints] = useState(0);
+
+  useEffect(() => {
+    return stream.onRecordState((e: RecordStateEvent) => {
+      setRecording(e.recording);
+      setRecordPoints(e.points);
+    });
+  }, []);
+
+  const handleToggleRecord = useCallback(async () => {
+    if (!recording) {
+      await control.call("start_record").catch(() => {});
+      setRecording(true);
+      setRecordPoints(0);
+    } else {
+      const res = await control.call("stop_record").catch(() => null);
+      setRecording(false);
+      if (res?.lanes_created != null) {
+        addToast(
+          res.lanes_created > 0
+            ? `${res.lanes_created} lane(s) grabadas — ver en el editor de automatización`
+            : "Grabación parada — sin movimientos capturados",
+          res.lanes_created > 0 ? "success" : "info",
+          5000
+        );
+      }
+    }
+  }, [recording, addToast]);
+
   // C2: estado de macros elevado (antes en MacroStrip) para que MIDI pueda actualizarlo
   const [macros, setMacros] = useState<MacrosState>({ ...MACRO_DEFAULTS });
   const macroLastSent = useRef<Record<string, number>>({});
@@ -1326,12 +1370,15 @@ export function LiveView() {
           onLearnToggle={handleLearnToggle}
           onLearnStop={handleLearnStop}
         />
-        {/* C2: Macros en vivo */}
+        {/* C2: Macros en vivo + I1: REC */}
         <MacroStrip
           macros={macros}
           onMacroChange={handleMacroChange}
           midiLearnActive={midiLearnActive}
           onLearnMacro={handleLearnMacro}
+          recording={recording}
+          recordPoints={recordPoints}
+          onToggleRecord={handleToggleRecord}
         />
         {/* C1: Performance Grid */}
         <PerformanceGrid
@@ -1390,6 +1437,9 @@ export function LiveView() {
           </div>
         </div>
       </div>
+
+      {/* I1: toasts de grabación */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

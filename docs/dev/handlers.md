@@ -234,6 +234,41 @@ El estado de los slots se persiste en `show.json` (`live_slots`). Cubre I1 (undo
 
 **Slot 15 reservado**: D1 AutoVJ usa el slot 15 para `fire_pattern`. No asignar manualmente.
 
+### I1 — Grabación en vivo de macros
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `start_record` | — | `{ok, recording: true}` |
+| `stop_record` | — | `{ok, recording: false, lanes_created: int, lane_uids: [str]}` |
+| `get_record_state` | — | `{ok, recording: bool, elapsed_ms: float, points_captured: int}` |
+
+**`start_record`**: activa la grabación. Limpia el buffer de puntos anterior y registra
+`_record_start_ms = session._current_t_ms`. Durante la grabación, `compute_frame` captura
+el valor actual de cada macro si difiere del default, con throttle de 50ms.
+
+**`stop_record`**: para la grabación y convierte los puntos capturados en `AutomationLane`s
+en `session.timeline.automation` con target `"master:<macro_name>"` y `shape="linear"`.
+Los t_ms de los puntos son relativos al inicio de la grabación. Llama `snapshot()` antes de
+crear las lanes (undo cubre la operación — I1). Idempotente: sin grabación activa devuelve
+`lanes_created: 0`.
+
+**`get_record_state`**: estado actual de la grabación (polling, útil si no se quiere depender
+del evento de stream). `elapsed_ms` es el tiempo de la grabación en curso.
+
+**Stream event** `record_state`: `{type, recording: bool, elapsed_ms, points}` — emitido
+cada ~500ms mientras `_recording=True`. El frontend actualiza el contador de puntos capturados.
+
+**Normalización de valores** (para AutomationLane, rango 0..1):
+- `brightness_mul` (0..2): `value / 2.0`
+- `speed_mul` (0..4): `value / 4.0`
+- `hue_shift` (-180..180): `(value + 180) / 360.0`
+- `strobe_rate` (0..30): `value / 30.0`
+
+**Undo (I1)**: `automation` ahora forma parte del `get_extra`/`restore_extra` del
+`UndoManager`. Llamar a `undo()` tras `stop_record` elimina las lanes creadas.
+
+---
+
 ### C2 — Macros en vivo
 
 | Handler | Params | Devuelve |

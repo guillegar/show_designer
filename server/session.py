@@ -200,6 +200,12 @@ class ShowSession:
             "strobe_rate": 0.0,
         }
 
+        # ── I1: grabación en vivo de macros ─────────────────────────────────
+        self._recording: bool = False
+        self._record_start_ms: float = 0.0
+        self._recorded_lanes: Dict[str, list] = {}  # macro_name → [{t_ms, value}]
+        self._record_last_ms: Dict[str, float] = {}  # throttle 50ms por macro
+
         # ── Estado de transporte / render ────────────────────────────────────
         self.loop = False
         self.rec = False
@@ -254,6 +260,7 @@ class ShowSession:
                 "mixer": dict(self.timeline.mixer),
                 "live_slots": self.live_engine.slots_to_dicts(),
                 "cue_list": self.timeline.cue_list.to_dict(),  # E1: I1
+                "automation": list(self.timeline.automation),  # I1: undo covers recorded lanes
             },
             restore_extra=self._restore_pattern_state,
         )
@@ -568,7 +575,7 @@ class ShowSession:
         self.notify_changed("undo")
 
     def _restore_pattern_state(self, extra: dict) -> None:
-        """Restaura patterns, pattern_instances, mixer, live_slots y cue_list (I1)."""
+        """Restaura patterns, pattern_instances, mixer, live_slots, cue_list y automation (I1)."""
         self.timeline.patterns = list(extra.get("patterns", []))
         self.timeline.pattern_instances = list(extra.get("pattern_instances", []))
         if "mixer" in extra:
@@ -580,8 +587,48 @@ class ShowSession:
         if "cue_list" in extra:
             from src.core.timeline_model import CueList
             self.timeline.cue_list = CueList.from_dict(extra["cue_list"])
+        # I1: restaurar lanes de automatización grabadas (undo de stop_record)
+        if "automation" in extra:
+            self.timeline.automation = list(extra["automation"])
         self._pattern_rev += 1
         self._clip_bucket_index_n = -1
+
+    # ── I1: grabación en vivo de macros ─────────────────────────────────────
+
+    _REC_DEFAULTS: Dict[str, float] = {
+        "brightness_mul": 1.0,
+        "speed_mul": 1.0,
+        "hue_shift": 0.0,
+        "strobe_rate": 0.0,
+    }
+
+    def _normalize_macro(self, name: str, value: float) -> float:
+        if name == "brightness_mul":
+            return value / 2.0
+        if name == "speed_mul":
+            return value / 4.0
+        if name == "hue_shift":
+            return (value + 180.0) / 360.0
+        if name == "strobe_rate":
+            return value / 30.0
+        return value
+
+    def _maybe_record_macros(self, t_ms: int) -> None:
+        """Captura valores de macros no-default durante grabación (throttle 50ms, I4)."""
+        if not self._recording:
+            return
+        for name in ("brightness_mul", "speed_mul", "hue_shift", "strobe_rate"):
+            val = self.macros.get(name, self._REC_DEFAULTS[name])
+            if val == self._REC_DEFAULTS[name]:
+                continue
+            last = self._record_last_ms.get(name, -9999.0)
+            if t_ms - last < 50:
+                continue
+            normalized = self._normalize_macro(name, val)
+            self._recorded_lanes.setdefault(name, []).append(
+                {"t_ms": t_ms, "value": normalized}
+            )
+            self._record_last_ms[name] = float(t_ms)
 
     def snapshot(self):
         self.undo_manager.snapshot()
@@ -822,6 +869,8 @@ class ShowSession:
             # E4: blackout duro (prioridad máxima, ambas rutas)
             if self.blackout_override:
                 frame[:] = 0
+            # I1: captura de macros en vivo (baked path)
+            self._maybe_record_macros(int(t_s * 1000))
             return frame
 
         from src.core.param_pipeline import resolve_params
@@ -956,6 +1005,9 @@ class ShowSession:
         # E4: blackout duro — prioridad máxima (sobre identify, sobre todo)
         if self.blackout_override:
             frame[:] = 0
+
+        # I1: captura de macros en vivo
+        self._maybe_record_macros(t_ms)
 
         return frame
 

@@ -693,6 +693,13 @@
   flex: 1;
 }
 
+/* I1: botón REC activo */
+.btn.rec-active {
+  background: #c0392b; color: #fff; border: none;
+  animation: rec-blink 1s ease-in-out infinite;
+}
+@keyframes rec-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.65; } }
+
 .macro-strip-body {
   display: flex; flex-direction: column; gap: 2px;
   padding: 6px 10px 8px;
