@@ -13,6 +13,11 @@ Token desconocido cuando hay tokens configurados → error "invalid_token".
 """
 from __future__ import annotations
 
+import hmac
+import logging
+
+_log = logging.getLogger(__name__)
+
 ASSISTANT_HANDLERS: frozenset = frozenset({
     "set_macro",
     "go_cue",
@@ -41,7 +46,13 @@ def check_permission(token: str, handler_name: str, tokens_config: list) -> dict
     if not tokens_config:
         return {"ok": True}
 
-    entry = next((t for t in tokens_config if t.get("token") == token), None)
+    # FIX 4: timing-safe comparison to prevent side-channel token oracle
+    entry = None
+    for t in tokens_config:
+        if hmac.compare_digest(t.get("token", ""), token):
+            entry = t
+            break
+
     if entry is None:
         return {"ok": False, "error": "invalid_token"}
 
@@ -63,7 +74,20 @@ def role_for_token(token: str, tokens_config: list) -> str:
     """Devuelve el rol del token: "operator", "assistant" o "anonymous"."""
     if not tokens_config:
         return "operator"
-    entry = next((t for t in tokens_config if t.get("token") == token), None)
+    # FIX 4: timing-safe comparison
+    entry = None
+    for t in tokens_config:
+        if hmac.compare_digest(t.get("token", ""), token):
+            entry = t
+            break
     if entry is None:
         return "anonymous"
     return entry.get("role", "operator")
+
+
+def warn_if_no_tokens(tokens_config: list) -> None:
+    """FIX 10: log warning at startup when no auth is configured."""
+    if not tokens_config:
+        _log.warning(
+            "[auth] Sin tokens configurados — todos los handlers accesibles sin autenticación"
+        )

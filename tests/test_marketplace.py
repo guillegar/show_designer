@@ -5,9 +5,10 @@ from __future__ import annotations
 
 import importlib
 import sys
+import time
 import types
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -54,77 +55,103 @@ _MANIFEST = [
     }
 ]
 
+# Manifest that also authorizes bad.py (for harness-failure test)
+_MANIFEST_WITH_BAD = [
+    *_MANIFEST,
+    {"name": "bad", "download_url": "http://example.com/plugins/bad.py", "description": "bad"},
+]
 
-def _mock_httpx_response(json_data=None, text_data=None, status=200):
+
+def _mock_async_client(json_data=None, text_data=None, status=200):
+    """Returns a context-manager mock for httpx.AsyncClient."""
     resp = MagicMock()
     resp.status_code = status
     if json_data is not None:
-        resp.json.return_value = json_data
+        resp.json = MagicMock(return_value=json_data)
     if text_data is not None:
         resp.text = text_data
     resp.raise_for_status = MagicMock()
-    return resp
+
+    mock_client = AsyncMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client.get = AsyncMock(return_value=resp)
+    return mock_client
 
 
 # ─── tests ───────────────────────────────────────────────────────────────────
 
-def test_list_marketplace_plugins_returns_manifest(tmp_path, monkeypatch):
+@pytest.mark.asyncio
+async def test_list_marketplace_plugins_returns_manifest(tmp_path, monkeypatch):
     """list_marketplace_plugins devuelve la lista del manifest."""
     import server.marketplace as mp
     mp.invalidate_cache()
 
-    with patch("httpx.get", return_value=_mock_httpx_response(json_data=_MANIFEST)):
-        data, cached = mp.fetch_manifest("http://example.com/manifest.json")
+    with patch("httpx.AsyncClient", return_value=_mock_async_client(json_data=_MANIFEST)):
+        data, cached = await mp.fetch_manifest("http://example.com/manifest.json")
 
     assert len(data) == 1
     assert data[0]["name"] == "gradient_sweep_pro"
     assert cached is False
 
 
-def test_fetch_manifest_cache(monkeypatch):
+@pytest.mark.asyncio
+async def test_fetch_manifest_cache(monkeypatch):
     """Segunda llamada en < 5 min usa caché sin HTTP."""
     import server.marketplace as mp
     mp.invalidate_cache()
 
-    with patch("httpx.get", return_value=_mock_httpx_response(json_data=_MANIFEST)) as mock_get:
-        mp.fetch_manifest("http://example.com/manifest.json")
-        data2, cached2 = mp.fetch_manifest("http://example.com/manifest.json")
+    with patch("httpx.AsyncClient", return_value=_mock_async_client(json_data=_MANIFEST)) as MockClient:
+        await mp.fetch_manifest("http://example.com/manifest.json")
+        data2, cached2 = await mp.fetch_manifest("http://example.com/manifest.json")
 
     assert cached2 is True
-    assert mock_get.call_count == 1  # solo una llamada HTTP
+    assert MockClient.call_count == 1  # solo una llamada HTTP
 
 
-def test_fetch_manifest_timeout():
+@pytest.mark.asyncio
+async def test_fetch_manifest_timeout():
     """Timeout en el fetch → lanza TimeoutError."""
     import server.marketplace as mp
     import httpx
     mp.invalidate_cache()
 
-    with patch("httpx.get", side_effect=httpx.TimeoutException("timeout")):
+    mock_client = AsyncMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client.get = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
+
+    with patch("httpx.AsyncClient", return_value=mock_client):
         with pytest.raises(TimeoutError):
-            mp.fetch_manifest("http://example.com/manifest.json")
+            await mp.fetch_manifest("http://example.com/manifest.json")
 
 
-def test_install_plugin_valid(tmp_path):
+@pytest.mark.asyncio
+async def test_install_plugin_valid(tmp_path):
     """install_plugin con .py válido → instalado y ok."""
     import server.marketplace as mp
+    # Populate cache so _assert_url_in_manifest passes (FIX 2)
+    mp._CACHE = (time.monotonic(), _MANIFEST)
 
-    with patch("httpx.get", return_value=_mock_httpx_response(text_data=_DUMMY_PLUGIN)):
-        result = mp.install_plugin("http://example.com/plugins/dummy.py", tmp_path)
+    with patch("httpx.AsyncClient", return_value=_mock_async_client(text_data=_DUMMY_PLUGIN)):
+        result = await mp.install_plugin("http://example.com/plugins/dummy.py", tmp_path)
 
     assert result["ok"] is True
     assert result["name"] == "dummy.py"
     assert (tmp_path / "dummy.py").exists()
 
 
-def test_install_plugin_harness_fail(tmp_path):
+@pytest.mark.asyncio
+async def test_install_plugin_harness_fail(tmp_path):
     """install_plugin con .py que falla el harness → rechazado sin instalar."""
     import server.marketplace as mp
+    # Use manifest that authorizes bad.py so URL validation passes
+    mp._CACHE = (time.monotonic(), _MANIFEST_WITH_BAD)
 
-    with patch("httpx.get", return_value=_mock_httpx_response(text_data=_BAD_PLUGIN)):
-        result = mp.install_plugin("http://example.com/plugins/bad.py", tmp_path)
+    with patch("httpx.AsyncClient", return_value=_mock_async_client(text_data=_BAD_PLUGIN)):
+        result = await mp.install_plugin("http://example.com/plugins/bad.py", tmp_path)
 
     assert result["ok"] is False
     assert "harness" in result["error"] or "error" in result
-    # el archivo destino NO debe haberse instalado
+    # the file must not have been installed
     assert not (tmp_path / "bad.py").exists()

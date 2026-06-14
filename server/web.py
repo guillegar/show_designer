@@ -82,6 +82,9 @@ def create_app() -> FastAPI:
         session = ShowSession(slug=startup_slug, on_change=lambda kind: None)
         session.hub = hub  # B3: para que render offline emita progress events al stream
         dispatcher = Dispatcher(session)
+        # FIX 10: warn if no auth tokens configured (all handlers publicly accessible)
+        from server.auth import warn_if_no_tokens
+        warn_if_no_tokens(getattr(session, "_tokens_config", []))
         app.state.session = session
         app.state.dispatcher = dispatcher
 

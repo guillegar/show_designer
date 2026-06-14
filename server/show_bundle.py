@@ -115,84 +115,92 @@ def import_show_bundle(zip_path: str, projects_dir: Path) -> Tuple[str, List[str
     Devuelve (slug, warnings)."""
     warnings: List[str] = []
 
+    # FIX 9: canonical context-manager form; BadZipFile caught around the whole block
     try:
-        zf = zipfile.ZipFile(zip_path, "r")
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            names = zf.namelist()
+
+            if _MANIFEST_FILE not in names:
+                raise ValueError("ZIP no contiene MANIFEST.json — no es un bundle válido")
+
+            manifest = json.loads(zf.read(_MANIFEST_FILE).decode("utf-8"))
+            original_slug = manifest.get("show_slug", "imported_show")
+            plugins_in_bundle: List[str] = manifest.get("plugins", [])
+
+            # Slug seguro (sin path traversal)
+            slug = re.sub(r"[^a-z0-9_-]", "_", original_slug.lower())
+            if not slug:
+                slug = "imported_show"
+
+            # Evitar colisiones
+            target_dir = projects_dir / slug
+            suffix = 1
+            while target_dir.exists():
+                target_dir = projects_dir / f"{slug}_{suffix}"
+                slug = f"{slug}_{suffix}"
+                suffix += 1
+
+            target_dir.mkdir(parents=True, exist_ok=True)
+            plugins_dir = Path("plugins/effects")
+            plugins_dir.mkdir(parents=True, exist_ok=True)
+
+            # Extraer show.json
+            if "show.json" in names:
+                raw = json.loads(zf.read("show.json").decode("utf-8"))
+                (target_dir / "show.json").write_text(
+                    json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8"
+                )
+            else:
+                warnings.append("show.json no incluido en el bundle")
+
+            # autovj.json
+            if "autovj.json" in names:
+                raw_avj = zf.read("autovj.json").decode("utf-8")
+                (target_dir / "autovj.json").write_text(raw_avj, encoding="utf-8")
+
+            # FIX 8: output_targets.json se importa al directorio del proyecto (NO a la
+            # raíz del sistema) porque la copia del bundle lleva placeholders y es
+            # específica del entorno de origen — las credenciales reales (api_key, tokens,
+            # secrets de webhooks) deben configurarse manualmente en el entorno destino.
+            if "output_targets.json" in names:
+                (target_dir / "output_targets.json").write_text(
+                    zf.read("output_targets.json").decode("utf-8"), encoding="utf-8"
+                )
+                warnings.append(
+                    "output_targets.json importado con placeholders — "
+                    "configura API key y tokens antes de usar"
+                )
+
+            # plugins custom — FIX 1: zip slip guard
+            for fname in plugins_in_bundle:
+                entry = f"plugins/effects/{fname}"
+                if entry in names:
+                    dest = (plugins_dir / fname).resolve()
+                    if not dest.is_relative_to(plugins_dir.resolve()):
+                        raise ValueError(f"Zip Slip detectado en plugin: {fname}")
+                    if dest.exists():
+                        warnings.append(f"Plugin '{fname}' ya existe — no sobreescrito")
+                    else:
+                        dest.write_bytes(zf.read(entry))
+                else:
+                    warnings.append(f"Plugin '{fname}' declarado en MANIFEST pero no encontrado en el ZIP")
+
+            # audio — FIX 1: zip slip guard
+            audio_entries = [n for n in names if n.startswith("audio/")]
+            if not audio_entries:
+                warnings.append("Audio no incluido en el bundle — vincula el archivo manualmente")
+            else:
+                audio_dir = target_dir / "audio"
+                audio_dir.mkdir(exist_ok=True)
+                for entry in audio_entries:
+                    audio_name = entry.split("/", 1)[-1]
+                    if audio_name:
+                        safe_path = (audio_dir / audio_name).resolve()
+                        if not safe_path.is_relative_to(audio_dir.resolve()):
+                            raise ValueError(f"Zip Slip detectado: {entry}")
+                        safe_path.write_bytes(zf.read(entry))
+
     except zipfile.BadZipFile:
         raise ValueError(f"ZIP corrupto o inválido: {zip_path}")
-
-    with zf:
-        names = zf.namelist()
-
-        if _MANIFEST_FILE not in names:
-            raise ValueError("ZIP no contiene MANIFEST.json — no es un bundle válido")
-
-        manifest = json.loads(zf.read(_MANIFEST_FILE).decode("utf-8"))
-        original_slug = manifest.get("show_slug", "imported_show")
-        plugins_in_bundle: List[str] = manifest.get("plugins", [])
-
-        # Slug seguro (sin path traversal)
-        slug = re.sub(r"[^a-z0-9_-]", "_", original_slug.lower())
-        if not slug:
-            slug = "imported_show"
-
-        # Evitar colisiones
-        target_dir = projects_dir / slug
-        suffix = 1
-        while target_dir.exists():
-            target_dir = projects_dir / f"{slug}_{suffix}"
-            slug = f"{slug}_{suffix}"
-            suffix += 1
-
-        target_dir.mkdir(parents=True, exist_ok=True)
-        plugins_dir = Path("plugins/effects")
-        plugins_dir.mkdir(parents=True, exist_ok=True)
-
-        # Extraer show.json
-        if "show.json" in names:
-            raw = json.loads(zf.read("show.json").decode("utf-8"))
-            (target_dir / "show.json").write_text(
-                json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
-        else:
-            warnings.append("show.json no incluido en el bundle")
-
-        # autovj.json
-        if "autovj.json" in names:
-            raw_avj = zf.read("autovj.json").decode("utf-8")
-            (target_dir / "autovj.json").write_text(raw_avj, encoding="utf-8")
-
-        # output_targets.json (contiene placeholders — informar al usuario)
-        if "output_targets.json" in names:
-            (target_dir / "output_targets.json").write_text(
-                zf.read("output_targets.json").decode("utf-8"), encoding="utf-8"
-            )
-            warnings.append(
-                "output_targets.json importado con placeholders — "
-                "configura API key y tokens antes de usar"
-            )
-
-        # plugins custom
-        for fname in plugins_in_bundle:
-            entry = f"plugins/effects/{fname}"
-            if entry in names:
-                dest = plugins_dir / fname
-                if dest.exists():
-                    warnings.append(f"Plugin '{fname}' ya existe — no sobreescrito")
-                else:
-                    dest.write_bytes(zf.read(entry))
-            else:
-                warnings.append(f"Plugin '{fname}' declarado en MANIFEST pero no encontrado en el ZIP")
-
-        # audio
-        audio_entries = [n for n in names if n.startswith("audio/")]
-        if not audio_entries:
-            warnings.append("Audio no incluido en el bundle — vincula el archivo manualmente")
-        else:
-            audio_dir = target_dir / "audio"
-            audio_dir.mkdir(exist_ok=True)
-            for entry in audio_entries:
-                audio_name = entry.split("/", 1)[-1]
-                if audio_name:
-                    (audio_dir / audio_name).write_bytes(zf.read(entry))
 
     return slug, warnings

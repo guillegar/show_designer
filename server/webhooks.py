@@ -15,9 +15,27 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+import ipaddress
 import json
+import logging
 import time
+import urllib.parse
 from typing import Any, Dict, List, Optional
+
+log = logging.getLogger(__name__)
+
+
+def _validate_webhook_url(url: str) -> None:
+    """FIX 5: SSRF guard — rejects non-https URLs and private/loopback IPs."""
+    p = urllib.parse.urlparse(url)
+    if p.scheme != "https":
+        raise ValueError("Webhook URL debe usar https")
+    try:
+        ip = ipaddress.ip_address(p.hostname or "")
+    except ValueError:
+        return  # hostname DNS, not an IP literal — OK
+    if ip.is_private or ip.is_link_local or ip.is_loopback:
+        raise ValueError(f"IP no permitida: {ip}")
 
 
 class WebhookDispatcher:
@@ -62,15 +80,22 @@ class WebhookDispatcher:
                 import httpx
                 async with httpx.AsyncClient(timeout=5.0) as client:
                     resp = await client.post(url, content=body, headers=headers)
+                    # FIX 7: 4xx means misconfigured URL/secret — log and don't retry
+                    if 400 <= resp.status_code < 500:
+                        log.warning(
+                            "Webhook %s retornó %s — verificar URL/secret",
+                            url, resp.status_code,
+                        )
+                        return
                     if resp.status_code < 500:
-                        return  # 2xx/3xx/4xx → no reintentar
+                        return  # 2xx/3xx OK
                     last_err = f"HTTP {resp.status_code}"
             except Exception as e:
                 last_err = str(e)
             if attempt < len(delays):
                 await asyncio.sleep(delay)
 
-        print(f"[webhooks] Fallo tras {len(delays)} intentos en {url}: {last_err}")
+        log.warning("Webhook %s falló tras %d intentos: %s", url, len(delays), last_err)
 
     async def emit(self, event: str, data: Dict[str, Any], t_ms: int = 0):
         """Dispara el evento a todas las URLs suscritas (fire-and-forget)."""

@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+import hmac
+
 from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 
@@ -30,7 +32,8 @@ def _check_auth(request: Request, x_api_key: Optional[str]) -> Optional[JSONResp
     api_key: str = getattr(request.app.state, "_rest_api_key", "") or ""
     if not api_key:
         return None  # Sin auth configurada → libre
-    if not x_api_key or x_api_key != api_key:
+    # FIX 4: timing-safe comparison prevents side-channel API key oracle
+    if not hmac.compare_digest(x_api_key or "", api_key):
         return JSONResponse({"ok": False, "error": "X-API-Key inválida o ausente"}, status_code=401)
     return None
 

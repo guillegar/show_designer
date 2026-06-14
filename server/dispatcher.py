@@ -2726,12 +2726,17 @@ def _h_webhook_set_config(session, params):
     if not isinstance(webhooks, list):
         return {"ok": False, "error": "webhooks debe ser una lista"}
 
-    # Validar entradas básicas
+    # Validar entradas básicas + FIX 5: SSRF guard on webhook URLs
+    from server.webhooks import _validate_webhook_url
     for entry in webhooks:
         if not isinstance(entry, dict) or "url" not in entry:
             return {"ok": False, "error": "Cada webhook requiere campo 'url'"}
         if "events" not in entry or not isinstance(entry["events"], list):
             return {"ok": False, "error": "Cada webhook requiere campo 'events' (lista)"}
+        try:
+            _validate_webhook_url(entry["url"])
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
 
     # Actualizar dispatcher en memoria
     wh = getattr(session, "_webhook_dispatcher", None)
@@ -3199,12 +3204,13 @@ def _get_marketplace_url(session) -> str:
         return _DEFAULT_MARKETPLACE_URL
 
 
-def _h_list_marketplace_plugins(session, params):
-    """list_marketplace_plugins() → {ok, plugins: [...], cached: bool}."""
+async def _h_list_marketplace_plugins(session, params):
+    """list_marketplace_plugins() → {ok, plugins: [...], cached: bool}.
+    FIX 3: async to avoid blocking the event loop during HTTP fetch."""
     from server.marketplace import fetch_manifest
     url = _get_marketplace_url(session)
     try:
-        plugins, cached = fetch_manifest(url)
+        plugins, cached = await fetch_manifest(url)
         return {"ok": True, "plugins": plugins, "cached": cached}
     except TimeoutError:
         return {"ok": False, "error": "timeout"}
@@ -3212,14 +3218,15 @@ def _h_list_marketplace_plugins(session, params):
         return {"ok": False, "error": str(exc)}
 
 
-def _h_install_plugin(session, params):
-    """install_plugin(download_url) → {ok, name} or {ok: false, error}."""
+async def _h_install_plugin(session, params):
+    """install_plugin(download_url) → {ok, name} or {ok: false, error}.
+    FIX 3: async to avoid blocking; FIX 2: URL validated against manifest."""
     from server.validators import require_key
     from server.marketplace import install_plugin
     from pathlib import Path as _Path
     download_url = require_key(params, "download_url")
     plugins_dir = _Path("plugins/effects")
-    return install_plugin(download_url, plugins_dir)
+    return await install_plugin(download_url, plugins_dir)
 
 
 # ── N2 — Backup y restauración de show ───────────────────────────────────────
@@ -3469,7 +3476,17 @@ class Dispatcher:
         params = msg.get("params") or {}
         if method in _LOCAL:
             try:
+                import asyncio, concurrent.futures
                 result = _LOCAL[method](self.session, params)
+                # FIX 3: support async handlers (e.g. marketplace) without changing
+                # the sync dispatcher contract — run in a thread when already in a loop
+                if asyncio.iscoroutine(result):
+                    try:
+                        asyncio.get_running_loop()
+                        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                            result = ex.submit(asyncio.run, result).result(timeout=30)
+                    except RuntimeError:
+                        result = asyncio.run(result)
                 self._maybe_sync_rig(method)
                 self._record_gesture(method, params)
                 return {"jsonrpc": "2.0", "id": msg_id, "result": result}

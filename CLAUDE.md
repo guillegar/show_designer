@@ -9,8 +9,19 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > documentación** para que refleje el estado real — este `CLAUDE.md` (arquitectura/estado) y los
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
-Estado a **2026-06-14** · **v2.0 · 1004 tests Python + 3 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1+N2 APLICADAS · BLOQUE N COMPLETO** — backend headless + frontend React + REST API + webhooks + multiusuario + tap BPM + show generator + historial de gestos + marketplace de plugins + bundle backup/restore.
+Estado a **2026-06-14** · **v2.0 · 1012 tests Python + 3 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1+N2 APLICADAS · BLOQUE N COMPLETO · HARDENING SEGURIDAD APLICADO** — backend headless + frontend React + REST API + webhooks + multiusuario + tap BPM + show generator + historial de gestos + marketplace de plugins + bundle backup/restore + hardening de seguridad (zip slip, marketplace SSRF/RCE, timing-safe tokens, webhook SSRF).
 **A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1+N2 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger + exportación PDF/CSV + editor de patch visual. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+  - ✅ **HARDENING SEGURIDAD APLICADO (2026-06-14)**: 3 críticos + 7 warnings del code review corregidos. **1012 tests Python.**
+    - **FIX 1 (Zip Slip)** `show_bundle.py`: verifica `is_relative_to()` en audio y plugins antes de escribir. **FIX 9**: refactor a context-manager canónico `with zipfile.ZipFile(...) as zf`.
+    - **FIX 2 (SSRF/RCE marketplace)** `marketplace.py`: `_assert_url_in_manifest(url)` — valida que `download_url` esté en el manifiesto cacheado ANTES de descargar.
+    - **FIX 3 (Blocking I/O)** `marketplace.py`: `fetch_manifest` e `install_plugin` convertidas a `async def` con `httpx.AsyncClient`. `Dispatcher.handle()` detecta coroutines y las ejecuta en `ThreadPoolExecutor`.
+    - **FIX 4 (timing side-channel)** `auth.py` + `rest_api.py`: `hmac.compare_digest()` en vez de `==` para tokens y API key.
+    - **FIX 5 (webhook SSRF)** `webhooks.py`: `_validate_webhook_url()` — rechaza `http://`, IPs privadas/loopback/link-local. Llamada desde `_h_webhook_set_config`.
+    - **FIX 6 (cache race)** `marketplace.py`: `threading.Lock()` protege check+assign del cache de forma atómica.
+    - **FIX 7 (log 4xx webhooks)** `webhooks.py`: respuestas 4xx loguean warning y no reintentan.
+    - **FIX 8 (output_targets path)** `show_bundle.py`: comentario explícito — `output_targets.json` se importa al dir del proyecto (NO a la raíz) porque contiene credenciales específicas del entorno.
+    - **FIX 10 (warning sin auth)** `auth.py` + `web.py`: `warn_if_no_tokens()` en startup si no hay tokens configurados.
+    - `tests/test_security_hardening.py` (NUEVO): 8 tests.
   - ✅ **N2 APLICADA (2026-06-14, ROADMAP v4)**: Backup y restauración completa de show. **BLOQUE N COMPLETO.**
     `server/show_bundle.py` (NUEVO): `export_show_bundle(session, include_audio)` — ZIP atómico
     (`.tmp+os.replace`) con `show.json`, `autovj.json`, `output_targets.json` sanitizado
