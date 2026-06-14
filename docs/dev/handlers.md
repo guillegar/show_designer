@@ -325,6 +325,31 @@ Usa `server/timeline_export.py::export_patch_pdf`. Escritura atómica via `.tmp 
 
 ---
 
+### J2 — Soporte DMX completo por canal
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `set_fixture_type` | `fixture_id: str`, `fixture_type: str` | `{ok, fixture: Fixture}` |
+
+Cambia `fixture.kind_override` al tipo especificado (`dimmer`, `rgb`, `rgb_par`,
+`moving_head`, `strobe`, `led_strip`, `wled_bar`). Persiste rig.json. Devuelve el
+fixture actualizado (I3).
+
+El renderizado DMX lo ejecuta `src/core/dmx_render.py::render_fixture_channels`:
+- `dimmer`: ch1 = brightness (0..1 → 0..255)
+- `rgb` / `rgb_par`: ch1=R, ch2=G, ch3=B
+- `moving_head`: ch1=pan (0..360°→0..255), ch2=tilt, ch3=dim, ch4-6=RGB, ch7=strobe
+- `strobe`: ch1 = rate (0..1 → 0..255)
+- `led_strip` / `wled_bar`: retorna {} (cubiertos por el render pixel)
+
+Mezcla LAST_WINS: los clips se ordenan por layer; capas más altas sobreescriben.
+
+`session._compute_fixture_channels(t_ms)` llama a `render_fixture_channels` para todos
+los fixtures no-pixel y almacena el resultado en `session._fixture_dmx_channels:
+{universe: bytearray(512)}`. Se llama al final de `compute_frame` (ambas rutas).
+
+---
+
 ### J1 — Editor de patch visual
 
 | Handler | Params | Devuelve |

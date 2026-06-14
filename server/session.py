@@ -874,6 +874,8 @@ class ShowSession:
             # E4: blackout duro (prioridad máxima, ambas rutas)
             if self.blackout_override:
                 frame[:] = 0
+            # J2: canales DMX no-pixel (baked path)
+            self._compute_fixture_channels(int(t_s * 1000))
             # I1: captura de macros en vivo (baked path)
             self._maybe_record_macros(int(t_s * 1000))
             return frame
@@ -1011,10 +1013,54 @@ class ShowSession:
         if self.blackout_override:
             frame[:] = 0
 
+        # J2: renderizar canales DMX de fixtures no-pixel → _fixture_dmx_channels
+        self._compute_fixture_channels(t_ms)
+
         # I1: captura de macros en vivo
         self._maybe_record_macros(t_ms)
 
         return frame
+
+    def _compute_fixture_channels(self, t_ms: int) -> None:
+        """J2: renderiza canales DMX para fixtures no-pixel (dimmer/rgb/mover/strobe).
+
+        Resultado en self._fixture_dmx_channels: {universe: bytearray(512)}.
+        Mapeo clip→fixture: track = fixture.universe - 1 (universo 1 → track 0).
+        Mezcla LAST_WINS. Se llama al final de compute_frame (ambas rutas).
+        """
+        rig = getattr(self, "fixture_rig", None)
+        if rig is None:
+            return
+        try:
+            from src.core.dmx_render import render_fixture_channels, _PIXEL_KINDS, _effective_kind
+        except ImportError:
+            return
+
+        channels: dict = {}
+        for fx in rig.fixtures:
+            profile = rig.get_profile(fx.profile_id)
+            kind = _effective_kind(fx, profile)
+            if kind in _PIXEL_KINDS:
+                continue
+            # track = universe - 1 (misma convención que las barras WLED)
+            fx_track = fx.universe - 1
+            fx_clips = [
+                c for c in self.timeline.clips
+                if c.track == fx_track
+                and c.start_ms <= t_ms < c.end_ms
+                and not getattr(c, "muted", False)
+            ]
+            ch_vals = render_fixture_channels(fx, profile, fx_clips, t_ms)
+            if ch_vals:
+                uni = fx.universe
+                if uni not in channels:
+                    channels[uni] = bytearray(512)
+                buf = channels[uni]
+                for ch_1based, val in ch_vals.items():
+                    idx = fx.dmx_start - 1 + ch_1based - 1
+                    if 0 <= idx < 512:
+                        buf[idx] = val
+        self._fixture_dmx_channels = channels
 
     # ── B4: autosave + versiones de show ─────────────────────────────────────
 

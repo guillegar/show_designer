@@ -2399,6 +2399,35 @@ def _h_move_fixture(session, params):
     return {"ok": True, "fixture": fx.to_dict()}
 
 
+# ── J2 — Soporte DMX completo por canal ──────────────────────────────────────
+
+_DMX_KINDS = {"dimmer", "rgb", "rgb_par", "moving_head", "strobe", "led_strip", "wled_bar"}
+
+
+def _h_set_fixture_type(session, params):
+    """set_fixture_type(fixture_id, fixture_type) → {ok, fixture}.
+
+    Cambia el kind_override del fixture (dimmer/rgb/moving_head/strobe/led_strip).
+    Persiste rig.json. Devuelve el fixture actualizado (I3).
+    """
+    fixture_id = params.get("fixture_id")
+    fixture_type = params.get("fixture_type") or params.get("kind")
+    if not fixture_id:
+        return {"ok": False, "error": "fixture_id requerido"}
+    if not fixture_type or fixture_type not in _DMX_KINDS:
+        return {"ok": False, "error": f"fixture_type inválido: {fixture_type!r}. Válidos: {sorted(_DMX_KINDS)}"}
+    rig = getattr(session, "fixture_rig", None)
+    if rig is None:
+        return {"ok": False, "error": "No hay rig cargado"}
+    fx = rig.by_id(fixture_id)
+    if fx is None:
+        return {"ok": False, "error": f"Fixture no encontrado: {fixture_id}"}
+
+    fx.kind_override = fixture_type
+    rig.save(session.project.rig_file)
+    return {"ok": True, "fixture": fx.to_dict()}
+
+
 # ── E4 — Test de output y patch visual ───────────────────────────────────────
 
 def _h_identify_fixture(session, params):
@@ -2697,6 +2726,8 @@ _LOCAL = {
     "get_cue_state": _h_get_cue_state,
     # J1 — Editor de patch visual 2D
     "move_fixture": _h_move_fixture,
+    # J2 — Soporte DMX completo por canal
+    "set_fixture_type": _h_set_fixture_type,
     # I5 — Exportación PDF patch + CSV DMX
     "export_patch_pdf": _h_export_patch_pdf,
     "export_dmx_csv": _h_export_dmx_csv,

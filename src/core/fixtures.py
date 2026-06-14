@@ -182,6 +182,10 @@ class Fixture:
     # None si el usuario no ha movido el fixture manualmente (usa auto-layout).
     patch_x: Optional[float] = None
     patch_y: Optional[float] = None
+    # J2 — Override del kind del profile ('dimmer', 'rgb', 'moving_head', 'strobe',
+    # 'led_strip'). None = usa profile.kind. Permite cambiar el modo de renderizado
+    # DMX sin reemplazar el profile completo.
+    kind_override: Optional[str] = None
 
     def to_dict(self):
         d = asdict(self)
@@ -205,6 +209,7 @@ class Fixture:
             manual_channels=dict(d.get('manual_channels', {})),
             patch_x=float(px) if px is not None else None,
             patch_y=float(py) if py is not None else None,
+            kind_override=d.get('kind_override'),
         )
 
 

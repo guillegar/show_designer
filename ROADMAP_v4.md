@@ -608,6 +608,17 @@ controles de canal en lugar de los params genéricos:
 brightness=128 → el analizador DMX externo muestra universo 2, canal 1 = 128.
 **Commit**: `roadmap-v4 fase J2: soporte DMX completo por canal`.
 
+✅ **APLICADA 2026-06-14** — `Fixture` añade `kind_override: Optional[str] = None` (migración
+tolerante: from_dict carga None si ausente). `src/core/dmx_render.py` (NUEVO):
+`render_fixture_channels(fixture, profile, clips, t_ms)` pura; kind = kind_override > profile.kind;
+LAST_WINS por capa; defaults por kind: dimmer(ch1=brightness), rgb(ch1-3=RGB),
+moving_head(ch1=pan/360, ch2=tilt, ch3=dim, ch4-6=RGB, ch7=strobe), strobe(ch1=rate);
+pixel kinds retornan {}.
+`_h_set_fixture_type` en `_LOCAL`: actualiza kind_override + persiste rig.json (I3).
+`session._compute_fixture_channels(t_ms)`: loop sobre fixtures no-pixel; clips por track=universe-1;
+resultado en `self._fixture_dmx_channels: {universe: bytearray(512)}`. Llamado al final de
+compute_frame (ambas rutas). 7 tests en `test_dmx_render.py`. **932 tests verdes.**
+
 ---
 
 ## J3 — Biblioteca GDTF: browser y búsqueda (~2 días, Sonnet)
