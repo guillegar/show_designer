@@ -200,7 +200,7 @@ aparece una `AutomationLane` de `master:brightness_mul` con la curva de mis gest
 
 ---
 
-## I2 — Marcadores de timeline con nombre y color (~1 día, Haiku)
+## I2 — Marcadores de timeline con nombre y color (~1 día, Haiku) ✅ APLICADA 2026-06-14
 
 **Qué**: los `CuePoint` ya existen como marcadores pasivos. Ampliarlos con nombre editable,
 color y categoría (intro/verso/estribillo/bridge/outro/custom).
@@ -253,6 +253,20 @@ Handlers:
 **Aceptación**: hago doble clic en un marcador → escribo "Estribillo" → Enter; el marcador
 muestra el nombre en el color elegido. Filtro por "estribillo" → solo se ven esos marcadores.
 **Commit**: `roadmap-v4 fase I2: marcadores de timeline con nombre y color`.
+
+**Implementación (2026-06-14)**:
+- `src/core/timeline_model.py`: `Marker` dataclass (`t_ms`, `name`, `color`, `category`);
+  `_VALID_MARKER_CATEGORIES`; `Timeline.markers` persistido en `to_dict`/`from_dict`/`save`/`load`;
+  migración tolerante (campo ausente → lista vacía).
+- `server/session.py`: `markers` añadido a `get_extra`/`restore_extra` del UndoManager (I1).
+- `server/dispatcher.py`: 4 handlers `list_markers`/`add_marker`/`delete_marker`/`update_marker`
+  en `_LOCAL` con prioridad sobre el bridge; `add/delete/update_marker` en `_TIMELINE_MUTATORS`.
+- `web/src/store.ts`: `MarkerCategory` type + `category` añadido a `Marker`.
+- `web/src/views/Timeline.tsx`: filtro de categoría en toolbar; edición inline de nombre (clic
+  en el label del marcador → input); menú contextual clic-derecho con color picker + selector de
+  categoría + botón borrar.
+- `web/src/styles-views.css`: `.marker-edit-input`, `.marker-ctx-menu`, `.marker-ctx-row`.
+- `tests/test_cue_points_v2.py`: 8 tests, todos verdes. Suite total: 893 tests verdes.
 
 ---
 

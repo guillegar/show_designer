@@ -426,14 +426,27 @@
 .cue-btn.on { border-color: color-mix(in oklab, var(--acc) 45%, transparent); background: var(--acc-dim); color: var(--txt); }
 .cue-btn.on .cue-n { color: var(--acc); }
 
-/* ---------- MARKERS (v1.11 Fase C) ---------- */
+/* ---------- MARKERS (v1.11 Fase C; I2 amplía con category/inline-edit) ---------- */
 .ruler-marker { position: absolute; top: 0; bottom: 0; width: 0; z-index: 3; }
 .ruler-marker span {
   position: absolute; top: 0; left: 0; transform: translateX(-1px);
   font-size: 9px; font-weight: 700; color: var(--bg-0); padding: 1px 5px;
   border-radius: 0 4px 4px 0; white-space: nowrap; cursor: pointer;
 }
+.marker-edit-input {
+  position: absolute; top: 0; left: 0; transform: translateX(-1px);
+  font-size: 9px; font-weight: 700; color: var(--bg-0); padding: 1px 5px;
+  border-radius: 0 4px 4px 0; white-space: nowrap; border: none; outline: none;
+  min-width: 60px; width: auto;
+}
 .lane-marker { position: absolute; top: 0; bottom: 0; width: 1px; opacity: 0.5; pointer-events: none; z-index: 3; }
+
+/* I2: menú contextual de marcador */
+.marker-ctx-menu {
+  background: var(--bg-1); border: 1px solid var(--bdr); border-radius: 6px;
+  padding: 8px; min-width: 140px; box-shadow: 0 4px 16px oklch(0 0 0 / 0.4);
+}
+.marker-ctx-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; justify-content: space-between; }
 
 /* ---------- CLIP DETAIL MODAL (A4) ---------- */
 .clip-detail-overlay {

@@ -193,6 +193,38 @@ class CuePoint:
                    name=d.get('name', ''), color=d.get('color', '#4a90e2'))
 
 
+_VALID_MARKER_CATEGORIES = frozenset(
+    {"intro", "verso", "estribillo", "bridge", "outro", "custom"}
+)
+
+
+@dataclass
+class Marker:
+    """Marcador de timeline con nombre, color y categoría (I2, ROADMAP v4)."""
+    t_ms: int
+    name: str = ""
+    color: str = "#888888"
+    category: str = "custom"  # intro|verso|estribillo|bridge|outro|custom
+
+    def to_dict(self) -> dict:
+        return {
+            't_ms': self.t_ms,
+            'time_ms': self.t_ms,   # alias para compatibilidad con el frontend
+            'name': self.name,
+            'color': self.color,
+            'category': self.category,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> 'Marker':
+        t_ms = int(d.get('t_ms', d.get('time_ms', 0)))
+        cat = d.get('category', 'custom')
+        if cat not in _VALID_MARKER_CATEGORIES:
+            cat = 'custom'
+        return cls(t_ms=t_ms, name=d.get('name', ''),
+                   color=d.get('color', '#888888'), category=cat)
+
+
 @dataclass
 class Pattern:
     """Bloque reutilizable de clips (A3, ROADMAP v2).
@@ -342,7 +374,8 @@ class Timeline:
                  pattern_instances: Optional[List[Dict]] = None,
                  mixer: Optional[Dict] = None,
                  live_slots: Optional[List[Dict]] = None,
-                 cue_list: Optional['CueList'] = None):
+                 cue_list: Optional['CueList'] = None,
+                 markers: Optional[List[Marker]] = None):
         self.clips: List[Clip] = clips or []
         self.duration_ms = duration_ms
         self.groups: List[BarGroup] = groups or []
@@ -361,6 +394,8 @@ class Timeline:
         self.live_slots: List[Dict] = live_slots or []
         # E1: lista de cues profesional (schema v4). Migración tolerante: si falta → vacía.
         self.cue_list: CueList = cue_list or CueList(entries=[])
+        # I2: marcadores de timeline con nombre, color y categoría (ROADMAP v4).
+        self.markers: List[Marker] = markers or []
 
     def add(self, clip: Clip):
         self.clips.append(clip)
@@ -390,6 +425,7 @@ class Timeline:
             'mixer': dict(self.mixer),
             'live_slots': list(self.live_slots),
             'cue_list': self.cue_list.to_dict(),
+            'markers': [m.to_dict() for m in self.markers],
         }
 
     @classmethod
@@ -402,17 +438,21 @@ class Timeline:
         # E1: migración tolerante v3→v4: si falta cue_list → CueList vacía
         cue_list_raw = data.get('cue_list')
         cue_list = CueList.from_dict(cue_list_raw) if cue_list_raw else CueList(entries=[])
+        # I2: migración tolerante — si falta markers → lista vacía
+        markers_raw = data.get('markers', [])
+        markers = [Marker.from_dict(d) for d in markers_raw]
         return cls(clips, int(data.get('duration_ms', 165_000)), groups, cues,
                    automation=list(data.get('automation', [])),
                    patterns=list(data.get('patterns', [])),
                    pattern_instances=list(data.get('pattern_instances', [])),
                    mixer=dict(data.get('mixer', {})),
                    live_slots=list(data.get('live_slots', [])),
-                   cue_list=cue_list)
+                   cue_list=cue_list,
+                   markers=markers)
 
     def save(self, path=TIMELINE_FILE):
         data = {
-            'version': self.SCHEMA_VERSION,  # v4: + cue_list (E1)
+            'version': self.SCHEMA_VERSION,  # v4: + cue_list (E1); I2 añade markers
             'duration_ms': self.duration_ms,
             'clips': [c.to_dict() for c in self.clips],
             'groups': [g.to_dict() for g in self.groups],
@@ -423,6 +463,7 @@ class Timeline:
             'mixer': dict(self.mixer),
             'live_slots': list(self.live_slots),
             'cue_list': self.cue_list.to_dict(),
+            'markers': [m.to_dict() for m in self.markers],
         }
         # Guardado atómico (ANALYSIS hallazgo 18): escribir a .tmp y os.replace,
         # para que un crash a mitad de json.dump no corrompa el archivo real.
@@ -452,13 +493,17 @@ class Timeline:
         # E1: migración tolerante v3→v4: si falta cue_list → CueList vacía
         cue_list_raw = data.get('cue_list')
         cue_list = CueList.from_dict(cue_list_raw) if cue_list_raw else CueList(entries=[])
+        # I2: migración tolerante — si falta markers → lista vacía
+        markers_raw = data.get('markers', [])
+        markers = [Marker.from_dict(d) for d in markers_raw]
         return cls(clips, int(data.get('duration_ms', 165_000)), groups, cues,
                    automation=list(data.get('automation', [])),
                    patterns=list(data.get('patterns', [])),
                    pattern_instances=list(data.get('pattern_instances', [])),
                    mixer=dict(data.get('mixer', {})),
                    live_slots=list(data.get('live_slots', [])),
-                   cue_list=cue_list)
+                   cue_list=cue_list,
+                   markers=markers)
 
 
 def make_default_groups() -> List[BarGroup]:

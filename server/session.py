@@ -261,6 +261,7 @@ class ShowSession:
                 "live_slots": self.live_engine.slots_to_dicts(),
                 "cue_list": self.timeline.cue_list.to_dict(),  # E1: I1
                 "automation": list(self.timeline.automation),  # I1: undo covers recorded lanes
+                "markers": [m.to_dict() for m in self.timeline.markers],  # I2
             },
             restore_extra=self._restore_pattern_state,
         )
@@ -590,6 +591,10 @@ class ShowSession:
         # I1: restaurar lanes de automatización grabadas (undo de stop_record)
         if "automation" in extra:
             self.timeline.automation = list(extra["automation"])
+        # I2: restaurar marcadores de timeline
+        if "markers" in extra:
+            from src.core.timeline_model import Marker
+            self.timeline.markers = [Marker.from_dict(d) for d in extra["markers"]]
         self._pattern_rev += 1
         self._clip_bucket_index_n = -1
 

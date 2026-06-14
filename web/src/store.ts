@@ -38,7 +38,8 @@ export type ChannelEffectInfo = {
 };
 export type Section = { idx?: number; start: number; end: number; name: string; type: string; energy?: number };
 export type Cue = { slot: number; time_ms: number; name: string; color: string };
-export type Marker = { time_ms: number; name: string; color: string };
+export type MarkerCategory = "intro" | "verso" | "estribillo" | "bridge" | "outro" | "custom";
+export type Marker = { time_ms: number; name: string; color: string; category: MarkerCategory };
 export type Group = { name: string; bars: number[]; color: string; subgroups: string[] };
 
 export type Tab = "timeline" | "live" | "analyzer" | "patch" | "viewer3d";

@@ -269,6 +269,41 @@ cada ~500ms mientras `_recording=True`. El frontend actualiza el contador de pun
 
 ---
 
+### I2 — Marcadores de timeline con nombre, color y categoría
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `list_markers` | `category?: str` | `{ok, markers: [Marker]}` |
+| `add_marker` | `time_ms: int`, `name?: str`, `color?: str`, `category?: str` | `{ok, marker: Marker}` |
+| `delete_marker` | `time_ms: int` | `{ok, deleted: int}` |
+| `update_marker` | `t_ms: int`, `name?: str`, `color?: str`, `category?: str` | `{ok, marker: Marker}` |
+
+**`Marker`** — objeto serializado:
+```json
+{ "t_ms": 1000, "time_ms": 1000, "name": "Intro", "color": "#ff0000", "category": "intro" }
+```
+`time_ms` es un alias de `t_ms` para compatibilidad con el frontend.
+
+**Categorías válidas**: `intro` | `verso` | `estribillo` | `bridge` | `outro` | `custom`.
+Cualquier valor desconocido se normaliza a `"custom"`.
+
+**`list_markers`**: si se pasa `category`, devuelve solo los marcadores de esa categoría.
+Sin `category` (o `category=null`), devuelve todos ordenados por `t_ms`.
+
+**`add_marker`**: si ya existe un marcador en `time_ms`, lo reemplaza. Devuelve el marcador
+creado (invariante I3).
+
+**`update_marker`**: identifica el marcador por `t_ms` y actualiza solo los campos enviados.
+El dispatcher llama `snapshot()` antes (undo — invariante I1).
+
+**Persistencia**: `session.timeline.markers` se serializa en `show.json`. Migración tolerante:
+shows sin el campo `markers` cargan con lista vacía.
+
+**Undo (I1)**: `markers` forma parte de `get_extra`/`restore_extra` del `UndoManager`.
+Llamar a `undo()` tras `add_marker` o `update_marker` restaura el estado anterior.
+
+---
+
 ### C2 — Macros en vivo
 
 | Handler | Params | Devuelve |

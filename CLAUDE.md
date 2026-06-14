@@ -9,8 +9,16 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > documentación** para que refleje el estado real — este `CLAUDE.md` (arquitectura/estado) y los
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
-Estado a **2026-06-14** · **v2.0 · 885 tests · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1 APLICADA** — backend headless + frontend React, 4 vistas funcionando.
-**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+Estado a **2026-06-14** · **v2.0 · 893 tests · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2 APLICADAS** — backend headless + frontend React, 4 vistas funcionando.
+**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+  - ✅ **I2 APLICADA (2026-06-14, ROADMAP v4)**: Marcadores de timeline con nombre, color y
+    categoría. `Marker` dataclass en `timeline_model.py` (`t_ms`, `name`, `color`, `category`);
+    serializado en `show.json` (migración tolerante). `Timeline.markers` en
+    `get_extra`/`restore_extra` del UndoManager (I1). Handlers `list_markers`, `add_marker`,
+    `delete_marker`, `update_marker` en `_LOCAL` del dispatcher; mutadores en
+    `_TIMELINE_MUTATORS`. Frontend: filtro de categoría en toolbar; edición inline de nombre
+    (clic → input); menú clic-derecho con color picker + categoría + borrar. 8 tests en
+    `test_cue_points_v2.py`. **893 tests verdes.**
   - ✅ **I1 APLICADA (2026-06-14, ROADMAP v4)**: Grabación en vivo de macros. `session.py`: estado
     `_recording/_record_start_ms/_recorded_lanes/_record_last_ms`; `_maybe_record_macros(t_ms)` con
     throttle 50ms (max 1 punto/50ms por macro) llamado al final de AMBAS rutas de `compute_frame` (live

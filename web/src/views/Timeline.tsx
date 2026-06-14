@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Moveable from "react-moveable";
 import Selecto from "react-selecto";
 import { control } from "../api/control";
-import { useStore, famColor, EffectInfo, Clip, Preset } from "../store";
+import { useStore, famColor, EffectInfo, Clip, Preset, MarkerCategory } from "../store";
 import type { Pattern, PatternInstance } from "../api/types";
 import { fmtTime } from "../icons";
 import { ContextMenu, MenuState } from "../components/ContextMenu";
@@ -78,6 +78,10 @@ export function TimelineView() {
   const [ghostMode, setGhostMode] = useState(false);
   const [shiftHeld, setShiftHeld] = useState(false);
   const [showWaveform, setShowWaveform] = useState(false);
+  // I2: marcadores — edición inline y menú contextual
+  const [editMarker, setEditMarker] = useState<{ t_ms: number; name: string } | null>(null);
+  const [markerMenu, setMarkerMenu] = useState<{ t_ms: number; x: number; y: number; color: string; category: string } | null>(null);
+  const [markerCatFilter, setMarkerCatFilter] = useState<string>("all");
   const [waveformData, setWaveformData] = useState<{
     peaks_max: number[];
     peaks_min: number[];
@@ -993,6 +997,17 @@ export function TimelineView() {
           <button className="btn sm ghost" onClick={() => setGhostMode((g) => !g)} style={ghostMode ? { color: "var(--acc)" } : undefined} title="Ghost: mostrar clips de otras pistas en la pista activa">◈ Ghost</button>
           <button className="btn sm ghost" onClick={quantize} title="Cuantizar clips seleccionados al beat más cercano (requiere selección)">⊹ Q</button>
           <button className="btn sm ghost" onClick={() => setShowWaveform((w) => !w)} style={showWaveform ? { color: "var(--acc)" } : undefined} title="Mostrar/ocultar forma de onda del audio en el ruler">≋ WF</button>
+          {/* I2: filtro de categoría de marcadores */}
+          <select className="field" style={{ height: 26, width: 92, fontSize: 10 }} value={markerCatFilter}
+            onChange={(e) => setMarkerCatFilter(e.target.value)} title="Filtrar marcadores por categoría">
+            <option value="all">▸ Todos</option>
+            <option value="intro">Intro</option>
+            <option value="verso">Verso</option>
+            <option value="estribillo">Estribillo</option>
+            <option value="bridge">Bridge</option>
+            <option value="outro">Outro</option>
+            <option value="custom">Custom</option>
+          </select>
           <button className="btn sm" onClick={() => setGenOpen(true)} disabled={!drawInfo} title="Generar clips en una sección con el efecto/preset activo">✨ Generar</button>
           <button className="btn sm ghost" title="Exportar CSV de clips" onClick={() => doExport("csv")}>⬇ CSV</button>
           <button className="btn sm ghost" title="Exportar workspace QLC+" onClick={() => doExport("qlc")}>⬇ QLC+</button>
@@ -1058,11 +1073,37 @@ export function TimelineView() {
               {Array.from({ length: barTicks }, (_, i) => (
                 <div key={i} className="ruler-tick" style={{ left: i * barSec * zoom }}><span>{i + 1}</span></div>
               ))}
-              {markers.map((m, i) => (
+              {markers
+                .filter((m) => markerCatFilter === "all" || m.category === markerCatFilter)
+                .map((m, i) => (
                 <div key={i} className="ruler-marker" style={{ left: m.time_ms / 1000 * zoom }}
-                  onContextMenu={(e) => { e.preventDefault(); control.call("delete_marker", { time_ms: m.time_ms }).then(refreshMarkers); }}
-                  title={`${m.name} (clic derecho: borrar)`}>
-                  <span style={{ background: m.color || "var(--warn)" }}>{m.name}</span>
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setMarkerMenu({ t_ms: m.time_ms, x: e.clientX, y: e.clientY, color: m.color, category: m.category ?? "custom" });
+                  }}
+                  title={`${m.name} · ${m.category ?? "custom"}`}>
+                  {editMarker?.t_ms === m.time_ms ? (
+                    <input
+                      className="marker-edit-input"
+                      autoFocus
+                      value={editMarker.name}
+                      onChange={(e) => setEditMarker({ ...editMarker, name: e.target.value })}
+                      onBlur={() => {
+                        control.call("update_marker", { t_ms: m.time_ms, name: editMarker.name }).then(refreshMarkers);
+                        setEditMarker(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                        if (e.key === "Escape") setEditMarker(null);
+                      }}
+                      style={{ background: m.color || "var(--warn)" }}
+                    />
+                  ) : (
+                    <span
+                      style={{ background: m.color || "var(--warn)" }}
+                      onClick={() => setEditMarker({ t_ms: m.time_ms, name: m.name })}
+                    >{m.name || "▸"}</span>
+                  )}
                 </div>
               ))}
             </div>
@@ -1404,6 +1445,44 @@ export function TimelineView() {
       })()}
 
       <ContextMenu state={menu} onClose={() => setMenu(null)} />
+
+      {/* I2: menú contextual de marcador — color picker + categoría + borrar */}
+      {markerMenu && (
+        <div className="modal-overlay" style={{ background: "transparent" }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setMarkerMenu(null); }}>
+          <div className="marker-ctx-menu" style={{ position: "fixed", top: markerMenu.y, left: markerMenu.x, zIndex: 300 }}>
+            <div className="marker-ctx-row">
+              <label style={{ fontSize: 10, color: "var(--txt-3)" }}>Color</label>
+              <input type="color" value={markerMenu.color} style={{ width: 32, height: 22, border: "none", padding: 0, cursor: "pointer" }}
+                onChange={(e) => setMarkerMenu({ ...markerMenu, color: e.target.value })}
+                onBlur={() => {
+                  control.call("update_marker", { t_ms: markerMenu.t_ms, color: markerMenu.color }).then(refreshMarkers);
+                }} />
+            </div>
+            <div className="marker-ctx-row">
+              <label style={{ fontSize: 10, color: "var(--txt-3)" }}>Categoría</label>
+              <select className="field" style={{ height: 22, fontSize: 10 }} value={markerMenu.category}
+                onChange={(e) => {
+                  const cat = e.target.value as MarkerCategory;
+                  setMarkerMenu({ ...markerMenu, category: cat });
+                  control.call("update_marker", { t_ms: markerMenu.t_ms, category: cat }).then(refreshMarkers);
+                }}>
+                <option value="intro">Intro</option>
+                <option value="verso">Verso</option>
+                <option value="estribillo">Estribillo</option>
+                <option value="bridge">Bridge</option>
+                <option value="outro">Outro</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <button className="btn sm ghost" style={{ width: "100%", marginTop: 4, color: "var(--err)" }}
+              onClick={() => {
+                control.call("delete_marker", { time_ms: markerMenu.t_ms }).then(refreshMarkers);
+                setMarkerMenu(null);
+              }}>Borrar marcador</button>
+          </div>
+        </div>
+      )}
 
       {genOpen && drawInfo && (
         <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setGenOpen(false); }}>
