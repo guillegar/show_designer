@@ -716,6 +716,15 @@ Handler `chase_stop(universe: int)` → `{ok}`:
 cada 500 ms. Pulso "Stop" → se apagan. Pulso "Identify" con color rojo → fixture en rojo.
 **Commit**: `roadmap-v4 fase J4: test de fixtures avanzado chase y fade`.
 
+✅ **APLICADA 2026-06-14** — `identify_fixture` ampliado con `color=[r,g,b]` y `duration_ms`
+configurables (backwards-compatible: sin params → blanco 2 s); `_identify` entries ahora son
+`{t_expires, color}` (session.py actualizado para leer ambos formatos). Handler `chase_test(universe)`:
+secuencia rojo→verde→azul→blanco a 500ms via `asyncio.Task` en cadena; estado en
+`session._active_chases`. Handler `chase_stop(universe)`: cancela task + limpia `_identify`.
+Ambos en `_LOCAL`. `FixtureTestPanel`: color picker + input duración compartidos; botón
+"▶Chase" por fixture (universo) con "⏹" stop cuando activo. 6 tests en
+`test_fixture_test_advanced.py`. **943 tests verdes.**
+
 ---
 
 # BLOQUE K — VISUALIZACIÓN

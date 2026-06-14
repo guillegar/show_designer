@@ -994,20 +994,27 @@ class ShowSession:
                 pct = max(0.0, elapsed / self._cue_fade_duration_ms)
                 frame = (frame.astype(np.float32) * pct).clip(0, 255).astype(np.uint8)
 
-        # E4: identify fixture — blanco sobre las barras del fixture (posterior a postfx)
+        # E4/J4: identify fixture — color sobre las barras del fixture (posterior a postfx)
+        # _identify values can be float (legacy) or {t_expires, color} (J4)
         if self._identify:
             import time as _time
             now = _time.monotonic()
-            expired = [fid for fid, exp in self._identify.items() if now >= exp]
+            def _t_expires(v):
+                return v if isinstance(v, float) else v.get("t_expires", now)
+            expired = [fid for fid, v in self._identify.items() if now >= _t_expires(v)]
             for fid in expired:
                 del self._identify[fid]
             if self._identify and self.fixture_rig is not None:
-                for fid in list(self._identify.keys()):
+                for fid, v in list(self._identify.items()):
+                    if isinstance(v, dict):
+                        color = v.get("color", (255, 255, 255))
+                    else:
+                        color = (255, 255, 255)
                     for fx in getattr(self.fixture_rig, 'fixtures', []):
                         if getattr(fx, 'fixture_id', None) == fid:
                             bar = getattr(fx, 'legacy_bar_idx', None)
                             if bar is not None and 0 <= bar < NUM_BARS:
-                                frame[bar] = 255
+                                frame[bar, :] = color
 
         # E4: blackout duro — prioridad máxima (sobre identify, sobre todo)
         if self.blackout_override:

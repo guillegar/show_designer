@@ -470,6 +470,8 @@ function FixtureTestPanel({ fixtures }: { fixtures: Fixture[] }) {
   const [testColor, setTestColor] = useState("#ffffff");
   const [testActive, setTestActive] = useState<number | null>(null);
   const [identifying, setIdentifying] = useState<string | null>(null);
+  const [chaseActive, setChaseActive] = useState<Set<number>>(new Set());
+  const [identifyDuration, setIdentifyDuration] = useState(2000);
 
   // Sincronizar blackout con eventos del stream
   useEffect(() => {
@@ -493,9 +495,24 @@ function FixtureTestPanel({ fixtures }: { fixtures: Fixture[] }) {
 
   const identify = (f: Fixture) => {
     setIdentifying(f.fixture_id);
-    control.call("identify_fixture", { fixture_id: f.fixture_id, duration_ms: 2000 })
-      .catch(() => {});
-    setTimeout(() => setIdentifying(null), 2100);
+    const { r, g, b } = hexToRgb(testColor);
+    control.call("identify_fixture", {
+      fixture_id: f.fixture_id,
+      duration_ms: identifyDuration,
+      color: [r, g, b],
+    }).catch(() => {});
+    setTimeout(() => setIdentifying(null), identifyDuration + 100);
+  };
+
+  const startChase = (universe: number) => {
+    control.call("chase_test", { universe }).then((r: any) => {
+      if (r?.ok) setChaseActive((prev) => new Set([...prev, universe]));
+    }).catch(() => {});
+  };
+  const stopChase = (universe: number) => {
+    control.call("chase_stop", { universe }).then(() => {
+      setChaseActive((prev) => { const n = new Set(prev); n.delete(universe); return n; });
+    }).catch(() => {});
   };
 
   const testUniverse = (universe: number) => {
@@ -538,9 +555,9 @@ function FixtureTestPanel({ fixtures }: { fixtures: Fixture[] }) {
         >⬛ BLACKOUT</button>
       </div>
 
-      {/* Color picker para test */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 11, color: "var(--txt-3)" }}>Color test:</span>
+      {/* Color picker + duración para test/identify */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <span style={{ fontSize: 11, color: "var(--txt-3)" }}>Color:</span>
         <input
           type="color"
           value={testColor}
@@ -548,6 +565,11 @@ function FixtureTestPanel({ fixtures }: { fixtures: Fixture[] }) {
           style={{ width: 30, height: 22, border: "none", cursor: "pointer", background: "none" }}
         />
         <span className="mono" style={{ fontSize: 10, color: "var(--txt-3)" }}>{testColor.toUpperCase()}</span>
+        <span style={{ fontSize: 11, color: "var(--txt-3)", marginLeft: 4 }}>dur:</span>
+        <input type="number" min={200} max={10000} step={100} value={identifyDuration}
+          onChange={(e) => setIdentifyDuration(+e.target.value)}
+          style={{ width: 52, fontSize: 11 }} className="field" />
+        <span style={{ fontSize: 10, color: "var(--txt-3)" }}>ms</span>
       </div>
 
       {/* Mapa de barras */}
@@ -586,7 +608,7 @@ function FixtureTestPanel({ fixtures }: { fixtures: Fixture[] }) {
                 className={"btn sm ghost" + (isIdentifying ? " on" : "")}
                 style={{ fontSize: 10, padding: "1px 6px" }}
                 onClick={() => identify(f)}
-                title="Identificar: enciende a blanco 2 s"
+                title={`Identificar con color ${testColor} durante ${identifyDuration}ms`}
               >🔦</button>
               <button
                 className={"btn sm ghost" + (isTestActive ? " on acc" : "")}
@@ -595,6 +617,15 @@ function FixtureTestPanel({ fixtures }: { fixtures: Fixture[] }) {
                 disabled={universe == null}
                 title={isTestActive ? "Desactivar test" : "Test universo con color seleccionado"}
               >🎨</button>
+              {universe != null && (
+                chaseActive.has(universe) ? (
+                  <button className="btn sm on acc" style={{ fontSize: 10, padding: "1px 6px" }}
+                    onClick={() => stopChase(universe)} title="Detener chase">⏹</button>
+                ) : (
+                  <button className="btn sm ghost" style={{ fontSize: 10, padding: "1px 6px" }}
+                    onClick={() => startChase(universe)} title="Chase rojo→verde→azul→blanco 500ms">▶Chase</button>
+                )
+              )}
             </div>
           );
         })}

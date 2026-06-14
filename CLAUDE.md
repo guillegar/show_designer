@@ -9,8 +9,16 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > documentación** para que refleje el estado real — este `CLAUDE.md` (arquitectura/estado) y los
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
-Estado a **2026-06-14** · **v2.0 · 937 tests · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5+J1+J2+J3 APLICADAS** — backend headless + frontend React, 4 vistas funcionando.
-**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4+I5+J1+J2+J3 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger + exportación PDF/CSV + editor de patch visual. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+Estado a **2026-06-14** · **v2.0 · 943 tests · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5+J1+J2+J3+J4 APLICADAS** — backend headless + frontend React, 4 vistas funcionando.
+**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4+I5+J1+J2+J3+J4 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger + exportación PDF/CSV + editor de patch visual. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+  - ✅ **J4 APLICADA (2026-06-14, ROADMAP v4)**: Test de fixtures avanzado — chase y fade.
+    `identify_fixture` ampliado: `color=[r,g,b]` + `duration_ms`; `_identify[id]` ahora
+    es dict `{t_expires, color}` (session.py backwards-compat: lee float legado también).
+    `chase_test(universe)`: lanza `asyncio.Task` con secuencia RGB+blanco a 500ms;
+    estado en `session._active_chases`. `chase_stop(universe)`: cancela task + limpia.
+    Ambos en `_LOCAL`. `FixtureTestPanel`: color picker + input duración compartidos;
+    botón "▶Chase" + "⏹" por fixture/universo. 6 tests en `test_fixture_test_advanced.py`.
+    **943 tests verdes.**
   - ✅ **J3 APLICADA (2026-06-14, ROADMAP v4)**: Biblioteca GDTF browser y búsqueda.
     `_h_list_gdtf_profiles` + `_h_add_fixture_from_gdtf` en `_LOCAL`; `_gdtf_cache` memo.
     `GdtfBrowserModal` en `Patch.tsx` con búsqueda + selector de modo + form add.

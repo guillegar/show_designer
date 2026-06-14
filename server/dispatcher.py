@@ -2552,12 +2552,11 @@ def _h_set_fixture_type(session, params):
 # ── E4 — Test de output y patch visual ───────────────────────────────────────
 
 def _h_identify_fixture(session, params):
-    """identify_fixture(fixture_id, duration_ms=2000) → {ok}.
+    """identify_fixture(fixture_id, color=(255,255,255), duration_ms=2000) → {ok}.
 
-    Enciende el fixture a blanco (255,255,255) durante duration_ms ms.
-    Estado efímero en session._identify (fixture_id → t_expires).
-    Tras duration_ms se auto-apaga (asyncio.create_task con sleep).
-    Sin tocar el timeline.
+    Enciende el fixture al color dado durante duration_ms ms.
+    Estado efímero en session._identify (fixture_id → {t_expires, color}).
+    Backwards-compatible: sin color → blanco; sin duration_ms → 2000 ms.
     """
     import asyncio
     import time
@@ -2583,10 +2582,17 @@ def _h_identify_fixture(session, params):
     if duration_ms < 100 or duration_ms > 30000:
         return {"ok": False, "error": "duration_ms debe ser 100..30000"}
 
+    # J4: color configurable (r,g,b) 0..255 — por defecto blanco
+    raw_color = params.get("color", [255, 255, 255])
+    if isinstance(raw_color, (list, tuple)) and len(raw_color) >= 3:
+        color = tuple(max(0, min(255, int(v))) for v in raw_color[:3])
+    else:
+        color = (255, 255, 255)
+
     t_expires = time.monotonic() + duration_ms / 1000.0
     if not hasattr(session, '_identify'):
         session._identify = {}
-    session._identify[fixture_id] = t_expires
+    session._identify[fixture_id] = {"t_expires": t_expires, "color": color}
 
     async def _auto_off():
         await asyncio.sleep(duration_ms / 1000.0)
@@ -2598,7 +2604,105 @@ def _h_identify_fixture(session, params):
     except RuntimeError:
         pass  # sin event loop (tests)
 
-    return {"ok": True, "fixture_id": fixture_id, "duration_ms": duration_ms}
+    return {"ok": True, "fixture_id": fixture_id, "duration_ms": duration_ms,
+            "color": list(color)}
+
+
+# J4 — Chase automático de fixtures ──────────────────────────────────────────
+
+_CHASE_SEQUENCE = [
+    (255, 0, 0),    # rojo
+    (0, 255, 0),    # verde
+    (0, 0, 255),    # azul
+    (255, 255, 255),# blanco
+]
+_CHASE_STEP_MS = 500
+
+
+def _h_chase_test(session, params):
+    """chase_test(universe) → {ok, chase_id}.
+
+    Cicla rojo→verde→azul→blanco por los fixtures del universo, 500 ms cada color.
+    Estado efímero en session._active_chases: {universe: asyncio.Task}.
+    """
+    import asyncio
+
+    universe = int(params.get("universe", 0))
+    if universe < 1:
+        return {"ok": False, "error": "universe debe ser >= 1"}
+
+    rig = getattr(session, "fixture_rig", None)
+    if rig is None:
+        return {"ok": False, "error": "No hay rig cargado"}
+
+    fixtures_in_uni = [fx for fx in rig.fixtures if fx.universe == universe]
+    if not fixtures_in_uni:
+        return {"ok": False, "error": f"No hay fixtures en el universo {universe}"}
+
+    if not hasattr(session, "_active_chases"):
+        session._active_chases = {}
+
+    # Cancelar chase anterior en este universo
+    prev = session._active_chases.pop(universe, None)
+    if prev is not None:
+        try:
+            prev.cancel()
+        except Exception:
+            pass
+
+    if not hasattr(session, "_identify"):
+        session._identify = {}
+
+    chase_id = f"chase_u{universe}"
+
+    async def _run_chase():
+        import time
+        step = 0
+        while True:
+            color = _CHASE_SEQUENCE[step % len(_CHASE_SEQUENCE)]
+            for fx in fixtures_in_uni:
+                import time as _time
+                session._identify[fx.fixture_id] = {
+                    "t_expires": _time.monotonic() + _CHASE_STEP_MS / 1000.0 + 0.05,
+                    "color": color,
+                }
+            await asyncio.sleep(_CHASE_STEP_MS / 1000.0)
+            step += 1
+
+    try:
+        task = asyncio.ensure_future(_run_chase())
+        session._active_chases[universe] = task
+    except RuntimeError:
+        pass  # sin event loop (tests)
+
+    return {"ok": True, "chase_id": chase_id, "universe": universe}
+
+
+def _h_chase_stop(session, params):
+    """chase_stop(universe) → {ok}.
+
+    Cancela el chase activo del universo y apaga sus fixtures.
+    """
+    universe = int(params.get("universe", 0))
+    if universe < 1:
+        return {"ok": False, "error": "universe debe ser >= 1"}
+
+    chases = getattr(session, "_active_chases", {})
+    task = chases.pop(universe, None)
+    if task is not None:
+        try:
+            task.cancel()
+        except Exception:
+            pass
+
+    # Apagar identify de todos los fixtures del universo
+    rig = getattr(session, "fixture_rig", None)
+    if rig is not None and hasattr(session, "_identify"):
+        for fx in rig.fixtures:
+            if fx.universe == universe:
+                session._identify.pop(fx.fixture_id, None)
+
+    return {"ok": True, "universe": universe}
 
 
 def _h_test_universe(session, params):
@@ -2863,6 +2967,9 @@ _LOCAL = {
     "test_universe": _h_test_universe,
     "blackout": _h_blackout,
     "get_output_status": _h_get_output_status,
+    # J4 — Chase test de fixtures
+    "chase_test": _h_chase_test,
+    "chase_stop": _h_chase_stop,
     # F2 — Plugin UI auto-generada (ROADMAP v3)
     "get_effect_schema": _h_get_effect_schema,
     # F4 — Live preview en el inspector (ROADMAP v3)

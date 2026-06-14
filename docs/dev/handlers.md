@@ -325,6 +325,30 @@ Usa `server/timeline_export.py::export_patch_pdf`. Escritura atómica via `.tmp 
 
 ---
 
+### J4 — Test de fixtures avanzado: chase y fade
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `identify_fixture` | `fixture_id: str`, `duration_ms?: int` (def 2000), `color?: [r,g,b]` (def blanco) | `{ok, fixture_id, duration_ms, color}` |
+| `chase_test` | `universe: int` | `{ok, universe, fixtures: [id,...]}` |
+| `chase_stop` | `universe: int` | `{ok, universe}` |
+
+**`identify_fixture`** (ampliado en J4): `_identify[fixture_id]` pasa de `float` (t_expires) a
+`{t_expires: float, color: (r,g,b)}`. El color por defecto es blanco (255,255,255). `session.py`
+lee ambos formatos para backwards-compat (float legado → color=(255,255,255)). La entrada
+expira transcurrido `duration_ms` ms (defecto 2000).
+
+**`chase_test`**: Localiza los fixtures del universo especificado. Si no hay fixtures, devuelve
+`{ok: False, error}`. Lanza una `asyncio.Task` (`_run_chase(session, fixture_ids)`) que cicla
+indefinidamente por la secuencia RGB+blanco: `[(255,0,0),(0,255,0),(0,0,255),(255,255,255)]`
+cada 500 ms, sobrescribiendo `_identify` en cada paso. La task se almacena en
+`session._active_chases[universe]`.
+
+**`chase_stop`**: Cancela la task de `session._active_chases[universe]` (`.cancel()`) y elimina
+todas las entradas de `_identify` correspondientes a los fixtures del universo.
+
+---
+
 ### J3 — Biblioteca GDTF: browser y búsqueda
 
 | Handler | Params | Devuelve |
