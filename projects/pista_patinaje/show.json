@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "duration_ms": 180000,
+  "clips": [],
+  "groups": [],
+  "cue_points": [
+    {
+      "slot": 1,
+      "time_ms": 0,
+      "name": "Inicio",
+      "color": "#00BFFF"
+    }
+  ],
+  "markers": []
+}

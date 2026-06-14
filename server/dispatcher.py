@@ -1520,6 +1520,30 @@ def _h_update_marker(session, params):
     return {"ok": True, "marker": marker.to_dict()}
 
 
+# ── I3 — Grupos colapsables: clips de un grupo ───────────────────────────────
+
+def _h_get_group_clips(session, params):
+    """get_group_clips(group_name) → {ok, clips: [...]}.
+
+    Devuelve los clips de tipo pixel (scope=per_bar) cuya pista (track) está
+    incluida en el grupo indicado. Lee los grupos del timeline para obtener
+    la lista de barras del grupo. Read-only.
+    """
+    name = str(params.get("group_name", ""))
+    tl = session.timeline
+    grp = next((g for g in tl.groups if g.name == name), None)
+    if grp is None:
+        return {"ok": False, "error": f"Grupo '{name}' no encontrado"}
+    bar_set = set(grp.bars)
+    pixel_clips = [
+        c.to_dict()
+        for c in tl.clips
+        if getattr(c, "track", None) in bar_set
+        and (getattr(c, "category", "pixel") or "pixel") == "pixel"
+    ]
+    return {"ok": True, "clips": pixel_clips}
+
+
 # ── D1 — Auto-VJ por reglas ─────────────────────────────────────────────────
 
 def _h_autovj_get_state(session, params):
@@ -2521,6 +2545,8 @@ _LOCAL = {
     "add_marker": _h_add_marker,
     "delete_marker": _h_delete_marker,
     "update_marker": _h_update_marker,
+    # I3 — Grupos colapsables
+    "get_group_clips": _h_get_group_clips,
     # D1 — Auto-VJ por reglas
     "autovj_get_state": _h_autovj_get_state,
     "autovj_set_ruleset": _h_autovj_set_ruleset,

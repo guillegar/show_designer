@@ -270,7 +270,13 @@ muestra el nombre en el color elegido. Filtro por "estribillo" → solo se ven e
 
 ---
 
-## I3 — Grupos colapsables en timeline (~2 días, Sonnet)
+## I3 — Grupos colapsables en timeline (~2 días, Sonnet) ✅ APLICADA 2026-06-14
+
+**Implementación**: `collapsedGroups: Set<string>` en localStorage + `toggleGroupCollapse`.
+`lanes` useMemo inserta `group-header` y `group-collapsed` por grupo primario. tl-heads y
+tl-lanes renderizan cabecera colapsable y miniatura SVG de clips. Backend: `get_group_clips`
+en dispatcher.py. CSS: `.tl-group-hdr`, `.tl-grp-sep`, `.tl-grp-toggle`. Tests: 5 en
+`test_groups_collapse.py`. Suite total: 903 tests verdes.
 
 **Qué**: los `BarGroup` existen en el modelo pero no son colapsables en la UI. Clic en la
 cabecera de un grupo → colapsa sus pistas a 1 fila resumida con miniatura visual agregada.

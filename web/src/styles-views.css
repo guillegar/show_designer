@@ -448,6 +448,22 @@
 }
 .marker-ctx-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; justify-content: space-between; }
 
+/* ---------- I3: GRUPOS COLAPSABLES ---------- */
+.tl-group-hdr {
+  display: flex; align-items: center; gap: 4px;
+  padding: 0 6px; user-select: none; background: var(--bg-1);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--txt-2);
+  box-sizing: border-box;
+}
+.tl-grp-toggle {
+  all: unset; cursor: pointer; font-size: 8px; color: var(--txt-3);
+  padding: 0 2px; line-height: 1;
+}
+.tl-grp-toggle:hover { color: var(--txt-0); }
+.tl-grp-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-group-col { display: flex; align-items: center; }
+.tl-grp-sep { box-sizing: border-box; }
+
 /* ---------- CLIP DETAIL MODAL (A4) ---------- */
 .clip-detail-overlay {
   position: fixed; inset: 0; z-index: 200;

@@ -16,10 +16,15 @@ import { xToMs, msToX } from "./timelineGeometry";
 const NUM_BARS = 10;
 const LANE_H = 22;
 const HEAD_W = 188;
+const GROUP_HDR_H = 18;   // altura de la cabecera de grupo
+const GROUP_COL_H = 44;   // altura de la fila colapsada (thumbnail SVG)
 
 type Lane =
   | { key: string; kind: "bar"; bar: number; label: string; ip: string }
-  | { key: string; kind: "fixture"; fixtureId: string; label: string; ip: string };
+  | { key: string; kind: "fixture"; fixtureId: string; label: string; ip: string }
+  // I3: grupos colapsables
+  | { key: string; kind: "group-header"; groupName: string; groupBars: number[]; color: string }
+  | { key: string; kind: "group-collapsed"; groupName: string; groupBars: number[]; color: string };
 
 export function TimelineView() {
   const { toasts, addToast, dismissToast } = useToast();
@@ -82,6 +87,21 @@ export function TimelineView() {
   const [editMarker, setEditMarker] = useState<{ t_ms: number; name: string } | null>(null);
   const [markerMenu, setMarkerMenu] = useState<{ t_ms: number; x: number; y: number; color: string; category: string } | null>(null);
   const [markerCatFilter, setMarkerCatFilter] = useState<string>("all");
+  // I3: grupos colapsables — estado en localStorage
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("sd_collapsed_groups");
+      return new Set<string>(saved ? JSON.parse(saved) : []);
+    } catch { return new Set<string>(); }
+  });
+  const toggleGroupCollapse = (name: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      localStorage.setItem("sd_collapsed_groups", JSON.stringify([...next]));
+      return next;
+    });
+  };
   const [waveformData, setWaveformData] = useState<{
     peaks_max: number[];
     peaks_min: number[];
@@ -226,13 +246,43 @@ export function TimelineView() {
   // Lanes = 10 barras + una por fixture no-LED (movers). Los channel clips
   // (scope='fixture:<id>') se dibujan en su lane.
   const fixtureLanes = useMemo(() => fixtures.filter((f) => f.legacy_bar_idx == null), [fixtures]);
-  const lanes: Lane[] = useMemo(() => [
-    ...Array.from({ length: NUM_BARS }, (_, i): Lane => ({ key: `bar-${i}`, kind: "bar", bar: i, label: `Bar ${i}`, ip: ipOf(i) })),
-    ...fixtureLanes.map((f): Lane => ({ key: `fx-${f.fixture_id}`, kind: "fixture", fixtureId: f.fixture_id, label: f.label || f.fixture_id, ip: f.profile_id })),
-  ], [fixtureLanes, clips]);
+  const lanes: Lane[] = useMemo(() => {
+    // I3: compute primary group per bar (first group in order that includes the bar)
+    const barPG = new Map<number, typeof groups[0]>();
+    for (const g of groups) {
+      for (const b of g.bars) {
+        if (!barPG.has(b)) barPG.set(b, g);
+      }
+    }
+    const result: Lane[] = [];
+    let lastGrp: string | null = null;
+    const emitted = new Set<string>();
+    for (let i = 0; i < NUM_BARS; i++) {
+      const pg = barPG.get(i) ?? null;
+      const pgName = pg?.name ?? null;
+      if (pgName !== lastGrp) {
+        lastGrp = pgName;
+        if (pg) result.push({ key: `grp-hdr-${pg.name}`, kind: "group-header", groupName: pg.name, groupBars: pg.bars, color: pg.color });
+      }
+      if (pg && collapsedGroups.has(pg.name)) {
+        if (!emitted.has(pg.name)) {
+          emitted.add(pg.name);
+          result.push({ key: `grp-col-${pg.name}`, kind: "group-collapsed", groupName: pg.name, groupBars: pg.bars, color: pg.color });
+        }
+      } else {
+        result.push({ key: `bar-${i}`, kind: "bar", bar: i, label: `Bar ${i}`, ip: ipOf(i) });
+      }
+    }
+    for (const f of fixtureLanes) {
+      result.push({ key: `fx-${f.fixture_id}`, kind: "fixture", fixtureId: f.fixture_id, label: f.label || f.fixture_id, ip: f.profile_id });
+    }
+    return result;
+  }, [fixtureLanes, clips, groups, collapsedGroups]);
   const clipsForLane = (lane: Lane) => lane.kind === "bar"
     ? clips.filter((c) => (c.category ?? "pixel") === "pixel" && c.track === lane.bar)
-    : clips.filter((c) => c.scope === `fixture:${lane.fixtureId}`);
+    : lane.kind === "fixture"
+      ? clips.filter((c) => c.scope === `fixture:${lane.fixtureId}`)
+      : [];
 
   // A3: instancias de pattern cuyo track_offset coincide con esta barra
   const patternInstancesForLane = (lane: Lane): PatternInstance[] => {
@@ -250,6 +300,8 @@ export function TimelineView() {
     return (maxEnd / 1000) * zoom;
   };
   const laneHeight = (lane: Lane) => {
+    if (lane.kind === "group-header") return GROUP_HDR_H;
+    if (lane.kind === "group-collapsed") return GROUP_COL_H;
     const cs = clipsForLane(lane);
     const maxLayer = Math.max(0, ...cs.map((c) => c.layer));
     return 14 + (maxLayer + 1) * LANE_H;
@@ -918,7 +970,7 @@ export function TimelineView() {
       } else {
         items.push({ label: "Elige un efecto/preset del banco", disabled: true, onClick: () => {} });
       }
-    } else {
+    } else if (lane.kind === "fixture") {
       if (isChannelPreset) {
         items.push({ label: `Dibujar "${activePreset!.name}" aquí`, onClick: () => control.call("add_preset_clip", { preset_id: activePreset!.preset_id, fixture_id: lane.fixtureId, start_ms: Math.round(startMs), end_ms: end }).then(afterEdit) });
       } else {
@@ -1114,27 +1166,47 @@ export function TimelineView() {
         <div className="tl-scroll" ref={tlScrollRef}>
           <div className="tl-grid" style={{ width: HEAD_W + W }}>
             <div className="tl-heads" style={{ width: HEAD_W }}>
-              {lanes.map((lane) => lane.kind === "bar" ? (
-                <div key={lane.key} className="tl-head" style={{ height: rowHeight(lane.bar) }}>
-                  <span className="sw" style={{ background: `oklch(0.75 0.16 ${lane.bar * 36})` }} />
-                  <div className="hd-txt">
-                    <div className="hd-name">Bar {lane.bar}{laneCount(lane.bar) > 1 ? ` [${laneCount(lane.bar)}]` : ""}</div>
-                    <div className="hd-ip mono">{lane.ip}</div>
+              {lanes.map((lane) => {
+                if (lane.kind === "group-header") return (
+                  <div key={lane.key} className="tl-group-hdr" style={{ height: GROUP_HDR_H, borderLeft: `3px solid ${lane.color}` }}>
+                    <button className="tl-grp-toggle" onClick={() => toggleGroupCollapse(lane.groupName)}>
+                      {collapsedGroups.has(lane.groupName) ? "▶" : "▼"}
+                    </button>
+                    <span className="tl-grp-name">{lane.groupName}</span>
                   </div>
-                  <div className="hd-btns">
-                    <button className={"ms m" + (muted[lane.bar] ? " on" : "")} onClick={() => toggleMute(lane.bar)}>M</button>
-                    <button className={"ms s" + (solo[lane.bar] ? " on" : "")} onClick={() => toggleSolo(lane.bar)}>S</button>
+                );
+                if (lane.kind === "group-collapsed") return (
+                  <div key={lane.key} className="tl-head tl-group-col" style={{ height: GROUP_COL_H, cursor: "pointer" }} onClick={() => toggleGroupCollapse(lane.groupName)}>
+                    <span className="sw" style={{ background: lane.color }} />
+                    <div className="hd-txt">
+                      <div className="hd-name">{lane.groupName}</div>
+                      <div className="hd-ip mono">{lane.groupBars.length} barras colapsadas</div>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div key={lane.key} className="tl-head" style={{ height: laneHeight(lane) }}>
-                  <span className="sw" style={{ background: "var(--acc-2)" }} />
-                  <div className="hd-txt">
-                    <div className="hd-name">⬡ {lane.label}</div>
-                    <div className="hd-ip mono">{lane.ip}</div>
+                );
+                if (lane.kind === "bar") return (
+                  <div key={lane.key} className="tl-head" style={{ height: rowHeight(lane.bar) }}>
+                    <span className="sw" style={{ background: `oklch(0.75 0.16 ${lane.bar * 36})` }} />
+                    <div className="hd-txt">
+                      <div className="hd-name">Bar {lane.bar}{laneCount(lane.bar) > 1 ? ` [${laneCount(lane.bar)}]` : ""}</div>
+                      <div className="hd-ip mono">{lane.ip}</div>
+                    </div>
+                    <div className="hd-btns">
+                      <button className={"ms m" + (muted[lane.bar] ? " on" : "")} onClick={() => toggleMute(lane.bar)}>M</button>
+                      <button className={"ms s" + (solo[lane.bar] ? " on" : "")} onClick={() => toggleSolo(lane.bar)}>S</button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+                return (
+                  <div key={lane.key} className="tl-head" style={{ height: laneHeight(lane) }}>
+                    <span className="sw" style={{ background: "var(--acc-2)" }} />
+                    <div className="hd-txt">
+                      <div className="hd-name">⬡ {lane.label}</div>
+                      <div className="hd-ip mono">{lane.ip}</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="tl-lanes" style={{ width: W }} ref={lanesRef}>
@@ -1154,6 +1226,29 @@ export function TimelineView() {
               })}
 
               {lanes.map((lane) => {
+                // I3: group separator row
+                if (lane.kind === "group-header") return (
+                  <div key={lane.key} className="tl-row tl-grp-sep"
+                    style={{ height: GROUP_HDR_H, background: `${lane.color}18`, borderLeft: `3px solid ${lane.color}` }} />
+                );
+                // I3: group-collapsed thumbnail
+                if (lane.kind === "group-collapsed") {
+                  const gClips = clips.filter((c) => (c.category ?? "pixel") === "pixel" && lane.groupBars.includes(c.track));
+                  return (
+                    <div key={lane.key} className="tl-row tl-grp-col" style={{ height: GROUP_COL_H, cursor: "pointer" }}
+                      onClick={() => toggleGroupCollapse(lane.groupName)}>
+                      <svg width={W} height={GROUP_COL_H} style={{ display: "block", pointerEvents: "none" }}>
+                        {gClips.map((c) => (
+                          <rect key={c.id}
+                            x={msToX(c.start_ms, zoom)} y={2}
+                            width={Math.max(2, msToX(c.end_ms, zoom) - msToX(c.start_ms, zoom))}
+                            height={GROUP_COL_H - 4}
+                            fill={c.color || lane.color} opacity={0.5} rx={2} />
+                        ))}
+                      </svg>
+                    </div>
+                  );
+                }
                 const h = lane.kind === "bar" ? rowHeight(lane.bar) : laneHeight(lane);
                 const dim = lane.kind === "bar" && muted[lane.bar];
                 // capas destino resaltadas en este track (1 en drag simple, varias en grupo)

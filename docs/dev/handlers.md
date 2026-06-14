@@ -304,6 +304,27 @@ Llamar a `undo()` tras `add_marker` o `update_marker` restaura el estado anterio
 
 ---
 
+### I3 — Grupos colapsables en timeline
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `get_group_clips` | `group_name: str` | `{ok, clips: [Clip]}` |
+
+**Read-only** — no muta nada, no está en `_TIMELINE_MUTATORS`. Devuelve los clips de tipo
+`pixel` cuyas barras (`track`) pertenecen al grupo indicado.
+
+Si el grupo no existe devuelve `{ok: false, error: "Grupo '...' no encontrado"}`.
+
+**Frontend**: la miniatura SVG de la fila colapsada (`kind: "group-collapsed"`) se construye
+en cliente sin llamar a este handler — itera `clips` del store filtrando por `lane.groupBars`.
+`get_group_clips` está disponible para clientes externos (MCP, scripts) que necesiten la lista
+sin tener acceso al store React.
+
+**Estado de colapso**: vive en `localStorage` (`sd_collapsed_groups: string[]`) — es
+preferencia visual, no documento. No tiene handler de backend.
+
+---
+
 ### C2 — Macros en vivo
 
 | Handler | Params | Devuelve |
