@@ -674,6 +674,22 @@ export function PatchView() {
     setEdit({});
   };
 
+  // K1 — Posición 3D del fixture
+  const [pos3d, setPos3d] = useState({ x: 0, y: 4, z: 0, rx: 0, ry: 0, rz: 0 });
+  const [pos3dOpen, setPos3dOpen] = useState(false);
+  useEffect(() => {
+    if (!selFx) return;
+    control.call("get_rig_layout", {}).then((r: any) => {
+      const e = (r.fixtures || []).find((f: any) => f.id === selFx.fixture_id);
+      if (e) setPos3d({ x: e.x ?? 0, y: e.y ?? 4, z: e.z ?? 0, rx: e.rx ?? 0, ry: e.ry ?? 0, rz: e.rz ?? 0 });
+      else setPos3d({ x: selFx.position?.[0] ?? 0, y: selFx.position?.[1] ?? 4, z: selFx.position?.[2] ?? 0, rx: 0, ry: 0, rz: 0 });
+    }).catch(() => {});
+  }, [sel]);
+
+  const save3d = () => {
+    control.call("set_fixture_3d", { fixture_id: selFx.fixture_id, ...pos3d }).catch(() => {});
+  };
+
   return (
     <div className="patch">
       <div className="patch-stage">
@@ -739,6 +755,32 @@ export function PatchView() {
                 </div>
               </>
             )}
+
+            {/* K1 — Posición 3D para el viewer */}
+            <div style={{ borderTop: "1px solid var(--line)", padding: "6px 14px" }}>
+              <button className="btn sm ghost" style={{ fontSize: 11, width: "100%", textAlign: "left" }}
+                onClick={() => setPos3dOpen((v) => !v)}>
+                {pos3dOpen ? "▼" : "▶"} Posición 3D (viewer)
+              </button>
+              {pos3dOpen && (
+                <div style={{ paddingTop: 6 }}>
+                  {(["x", "y", "z", "rx", "ry", "rz"] as const).map((k) => (
+                    <div className="form-row" key={k}>
+                      <span className="fl" style={{ width: 36 }}>{k} {k[0] === "r" ? "(°)" : "(m)"}</span>
+                      <div className="fv">
+                        <input className="field" type="number" step={k[0] === "r" ? 5 : 0.1}
+                          value={pos3d[k]}
+                          onChange={(e) => setPos3d((p) => ({ ...p, [k]: parseFloat(e.target.value) || 0 }))}
+                          style={{ width: 70 }} />
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{ padding: "4px 0" }}>
+                    <button className="btn sm" onClick={save3d}>Guardar posición 3D</button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div style={{ padding: 12, display: "flex", gap: 8 }}>
               <button className="btn ghost" style={{ color: "var(--bad)" }} onClick={del}>Borrar fixture</button>

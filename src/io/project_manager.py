@@ -68,6 +68,11 @@ class Project:
         return self.folder / 'project.json'
 
     @property
+    def rig_layout_file(self) -> Path:
+        """Posiciones 3D explícitas editadas por el usuario (K1)."""
+        return self.folder / 'rig_layout.json'
+
+    @property
     def audio(self) -> Path:
         return Path(self.audio_path)
 

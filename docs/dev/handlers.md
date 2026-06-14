@@ -325,6 +325,31 @@ Usa `server/timeline_export.py::export_patch_pdf`. Escritura atómica via `.tmp 
 
 ---
 
+### K1 — Viewer 3D: posicionamiento de fixtures
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `get_rig_layout` | _(ninguno)_ | `{ok, fixtures: [{id, x, y, z, rx, ry, rz}]}` |
+| `set_fixture_3d` | `fixture_id: str`, `x: float`, `y: float`, `z: float`, `rx?: float`, `ry?: float`, `rz?: float` | `{ok, fixture: Fixture}` |
+
+**`get_rig_layout`**: lee `projects/<slug>/rig_layout.json`. Si no existe → `{ok, fixtures: []}`.
+
+**`set_fixture_3d`**: actualiza/inserta la entrada del fixture en `projects/<slug>/rig_layout.json`
+con sus coordenadas 3D (metros) y rotación (grados, euler XYZ). Escritura atómica
+(`.tmp → replace`). Llama a `session.sync_rig_layout()` para que el viewer 3D recargue las
+posiciones. Devuelve el fixture actualizado (I3).
+
+**`sync_rig_layout` (K1 merge)**: al regenerar `web/public/v3d/rig_layout.json`, si existe
+`projects/<slug>/rig_layout.json`, carga sus entradas y las usa como `position`/`rotation`
+para cada fixture en lugar de los valores auto-generados desde `fx.position`/`fx.rotation`.
+Fixtures sin entrada en el archivo usan los valores del rig tal como antes.
+
+**Viewer (`main.js`)**: `setupCameraButtons()` enlaza `#cam-top` (cenital), `#cam-front`
+(frontal) y `#cam-persp` (perspectiva libre) a posiciones de cámara predefinidas via
+`controls.target` + `camera.position`.
+
+---
+
 ### J4 — Test de fixtures avanzado: chase y fade
 
 | Handler | Params | Devuelve |

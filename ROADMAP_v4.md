@@ -794,6 +794,14 @@ En `web/public/v3d/main.js` (viewer Three.js existente):
 Los modos de cámara cenital y frontal funcionan.
 **Commit**: `roadmap-v4 fase K1: viewer 3D con posicionamiento de fixtures`.
 
+✅ **APLICADA 2026-06-14** — `Project.rig_layout_file` → `projects/<slug>/rig_layout.json`.
+Handlers `get_rig_layout` + `set_fixture_3d(x,y,z,rx,ry,rz)` en `_LOCAL`; escritura atómica
+`.tmp→replace`; `sync_rig_layout` mergeaa posiciones K1 sobre las auto-generadas. Viewer
+`main.js`: `setupCameraButtons()` (cenital/frontal/perspectiva); `index.html`: estilos +
+`#cam-controls` div. `Patch.tsx`: panel plegable "Posición 3D" (x/y/z metros + rx/ry/rz
+grados) por fixture seleccionado; carga desde `get_rig_layout` al cambiar selección;
+"Guardar posición 3D" → `set_fixture_3d`. 5 tests en `test_rig_layout.py`. **948 tests verdes.**
+
 ---
 
 ## K2 — Pixel mapping: vídeo/imagen → LEDs (~4 días, Opus)

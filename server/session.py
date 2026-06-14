@@ -309,21 +309,48 @@ class ShowSession:
         rutas: la copia servida (`web/dist/v3d/`) y la fuente única
         (`web/public/v3d/` vía VIEWER3D_DIR), para que el visor en el navegador
         refleje el rig real al recargar.
+
+        K1: si existe projects/<slug>/rig_layout.json, sus posiciones 3D explícitas
+        sobreescriben las generadas automáticamente desde fx.position/rotation.
         """
         rig = self.fixture_rig
         if rig is None:
             return
         try:
             import json
+
+            # K1 — cargar posiciones explícitas del usuario (si existen)
+            k1_positions: dict = {}
+            proj = getattr(self, "project", None)
+            if proj is not None:
+                layout_file = getattr(proj, "rig_layout_file", None)
+                if layout_file is not None and layout_file.is_file():
+                    try:
+                        with open(layout_file, "r", encoding="utf-8") as f:
+                            k1_data = json.load(f)
+                        for e in k1_data.get("fixtures", []):
+                            fid = e.get("id")
+                            if fid:
+                                k1_positions[fid] = e
+                    except Exception:
+                        pass
+
             fixtures_json = []
             for fx in rig.fixtures:
                 prof = rig.get_profile(fx.profile_id)
+                k1 = k1_positions.get(fx.fixture_id)
+                if k1:
+                    position = [k1["x"], k1["y"], k1["z"]]
+                    rotation = [k1.get("rx", 0.0), k1.get("ry", 0.0), k1.get("rz", 0.0)]
+                else:
+                    position = list(fx.position)
+                    rotation = list(fx.rotation)
                 entry = {
                     "id": fx.fixture_id,
                     "type": prof.kind if prof else "led_strip",
                     "leds": prof.led_count if prof else 93,
-                    "position": list(fx.position),
-                    "rotation": list(fx.rotation),
+                    "position": position,
+                    "rotation": rotation,
                     "length": 1.0,
                 }
                 if prof is not None and prof.kind != 'led_strip':

@@ -15,6 +15,12 @@
               font-family: 'Consolas', monospace; z-index: 10; }
     .ws-on  { color: #6f6; }
     .ws-off { color: #f66; }
+    #cam-controls { position: fixed; top: 10px; right: 10px; display: flex;
+                    flex-direction: column; gap: 4px; z-index: 10; }
+    #cam-controls button { background: rgba(0,0,0,0.6); border: 1px solid #444;
+      color: #ccc; padding: 5px 10px; border-radius: 3px; font-size: 11px;
+      cursor: pointer; font-family: 'Segoe UI', sans-serif; }
+    #cam-controls button:hover { background: rgba(40,60,80,0.8); color: #8cf; }
   </style>
 </head>
 <body>
@@ -22,6 +28,11 @@
     <b>Show Designer · 3D Viewer</b><br>
     Drag para rotar · scroll para zoom · click derecho para pan<br>
     <span id="bar-info">10 barras · 93 LEDs cada una</span>
+  </div>
+  <div id="cam-controls">
+    <button id="cam-top" title="Vista cenital">⬆ Cenital</button>
+    <button id="cam-front" title="Vista frontal">↕ Frontal</button>
+    <button id="cam-persp" title="Perspectiva">⟳ Perspectiva</button>
   </div>
   <div id="status">
     WS: <span id="ws-status" class="ws-off">—</span> ·

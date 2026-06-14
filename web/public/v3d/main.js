@@ -526,9 +526,37 @@ window.addEventListener('resize', () => {
   composer.setSize(window.innerWidth, window.innerHeight);
 });
 
+// ── Botones de cámara (K1) ───────────────────────────────────────
+function setupCameraButtons() {
+  const btnTop   = document.getElementById('cam-top');
+  const btnFront = document.getElementById('cam-front');
+  const btnPersp = document.getElementById('cam-persp');
+  if (!btnTop && !btnFront && !btnPersp) return;
+
+  function flyTo(pos, target) {
+    camera.position.set(...pos);
+    controls.target.set(...target);
+    controls.update();
+  }
+
+  if (btnTop) btnTop.addEventListener('click', () => {
+    flyTo([0, 18, 0.001], [0, 0, 0]);
+    controls.maxPolarAngle = Math.PI;   // permitir vista desde arriba
+  });
+  if (btnFront) btnFront.addEventListener('click', () => {
+    flyTo([0, 3.5, 18], [0, 3.0, 0]);
+    controls.maxPolarAngle = Math.PI / 2 - 0.05;
+  });
+  if (btnPersp) btnPersp.addEventListener('click', () => {
+    flyTo([0, 4.5, 16], [0, 2.0, 0]);
+    controls.maxPolarAngle = Math.PI / 2 - 0.05;
+  });
+}
+
 // ── Boot ─────────────────────────────────────────────────────────
 (async () => {
   await loadLayout();
   connectWS();
+  setupCameraButtons();
   animate();
 })();
