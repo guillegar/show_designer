@@ -9,8 +9,14 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > documentación** para que refleje el estado real — este `CLAUDE.md` (arquitectura/estado) y los
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
-Estado a **2026-06-14** · **v2.0 · 974 tests Python + 3 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3 APLICADAS** — backend headless + frontend React + REST API + webhooks + multiusuario.
+Estado a **2026-06-14** · **v2.0 · 983 tests Python + 3 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1 APLICADAS** — backend headless + frontend React + REST API + webhooks + multiusuario + tap BPM.
 **A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger + exportación PDF/CSV + editor de patch visual. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+  - ✅ **M1 APLICADA (2026-06-14, ROADMAP v4)**: Tap BPM + key detection.
+    `server/tempo_sync.py`: `TempoSyncService.tap(t_wall)` — buffer 8 taps, mediana,
+    reset en gap >3 s, mode='manual'. `server/key_detector.py` (NUEVO): `detect_key()`
+    — chroma CQT + KS votación, executor, I4/I6. Handlers `tap_bpm` + `get_key_info`.
+    `session._key_cache`. `Transport.tsx`: `TapButton` con 4 puntos + BPM live.
+    `Analyzer.tsx`: botón + chip de tonalidad. 9 tests (5 tap + 4 key). **983 Python verdes.**
   - ✅ **L3 APLICADA (2026-06-14, ROADMAP v4)**: Modo multiusuario básico.
     `server/auth.py` (NUEVO): `check_permission` + `role_for_token` + `ASSISTANT_HANDLERS`
     (set_macro, go_*, blackout, live_*, prefijos get_/list_). `session.py`: `_tokens_config`

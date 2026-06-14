@@ -1177,7 +1177,16 @@ ven el show en tiempo real.
 
 > *Funciones avanzadas de análisis y generación que elevan la productividad del diseñador.*
 
-## M1 — Análisis avanzado: BPM tap + key detection (~2 días, Sonnet)
+## M1 — Análisis avanzado: BPM tap + key detection (~2 días, Sonnet) ✅ APLICADA 2026-06-14
+
+**Implementación**: `server/tempo_sync.py`: `TempoSyncService.tap(t_wall)` — buffer circular 8
+taps, mediana de intervalos, reset en gap >3 s, mode='manual'; `server/key_detector.py` (NUEVO):
+`detect_key(audio_path)` — chroma CQT + KS-profile, I4/I6; `dispatcher.py`: handlers
+`tap_bpm` + `get_key_info` (executor + broadcast key_detected); `session.py`: `_key_cache`.
+Frontend: `Transport.tsx` — `TapButton` con 4 puntos de progreso + BPM live; `Analyzer.tsx`:
+botón "Detectar tonalidad" + chip key/confidence. 9 tests (5 tap + 4 key). **983 Python verdes.**
+
+## M1 — Análisis avanzado: BPM tap + key detection (~2 días, Sonnet) [spec original]
 
 **Qué**:
 - **Tap tempo**: handler `tap_bpm()` registra timestamps de taps; tras 4+ taps, calcula

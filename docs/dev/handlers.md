@@ -325,6 +325,34 @@ Usa `server/timeline_export.py::export_patch_pdf`. Escritura atómica via `.tmp 
 
 ---
 
+### M1 — Tap BPM + key detection
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `tap_bpm` | — | `{ok, bpm: float\|null, taps: int, ready: bool}` |
+| `get_key_info` | — | `{ok, status: "ready"\|"computing", key?, mode?, confidence?}` |
+
+**`TempoSyncService.tap(t_wall)`** en `server/tempo_sync.py`:
+- Buffer circular de los últimos 8 taps (`time.perf_counter()`).
+- Reset automático si gap entre taps > 3 s (nuevo ritmo).
+- Tras 4+ taps: BPM = `60 / mediana(intervalos)`, mode='manual'.
+- Devuelve `{bpm, taps, ready}`.
+
+**`detect_key(audio_path)`** en `server/key_detector.py`:
+- Carga hasta 60 s de audio con librosa, calcula chroma CQT.
+- Correlación de Krumhansl-Schmuckler contra perfiles mayor/menor para las 12 tonalidades.
+- Devuelve `{key: "A", mode: "major"|"minor", confidence: 0.0..1.0}`.
+- Sin librosa o archivo no encontrado → `{error: str}` sin crash (I4/I6).
+
+**`get_key_info`**: si `session._key_cache` ya existe → devuelve `{status: "ready", ...}`.
+Si no → lanza en `ThreadPoolExecutor`, broadcast `{type: "key_detected", ...}` por hub y
+guarda en `_key_cache`. Devuelve `{status: "computing"}`.
+
+**Frontend**: `Transport.tsx` — `TapButton` (4 puntos de progreso + BPM live).
+`Analyzer.tsx` — botón "Detectar tonalidad" → chip `"Am · 82%"`.
+
+---
+
 ### L3 — Modo multiusuario básico
 
 | Handler | Params | Devuelve |

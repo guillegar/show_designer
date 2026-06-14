@@ -70,7 +70,7 @@ class TempoSyncService:
     """
 
     def __init__(self) -> None:
-        self.mode: Literal["off", "link", "midi_clock"] = "off"
+        self.mode: Literal["off", "link", "midi_clock", "manual"] = "off"
         self.bpm: float = 0.0
         self.beat_phase: float = 0.0
         self.midi_device: Optional[str] = None
@@ -148,7 +148,7 @@ class TempoSyncService:
         """Activa el modo de sync. Para el modo anterior si había uno."""
         await self.stop()
 
-        if mode not in ("off", "link", "midi_clock"):
+        if mode not in ("off", "link", "midi_clock", "manual"):
             _log.warning("TempoSyncService: modo desconocido %r — ignorado", mode)
             return
 
@@ -191,3 +191,40 @@ class TempoSyncService:
             "midi_device": self.midi_device,
             "synced": self.bpm > 0.0 and self.mode != "off",
         }
+
+    # ── M1: Tap tempo ────────────────────────────────────────────
+
+    _TAP_MAX = 8    # circular buffer de los últimos N taps
+    _TAP_MIN = 4    # taps mínimos para actualizar BPM
+
+    def __init_tap(self) -> None:
+        if not hasattr(self, "_tap_times"):
+            self._tap_times: deque = deque(maxlen=self._TAP_MAX)
+
+    def tap(self, t_wall: float) -> dict:
+        """Registra un tap (wall clock en segundos, p. ej. time.perf_counter()).
+        Tras 4+ taps calcula BPM por mediana de intervalos y activa mode='manual'.
+        Descarta taps > 3 s separados del anterior (nuevo ritmo).
+        Devuelve: {bpm: float|None, taps: int, ready: bool}
+        """
+        self.__init_tap()
+        # descarte si hay un hueco grande — el usuario empezó de nuevo
+        if self._tap_times and (t_wall - self._tap_times[-1]) > 3.0:
+            self._tap_times.clear()
+        self._tap_times.append(t_wall)
+        n = len(self._tap_times)
+        if n < self._TAP_MIN:
+            return {"bpm": None, "taps": n, "ready": False}
+
+        intervals = [
+            self._tap_times[i + 1] - self._tap_times[i]
+            for i in range(n - 1)
+        ]
+        med = median(intervals)
+        if med <= 0:
+            return {"bpm": None, "taps": n, "ready": False}
+
+        bpm = round(60.0 / med, 1)
+        self.bpm = bpm
+        self.mode = "manual"  # type: ignore[assignment]
+        return {"bpm": bpm, "taps": n, "ready": True}

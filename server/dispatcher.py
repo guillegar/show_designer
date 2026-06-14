@@ -3018,6 +3018,60 @@ def _h_get_output_status(session, params):
     }
 
 
+# ── M1 — Tap BPM + key detection ─────────────────────────────────────────────
+
+def _h_tap_bpm(session, params):
+    """tap_bpm() → {bpm, taps, ready}.
+    Registra un tap de tempo; tras 4+ taps calcula BPM por mediana.
+    """
+    import time as _time
+    ts = getattr(session, "tempo_sync", None)
+    if ts is None:
+        return {"ok": False, "error": "TempoSyncService no disponible"}
+    result = ts.tap(_time.perf_counter())
+    result["ok"] = True
+    return result
+
+
+def _h_get_key_info(session, params):
+    """get_key_info() → {ok, status, key?, mode?, confidence?}.
+    Si ya calculado → devuelve desde caché. Si no → lanza en executor
+    y devuelve {status: 'computing'}. El resultado llegará como evento del stream.
+    """
+    cache = getattr(session, "_key_cache", None)
+    if cache is not None:
+        return {"ok": True, "status": "ready", **cache}
+
+    # Lanzar detección en executor (no bloquea el event loop)
+    import asyncio
+    import concurrent.futures
+
+    audio_path = getattr(session, "audio_path", None) or ""
+    if not audio_path:
+        return {"ok": False, "error": "No hay audio cargado"}
+
+    loop = asyncio.get_event_loop()
+    hub = getattr(session, "hub", None)
+
+    def _detect_and_cache():
+        from server.key_detector import detect_key
+        result = detect_key(audio_path)
+        session._key_cache = result
+        if hub is not None:
+            import asyncio as _aio
+            try:
+                _aio.run_coroutine_threadsafe(
+                    hub.broadcast_json({"type": "key_detected", **result}),
+                    loop,
+                )
+            except Exception:
+                pass
+
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    loop.run_in_executor(executor, _detect_and_cache)
+    return {"ok": True, "status": "computing"}
+
+
 _LOCAL = {
     # H4 — list_clips con paginación (offset/limit)
     "list_clips": _h_list_clips,
@@ -3173,6 +3227,9 @@ _LOCAL = {
     "preview_effect_frame": _h_preview_effect_frame,
     # L3 — Multiusuario: rol del token actual
     "auth_get_role": lambda session, params: {"ok": True, "role": "operator"},
+    # M1 — Tap BPM + key detection
+    "tap_bpm": _h_tap_bpm,
+    "get_key_info": _h_get_key_info,
 }
 
 

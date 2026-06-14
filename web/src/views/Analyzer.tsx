@@ -75,6 +75,8 @@ function Wave({ data, overlays, onContext }: { data: AzData; overlays: Record<st
   return <canvas ref={ref} onClick={onClick} onContextMenu={onCtx} style={{ cursor: "text" }} />;
 }
 
+type KeyInfo = { key: string; mode: "major" | "minor"; confidence: number } | null;
+
 export function AnalyzerView() {
   const t = useStore((s) => s.t);
   const bpm = useStore((s) => s.song.bpm);
@@ -85,6 +87,23 @@ export function AnalyzerView() {
   const [side, setSide] = useState<"sections" | "events" | "thr">("sections");
   const [thr, setThr] = useState<Record<string, number>>({ kick: 50, snare: 45, hat: 35, onset: 55 });
   const [menu, setMenu] = useState<MenuState>(null);
+  // M1: tonalidad detectada
+  const [keyInfo, setKeyInfo] = useState<KeyInfo>(null);
+  const [keyStatus, setKeyStatus] = useState<"idle" | "computing" | "ready">("idle");
+
+  const detectKey = () => {
+    setKeyStatus("computing");
+    control.call("get_key_info", {}).then((r: any) => {
+      if (r.status === "ready" && r.key) {
+        setKeyInfo({ key: r.key, mode: r.mode, confidence: r.confidence });
+        setKeyStatus("ready");
+      } else if (r.status === "computing") {
+        setKeyStatus("computing");
+        // poll after a few seconds
+        setTimeout(detectKey, 5000);
+      }
+    }).catch(() => setKeyStatus("idle"));
+  };
 
   const loadEvents = async () => {
     const [pk, be, db, ki, sn] = await Promise.all([
@@ -141,6 +160,16 @@ export function AnalyzerView() {
           <div className="az-wave"><Wave data={data} overlays={overlays} onContext={waveCtx} /></div>
           <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 11.5, color: "var(--txt-3)" }}>
             <span className="chip acc"><span className="d" />Beat grid: {Math.round(bpm)} BPM</span>
+            {keyInfo ? (
+              <span className="chip" style={{ color: "var(--good)" }}>
+                {keyInfo.key}{keyInfo.mode === "minor" ? "m" : ""} · {(keyInfo.confidence * 100).toFixed(0)}%
+              </span>
+            ) : (
+              <button className="btn sm ghost" style={{ fontSize: 10 }}
+                onClick={detectKey} disabled={keyStatus === "computing"}>
+                {keyStatus === "computing" ? "Detectando…" : "Detectar tonalidad"}
+              </button>
+            )}
             <span className="muted">Click en la onda para mover el playhead</span>
             <span className="ph-spacer" style={{ flex: 1 }} />
             <span className="mono muted">{fmtTimeMs(t)}</span>

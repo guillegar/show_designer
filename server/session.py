@@ -301,6 +301,9 @@ class ShowSession:
         _ot_path = _Path("output_targets.json")
         self._webhook_dispatcher: WebhookDispatcher = WebhookDispatcher.from_output_targets(_ot_path)
 
+        # M1: caché de detección de tonalidad (key_detector.py)
+        self._key_cache: Optional[dict] = None
+
         # L3: tokens de autenticación (multiusuario)
         _tokens: list = []
         if _ot_path.is_file():
