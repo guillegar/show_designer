@@ -448,6 +448,40 @@
 }
 .marker-ctx-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; justify-content: space-between; }
 
+/* ---------- I4: VISTA ARRANGER ---------- */
+.tl-arranger {
+  display: flex; flex-shrink: 0; height: 60px;
+  border-bottom: 1px solid var(--bdr); background: var(--bg-1); overflow: hidden;
+}
+.arr-corner {
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  border-right: 1px solid var(--bdr); font-size: 9px; font-weight: 700;
+  letter-spacing: 0.06em; color: var(--txt-3);
+}
+.arr-track {
+  flex: 1; position: relative; overflow: hidden; cursor: default;
+}
+.arr-block {
+  position: absolute; top: 6px; bottom: 6px; border-radius: 4px;
+  opacity: 0.85; cursor: grab; overflow: hidden; user-select: none;
+  transition: opacity 0.1s;
+}
+.arr-block:hover { opacity: 1; filter: brightness(1.15); }
+.arr-block.dragging { opacity: 0.45; cursor: grabbing; }
+.arr-label {
+  position: absolute; inset: 0; display: flex; align-items: center;
+  padding: 0 6px; font-size: 10px; font-weight: 700; color: var(--bg-0);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.arr-drop-line {
+  position: absolute; top: 2px; bottom: 2px; width: 2px;
+  background: var(--acc); pointer-events: none; z-index: 10;
+}
+.arr-empty {
+  position: absolute; inset: 0; display: flex; align-items: center;
+  justify-content: center; font-size: 11px; color: var(--txt-3);
+}
+
 /* ---------- I3: GRUPOS COLAPSABLES ---------- */
 .tl-group-hdr {
   display: flex; align-items: center; gap: 4px;

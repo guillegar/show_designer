@@ -330,7 +330,15 @@ desaparecen en 1 fila de miniatura; el show sigue sonando correctamente.
 
 ---
 
-## I4 — Vista Arranger: secciones como bloques (~3 días, Opus)
+## I4 — Vista Arranger: secciones como bloques (~3 días, Opus) ✅ APLICADA 2026-06-14
+
+**Implementación**: `_h_delete_range` en dispatcher.py (borra clips solapados con el intervalo);
+`delete_range` añadido a `_TIMELINE_MUTATORS` y `_LOCAL`. Frontend: estado `arrangerMode` +
+`dragSecIdx` + `dragInsertMs` + `arrangerRef`. `arrangerSections` useMemo calculado desde
+markers I2. Tira visual `.tl-arranger` entre ruler y tl-scroll; bloques `.arr-block` con drag
+→ `duplicate_range` + `delete_range`. Botón "⊞ Arr" en toolbar. Doble-clic → scroll al
+inicio de sección y cierra arranger. CSS: `.tl-arranger`, `.arr-block`, `.arr-drop-line`.
+7 tests en `test_arranger.py`. Suite total: 910 tests verdes.
 
 **Qué**: nueva vista alternativa al timeline (toggle en toolbar): muestra SECCIONES como
 bloques de color grandes (como FL Studio → Song view). Cada sección = rango de tiempo entre

@@ -304,6 +304,28 @@ Llamar a `undo()` tras `add_marker` o `update_marker` restaura el estado anterio
 
 ---
 
+### I4 — Vista Arranger
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `duplicate_range` | `t0_ms: int`, `t1_ms: int`, `dest_ms: int` | `{ok, clips: [Clip]}` |
+| `delete_range` | `start_ms: int`, `end_ms: int` | `{ok, deleted: int}` |
+
+`duplicate_range` existe desde A5; `delete_range` es nuevo en I4.
+
+**`delete_range`**: borra todos los clips cuyo rango **se solapa** con `[start_ms, end_ms)`.
+Condición de solapamiento: `clip.start_ms < end_ms AND clip.end_ms > start_ms`. Llama
+`snapshot()` antes de mutar (undo — invariante I1). Está en `_TIMELINE_MUTATORS`.
+
+**Flujo de reordenado de sección** (frontend):
+1. `duplicate_range(t0_ms=sec.start_ms, t1_ms=sec.end_ms, dest_ms=insert_ms)` — copia los clips.
+2. `delete_range(start_ms=sec.start_ms, end_ms=sec.end_ms)` — borra la posición original.
+
+Las secciones del arranger se calculan **en el cliente** desde los markers de I2 (no hay
+handler de backend para "list_arranger_sections").
+
+---
+
 ### I3 — Grupos colapsables en timeline
 
 | Handler | Params | Devuelve |

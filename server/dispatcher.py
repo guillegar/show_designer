@@ -108,6 +108,7 @@ _TIMELINE_MUTATORS = {
     "add_clip", "delete_clip", "move_clip", "set_clip_color", "set_clip_params",
     "set_clip_mute", "set_clip_lock", "set_clip_scope", "set_clip_effect",
     "add_channel_clip", "add_preset_clip", "duplicate_clip", "split_clip",
+    "delete_range",  # I4 — Arranger
     "set_clip_preset",
     "generate_section", "mirror_clips_lr", "apply_palette_to_range", "load_show",
     # A3 — mutadores de patterns/instances (el snapshot se hace dentro del handler,
@@ -919,6 +920,29 @@ def _h_duplicate_range(session, params):
         session.timeline.add(nc)
     session.invalidate_caches()
     return {"ok": True, "clips": [c.to_dict() for c in new_clips]}
+
+
+def _h_delete_range(session, params):
+    """delete_range(start_ms: int, end_ms: int) → {ok, deleted: int}.
+
+    Borra todos los clips que se solapan con el intervalo [start_ms, end_ms).
+    Un clip se solapa si su rango (start_ms, end_ms) intersecta el intervalo
+    especificado — condición: clip.start_ms < end_ms AND clip.end_ms > start_ms.
+    Llama snapshot() antes de mutar (invariante I1). Usado por la vista Arranger (I4).
+    """
+    start_ms = require_int(params, "start_ms")
+    end_ms = require_int(params, "end_ms")
+    if start_ms >= end_ms:
+        return {"ok": False, "error": "start_ms debe ser menor que end_ms"}
+    session.snapshot()
+    before = len(session.timeline.clips)
+    session.timeline.clips = [
+        c for c in session.timeline.clips
+        if not (c.start_ms < end_ms and c.end_ms > start_ms)
+    ]
+    deleted = before - len(session.timeline.clips)
+    session.invalidate_caches()
+    return {"ok": True, "deleted": deleted}
 
 
 # ── A4 — Micro-eventos ──────────────────────────────────────────────────────
@@ -2513,8 +2537,9 @@ _LOCAL = {
     "add_micro_event": _h_add_micro_event,
     "delete_micro_event": _h_delete_micro_event,
     "update_micro_event": _h_update_micro_event,
-    # A5 — Ergonomía
+    # A5 — Ergonomía / I4 — Arranger
     "duplicate_range": _h_duplicate_range,
+    "delete_range": _h_delete_range,
     # B1 — Waveform
     "get_waveform": _h_get_waveform,
     # B2 — Mixer

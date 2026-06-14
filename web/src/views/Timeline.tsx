@@ -87,6 +87,11 @@ export function TimelineView() {
   const [editMarker, setEditMarker] = useState<{ t_ms: number; name: string } | null>(null);
   const [markerMenu, setMarkerMenu] = useState<{ t_ms: number; x: number; y: number; color: string; category: string } | null>(null);
   const [markerCatFilter, setMarkerCatFilter] = useState<string>("all");
+  // I4: Vista Arranger
+  const [arrangerMode, setArrangerMode] = useState(false);
+  const [dragSecIdx, setDragSecIdx] = useState<number | null>(null);
+  const [dragInsertMs, setDragInsertMs] = useState<number | null>(null);
+  const arrangerRef = useRef<HTMLDivElement>(null);
   // I3: grupos colapsables — estado en localStorage
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
     try {
@@ -101,6 +106,31 @@ export function TimelineView() {
       localStorage.setItem("sd_collapsed_groups", JSON.stringify([...next]));
       return next;
     });
+  };
+
+  // I4: Arranger drag handlers
+  const onArrangerMouseDown = (e: React.MouseEvent, secIdx: number) => {
+    e.preventDefault();
+    setDragSecIdx(secIdx);
+    const r = arrangerRef.current!.getBoundingClientRect();
+    setDragInsertMs(Math.round(((e.clientX - r.left - HEAD_W) / zoom) * 1000));
+  };
+  const onArrangerMouseMove = (e: React.MouseEvent) => {
+    if (dragSecIdx === null || !arrangerRef.current) return;
+    const r = arrangerRef.current.getBoundingClientRect();
+    setDragInsertMs(Math.round(((e.clientX - r.left - HEAD_W) / zoom) * 1000));
+  };
+  const onArrangerMouseUp = async () => {
+    if (dragSecIdx === null || dragInsertMs === null) return;
+    const sec = arrangerSections[dragSecIdx];
+    const insertMs = dragInsertMs;
+    setDragSecIdx(null);
+    setDragInsertMs(null);
+    if (insertMs >= sec.start_ms && insertMs < sec.end_ms) return;
+    await control.call("duplicate_range", { t0_ms: sec.start_ms, t1_ms: sec.end_ms, dest_ms: Math.max(0, insertMs) });
+    await control.call("delete_range", { start_ms: sec.start_ms, end_ms: sec.end_ms });
+    refreshClips();
+    refreshMarkers();
   };
   const [waveformData, setWaveformData] = useState<{
     peaks_max: number[];
@@ -278,6 +308,19 @@ export function TimelineView() {
     }
     return result;
   }, [fixtureLanes, clips, groups, collapsedGroups]);
+  // I4: secciones del arranger — calculadas desde los marcadores de I2
+  const arrangerSections = useMemo(() => {
+    const sorted = [...markers].sort((a, b) => a.time_ms - b.time_ms);
+    const durationMs = Math.round(duration * 1000);
+    return sorted.map((m, i) => ({
+      name: m.name || `Sec ${i + 1}`,
+      color: m.color,
+      start_ms: m.time_ms,
+      end_ms: sorted[i + 1]?.time_ms ?? durationMs,
+      clipCount: clips.filter((c) => c.start_ms >= m.time_ms && c.start_ms < (sorted[i + 1]?.time_ms ?? Infinity)).length,
+    }));
+  }, [markers, clips, duration]);
+
   const clipsForLane = (lane: Lane) => lane.kind === "bar"
     ? clips.filter((c) => (c.category ?? "pixel") === "pixel" && c.track === lane.bar)
     : lane.kind === "fixture"
@@ -1060,6 +1103,9 @@ export function TimelineView() {
             <option value="outro">Outro</option>
             <option value="custom">Custom</option>
           </select>
+          <button className={"btn sm ghost" + (arrangerMode ? " on" : "")}
+            onClick={() => setArrangerMode((a) => !a)}
+            title="Vista Arranger: secciones como bloques reordenables (requiere marcadores I2)">⊞ Arr</button>
           <button className="btn sm" onClick={() => setGenOpen(true)} disabled={!drawInfo} title="Generar clips en una sección con el efecto/preset activo">✨ Generar</button>
           <button className="btn sm ghost" title="Exportar CSV de clips" onClick={() => doExport("csv")}>⬇ CSV</button>
           <button className="btn sm ghost" title="Exportar workspace QLC+" onClick={() => doExport("qlc")}>⬇ QLC+</button>
@@ -1161,6 +1207,43 @@ export function TimelineView() {
             </div>
           </div>
         </div>
+
+        {/* I4: Arranger strip */}
+        {arrangerMode && (
+          <div className="tl-arranger" ref={arrangerRef}
+            onMouseMove={onArrangerMouseMove}
+            onMouseUp={onArrangerMouseUp}
+            onMouseLeave={() => { setDragSecIdx(null); setDragInsertMs(null); }}>
+            <div className="arr-corner" style={{ width: HEAD_W }}>
+              <span>ARRANGER</span>
+            </div>
+            <div className="arr-track" style={{ width: W }}>
+              {arrangerSections.length === 0 && (
+                <span className="arr-empty">Añade marcadores (I2) para ver secciones</span>
+              )}
+              {arrangerSections.map((sec, i) => {
+                const x = msToX(sec.start_ms, zoom);
+                const w = Math.max(4, msToX(sec.end_ms, zoom) - x);
+                return (
+                  <div key={i}
+                    className={"arr-block" + (dragSecIdx === i ? " dragging" : "")}
+                    style={{ left: x, width: w - 2, background: sec.color }}
+                    onMouseDown={(e) => onArrangerMouseDown(e, i)}
+                    onDoubleClick={() => {
+                      setArrangerMode(false);
+                      if (tlScrollRef.current) tlScrollRef.current.scrollLeft = msToX(sec.start_ms, zoom);
+                    }}
+                    title={`${sec.name} · ${((sec.end_ms - sec.start_ms) / 1000).toFixed(1)}s · ${sec.clipCount} clips`}>
+                    <span className="arr-label">{sec.name}</span>
+                  </div>
+                );
+              })}
+              {dragInsertMs !== null && (
+                <div className="arr-drop-line" style={{ left: msToX(dragInsertMs, zoom) }} />
+              )}
+            </div>
+          </div>
+        )}
 
         {/* tracks */}
         <div className="tl-scroll" ref={tlScrollRef}>
