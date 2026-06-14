@@ -1010,7 +1010,15 @@ FastAPI; 7 endpoints: `GET /status`, `GET /clips`, `POST /clips`, `GET /cues`,
 
 ---
 
-## L2 — Webhooks de eventos (~2 días, Haiku)
+## L2 — Webhooks de eventos (~2 días, Haiku) ✅ APLICADA 2026-06-14
+
+**Implementación**: `server/webhooks.py` (WebhookDispatcher, HMAC-SHA256, reintentos 1/3/9s);
+`server/session.py` inicializa `_webhook_dispatcher`; handlers `webhook_get_config` +
+`webhook_set_config` (escritura atómica) en `dispatcher.py`; panel "Webhooks" desplegable
+en `Patch.tsx` (listar/añadir/borrar/test); `tests/test_webhooks.py` (6 tests, pytest-asyncio).
+**Tests**: 966 Python + 3 Vitest.
+
+## L2 — Webhooks de eventos (~2 días, Haiku) [spec original]
 
 **Qué**: al producirse ciertos eventos en el show, el servidor hace POST a URLs externas
 configuradas. Eventos disponibles: `on_cue_change`, `on_beat`, `on_section_change`,

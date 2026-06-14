@@ -295,6 +295,12 @@ class ShowSession:
             MacroStage(self.macros),  # C2: referencia viva al dict — siempre ve el valor actual
         ]
 
+        # L2: WebhookDispatcher — fire-and-forget a URLs externas en eventos de show
+        from server.webhooks import WebhookDispatcher
+        from pathlib import Path as _Path
+        _ot_path = _Path("output_targets.json")
+        self._webhook_dispatcher: WebhookDispatcher = WebhookDispatcher.from_output_targets(_ot_path)
+
     # ── Helpers para el pipeline de parámetros ───────────────────────────────
     def _get_automation_lanes(self):
         """Devuelve las lanes de automatización del timeline (para AutomationStage)."""

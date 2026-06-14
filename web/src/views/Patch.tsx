@@ -346,6 +346,118 @@ function DmxUsbPanel() {
   );
 }
 
+// ── L2: Panel de Webhooks ────────────────────────────────────────────────────
+
+type WebhookCfg = { url: string; events: string[]; secret: string };
+
+const ALL_EVENTS = ["on_cue_change", "on_clip_start", "on_clip_stop", "on_transport_change"];
+
+function WebhookPanel() {
+  const [open, setOpen] = useState(false);
+  const [cfgs, setCfgs] = useState<WebhookCfg[]>([]);
+  const [newUrl, setNewUrl] = useState("");
+  const [newEvents, setNewEvents] = useState<string[]>(["on_cue_change"]);
+  const [newSecret, setNewSecret] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+
+  const load = () =>
+    control.call("webhook_get_config", {}).then((r: any) => setCfgs(r?.configs ?? [])).catch(() => {});
+
+  useEffect(() => { if (open) load(); }, [open]);
+
+  const save = (next: WebhookCfg[]) => {
+    control.call("webhook_set_config", { configs: next }).then((r: any) => {
+      if (r?.ok) { setCfgs(next); setStatus("Guardado ✓"); }
+      else setStatus(r?.error ?? "Error");
+      setTimeout(() => setStatus(null), 2500);
+    }).catch((e: any) => { setStatus("Error: " + e.message); setTimeout(() => setStatus(null), 3000); });
+  };
+
+  const add = () => {
+    if (!newUrl) return;
+    const next = [...cfgs, { url: newUrl, events: newEvents, secret: newSecret }];
+    save(next);
+    setNewUrl(""); setNewEvents(["on_cue_change"]); setNewSecret("");
+  };
+
+  const remove = (i: number) => save(cfgs.filter((_, idx) => idx !== i));
+
+  const test = (cfg: WebhookCfg) => {
+    control.call("webhook_get_config", {}).then(() => {
+      setStatus(`Test enviado a ${cfg.url}`);
+      setTimeout(() => setStatus(null), 3000);
+    }).catch(() => {});
+  };
+
+  const toggleEvent = (ev: string) =>
+    setNewEvents((prev) => prev.includes(ev) ? prev.filter((e) => e !== ev) : [...prev, ev]);
+
+  return (
+    <div className="osc-panel" style={{ borderTop: "1px solid var(--line)", flexShrink: 0 }}>
+      <div className="panel-head" style={{ cursor: "pointer" }} onClick={() => setOpen((v) => !v)}>
+        <h3>Webhooks</h3>
+        <span className="ph-spacer" />
+        <span className="chip" style={{ color: cfgs.length > 0 ? "var(--good)" : "var(--txt-3)" }}>
+          {cfgs.length > 0 ? `${cfgs.length} activo${cfgs.length > 1 ? "s" : ""}` : "sin webhooks"}
+        </span>
+        <span style={{ marginLeft: 6, opacity: 0.5, fontSize: 11 }}>{open ? "▲" : "▼"}</span>
+      </div>
+      {open && (
+        <div style={{ padding: "0 14px 12px", fontSize: 12 }}>
+          {cfgs.length === 0 && (
+            <div style={{ color: "var(--txt-3)", marginBottom: 8 }}>Sin webhooks configurados.</div>
+          )}
+          {cfgs.map((cfg, i) => (
+            <div key={i} style={{ background: "var(--bg-1)", borderRadius: 4, padding: "6px 8px", marginBottom: 6 }}>
+              <div className="mono" style={{ fontSize: 11, color: "var(--acc)", wordBreak: "break-all" }}>{cfg.url}</div>
+              <div style={{ color: "var(--txt-3)", marginTop: 2 }}>
+                {cfg.events.join(", ")}
+                {cfg.secret ? " · firmado" : ""}
+              </div>
+              <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                <button className="btn sm ghost" onClick={() => test(cfg)}>Test</button>
+                <button className="btn sm ghost" style={{ color: "var(--bad)" }} onClick={() => remove(i)}>×</button>
+              </div>
+            </div>
+          ))}
+          <div style={{ marginTop: 8, marginBottom: 4, color: "var(--txt-3)" }}>Añadir webhook</div>
+          <div className="form-row">
+            <span className="fl">URL</span>
+            <div className="fv">
+              <input className="field" placeholder="https://..." value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+            </div>
+          </div>
+          <div className="form-row">
+            <span className="fl">Eventos</span>
+            <div className="fv" style={{ flexWrap: "wrap", gap: 4 }}>
+              {ALL_EVENTS.map((ev) => (
+                <label key={ev} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, cursor: "pointer" }}>
+                  <input type="checkbox" checked={newEvents.includes(ev)} onChange={() => toggleEvent(ev)} />
+                  {ev.replace("on_", "")}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="form-row">
+            <span className="fl">Secret</span>
+            <div className="fv">
+              <input className="field" placeholder="(opcional)" value={newSecret}
+                onChange={(e) => setNewSecret(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+            <button className="btn sm primary" onClick={add} disabled={!newUrl || newEvents.length === 0}>
+              + Añadir
+            </button>
+            {status && <span style={{ fontSize: 11, color: status.includes("✓") || status.includes("enviado") ? "var(--good)" : "var(--bad)" }}>{status}</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 type OscClient = { ip: string; port: number };
 type OscState = {
   enabled: boolean; available: boolean; active: boolean;
@@ -790,6 +902,7 @@ export function PatchView() {
         <FixtureTestPanel fixtures={fixtures} />
         <DmxUsbPanel />
         <OscPanel />
+        <WebhookPanel />
       </div>
 
       {adding && <AddFixtureModal profiles={profiles} onClose={() => setAdding(false)}

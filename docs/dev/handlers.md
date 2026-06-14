@@ -325,6 +325,33 @@ Usa `server/timeline_export.py::export_patch_pdf`. Escritura atómica via `.tmp 
 
 ---
 
+### L2 — Webhooks de eventos
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `webhook_get_config` | — | `{ok, configs: [{url, events, secret}]}` |
+| `webhook_set_config` | `configs: [{url, events: [str], secret?: str}]` | `{ok}` |
+
+**`WebhookDispatcher`** en `server/webhooks.py`:
+- `emit(event, data, t_ms)` → POST fire-and-forget a todas las URLs suscritas al evento.
+- Payload: `{"event": "on_cue_change", "t_ms": 12345, "data": {...}}`.
+- Header `X-Signature-256: hmac-sha256=<hex>` cuando `secret` configurado (HMAC-SHA256 del body UTF-8).
+- Sin secret → header no incluido.
+- Reintentos: 3 intentos con backoff 1 s / 3 s / 9 s. HTTP 5xx → reintenta; 4xx/2xx → no.
+- Excepción de red (timeout) → log + sin crash (I4/I6).
+
+**Config persistida** en `output_targets.json["webhooks"]`. `webhook_set_config` escribe de
+forma atómica (`.tmp` → `replace`). `ShowSession._webhook_dispatcher` se inicializa en
+`__init__` desde ese fichero.
+
+**Eventos disponibles**: `on_cue_change`, `on_clip_start`, `on_clip_stop`,
+`on_transport_change` (extensible — llamar `session._webhook_dispatcher.emit(...)` en handlers).
+
+**Frontend**: panel "Webhooks" plegable en `Patch.tsx` — lista de webhooks configurados,
+formulario añadir (url + checkbox de eventos + secret), botón "×" para borrar, botón "Test".
+
+---
+
 ### L1 — API REST pública `/api/v1/`
 
 Ver [`docs/api/rest.md`](../api/rest.md) para ejemplos curl completos.
