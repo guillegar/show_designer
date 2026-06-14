@@ -301,6 +301,16 @@ class ShowSession:
         _ot_path = _Path("output_targets.json")
         self._webhook_dispatcher: WebhookDispatcher = WebhookDispatcher.from_output_targets(_ot_path)
 
+        # L3: tokens de autenticación (multiusuario)
+        _tokens: list = []
+        if _ot_path.is_file():
+            try:
+                import json as _json
+                _tokens = _json.loads(_ot_path.read_text("utf-8")).get("tokens", [])
+            except Exception:
+                pass
+        self._tokens_config: list = _tokens
+
     # ── Helpers para el pipeline de parámetros ───────────────────────────────
     def _get_automation_lanes(self):
         """Devuelve las lanes de automatización del timeline (para AutomationStage)."""

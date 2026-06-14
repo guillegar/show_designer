@@ -141,6 +141,8 @@ def create_app() -> FastAPI:
     async def ws_control(ws: WebSocket):
         await ws.accept()
         disp: Dispatcher = app.state.dispatcher
+        # L3: token de autenticación desde query param ?token=
+        token: str = ws.query_params.get("token", "") or ""
         try:
             while True:
                 raw = await ws.receive_text()
@@ -148,7 +150,7 @@ def create_app() -> FastAPI:
                 if err:
                     await ws.send_text(json.dumps(err))
                     continue
-                resp = disp.handle(msg)
+                resp = disp.handle(msg, token=token)
                 await ws.send_text(json.dumps(resp))
         except WebSocketDisconnect:
             pass

@@ -9,8 +9,17 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > documentación** para que refleje el estado real — este `CLAUDE.md` (arquitectura/estado) y los
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
-Estado a **2026-06-14** · **v2.0 · 966 tests Python + 3 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2 APLICADAS** — backend headless + frontend React + REST API + webhooks.
+Estado a **2026-06-14** · **v2.0 · 974 tests Python + 3 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3 APLICADAS** — backend headless + frontend React + REST API + webhooks + multiusuario.
 **A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger + exportación PDF/CSV + editor de patch visual. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+  - ✅ **L3 APLICADA (2026-06-14, ROADMAP v4)**: Modo multiusuario básico.
+    `server/auth.py` (NUEVO): `check_permission` + `role_for_token` + `ASSISTANT_HANDLERS`
+    (set_macro, go_*, blackout, live_*, prefijos get_/list_). `session.py`: `_tokens_config`
+    desde `output_targets.json["tokens"]`. `dispatcher.handle(msg, token="")`: isinstance-guard
+    + `check_permission` antes de ejecutar → `{ok: False, error: permission_denied|invalid_token}`.
+    `auth_get_role` handler: devuelve rol del token. `web.py`: WS extrae `?token=` y lo pasa.
+    `control.ts`: incluye token de `?token=` de la URL de la página. `store.ts`+`App.tsx`:
+    `role` state + indicador "ASISTENTE" en topbar. 8 tests en `test_multiuser.py`.
+    **974 Python + 3 Vitest verdes.**
   - ✅ **L2 APLICADA (2026-06-14, ROADMAP v4)**: Webhooks de eventos.
     `server/webhooks.py` (NUEVO): `WebhookDispatcher` — emit fire-and-forget, HMAC-SHA256
     en `X-Signature-256`, reintentos 1/3/9s con backoff, I4/I6 (sin crash en timeout).

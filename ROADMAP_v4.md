@@ -1083,7 +1083,16 @@ se verifica correctamente en webhook.site.
 
 ---
 
-## L3 — Modo multiusuario básico (~3 días, Opus)
+## L3 — Modo multiusuario básico (~3 días, Opus) ✅ APLICADA 2026-06-14
+
+**Implementación**: `server/auth.py` (NUEVO): `check_permission`, `role_for_token`,
+`ASSISTANT_HANDLERS`; `session.py`: `_tokens_config` desde `output_targets.json["tokens"]`;
+`dispatcher.py`: `handle(msg, token="")` — chequeo de permisos antes de ejecutar; WS
+`?token=X` en `web.py` → pasa token a `handle()`; `control.ts`: incluye `?token=` de la
+URL de página; `store.ts`+`App.tsx`: `role` en store, indicador "ASISTENTE" en topbar;
+`tests/test_multiuser.py` (8 tests). **Tests**: 974 Python + 3 Vitest.
+
+## L3 — Modo multiusuario básico (~3 días, Opus) [spec original]
 
 **Qué**: dos navegadores controlan el mismo show simultáneamente: operador principal
 (permisos totales) + asistente (solo macros y cues). Tokens en el WebSocket handshake.

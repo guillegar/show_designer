@@ -80,8 +80,11 @@ type Store = {
   patterns: Pattern[];
   patternInstances: PatternInstance[];
   selectedPatternInstanceId: string | null;
+  // L3 — rol multiusuario
+  role: "operator" | "assistant" | "anonymous";
 
   setTab: (t: Tab) => void;
+  setRole: (r: "operator" | "assistant" | "anonymous") => void;
   setTransport: (s: TransportState) => void;
   selectClip: (id: string | null) => void;
   setClipboard: (c: Clip | null) => void;
@@ -110,8 +113,10 @@ export const useStore = create<Store>((set, get) => ({
   clips: [], fixtures: [], effects: [], channelEffects: [], sections: [], presets: [], cues: [], markers: [], groups: [],
   selectedClipId: null, selectedFixtureId: null, clipboard: null,
   patterns: [], patternInstances: [], selectedPatternInstanceId: null,
+  role: "operator",
 
   setTab: (tab) => set({ tab }),
+  setRole: (role) => set({ role }),
   setClipboard: (c) => set({ clipboard: c }),
 
   setTransport: (s) => {

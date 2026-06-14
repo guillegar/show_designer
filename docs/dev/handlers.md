@@ -325,6 +325,39 @@ Usa `server/timeline_export.py::export_patch_pdf`. Escritura atómica via `.tmp 
 
 ---
 
+### L3 — Modo multiusuario básico
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `auth_get_role` | — | `{ok, role: "operator"\|"assistant"\|"anonymous"}` |
+
+**Control de acceso** en `server/auth.py`:
+- `check_permission(token, handler_name, tokens_config)` → `{"ok": True}` o `{"ok": False, "error": "permission_denied"|"invalid_token"}`.
+- Sin `tokens_config` (lista vacía) → acceso total (backwards-compat para desarrollo local).
+- Token desconocido → `invalid_token`.
+- Rol `operator` → todo permitido.
+- Rol `assistant` → solo handlers en `ASSISTANT_HANDLERS` + prefijos `get_` / `list_`.
+
+**`ASSISTANT_HANDLERS`**: `set_macro`, `go_cue`, `go_next_cue`, `go_prev_cue`, `blackout`,
+`live_trigger`, `live_stop_all`, `auth_get_role`.
+
+**Integración**: `Dispatcher.handle(msg, token="")` llama `check_permission` antes de ejecutar.
+Guard `isinstance(tokens_cfg, list)` protege ante mocks en tests. Token viene del query param
+`?token=` del WebSocket (web.py → `ws.query_params.get("token", "")`).
+
+**Frontend**: `control.ts` incluye `?token=` de `URLSearchParams(location.search)`. `store.ts`:
+campo `role`. `App.tsx`: llama `auth_get_role()` al conectar; badge "ASISTENTE" en topbar si rol es assistant.
+
+**Config**: `output_targets.json["tokens"]`:
+```json
+[
+  {"token": "abc123", "role": "operator"},
+  {"token": "xyz789", "role": "assistant"}
+]
+```
+
+---
+
 ### L2 — Webhooks de eventos
 
 | Handler | Params | Devuelve |

@@ -3171,6 +3171,8 @@ _LOCAL = {
     "get_effect_schema": _h_get_effect_schema,
     # F4 — Live preview en el inspector (ROADMAP v3)
     "preview_effect_frame": _h_preview_effect_frame,
+    # L3 — Multiusuario: rol del token actual
+    "auth_get_role": lambda session, params: {"ok": True, "role": "operator"},
 }
 
 
@@ -3185,7 +3187,7 @@ class Dispatcher:
         return ([m for m in bridge.HANDLERS if m not in _EXCLUDED]
                 + list(_LOCAL.keys()))
 
-    def handle(self, msg: Dict[str, Any]) -> Dict[str, Any]:
+    def handle(self, msg: Dict[str, Any], token: str = "") -> Dict[str, Any]:
         """Procesa un mensaje JSON-RPC 2.0 completo y devuelve la respuesta."""
         import traceback
         method = msg.get("method")
@@ -3194,6 +3196,24 @@ class Dispatcher:
             return {"jsonrpc": "2.0", "id": msg_id,
                     "error": {"code": -32601,
                               "message": f"Método no disponible en web: {method}"}}
+
+        # L3: control de acceso por rol
+        if method == "auth_get_role":
+            from server.auth import role_for_token
+            tokens_cfg = getattr(self.session, "_tokens_config", [])
+            if not isinstance(tokens_cfg, list):
+                tokens_cfg = []
+            role = role_for_token(token, tokens_cfg)
+            return {"jsonrpc": "2.0", "id": msg_id, "result": {"ok": True, "role": role}}
+
+        from server.auth import check_permission
+        tokens_cfg = getattr(self.session, "_tokens_config", [])
+        if not isinstance(tokens_cfg, list):
+            tokens_cfg = []
+        perm = check_permission(token, method or "", tokens_cfg)
+        if not perm["ok"]:
+            return {"jsonrpc": "2.0", "id": msg_id,
+                    "result": {"ok": False, "error": perm["error"]}}
         # Snapshot para undo antes de mutar el timeline
         if method in _TIMELINE_MUTATORS:
             try:

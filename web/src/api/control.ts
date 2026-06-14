@@ -26,7 +26,10 @@ class ControlClient {
   }
 
   private connect() {
-    const ws = new WebSocket(wsUrl("/ws/control"));
+    // L3: pasar token desde ?token= en la URL de la página
+    const pageToken = new URLSearchParams(location.search).get("token") || "";
+    const controlPath = pageToken ? `/ws/control?token=${encodeURIComponent(pageToken)}` : "/ws/control";
+    const ws = new WebSocket(wsUrl(controlPath));
     this.ws = ws;
     ws.onopen = () => {
       this.resolveReady();

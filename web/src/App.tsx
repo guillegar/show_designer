@@ -97,16 +97,25 @@ export function App() {
   const clipCount = useStore((s) => s.clipCount);
   const fixtures = useStore((s) => s.fixtures);
   const refreshAll = useStore((s) => s.refreshAll);
+  const role = useStore((s) => s.role);
+  const setRole = useStore((s) => s.setRole);
   const [currentSlug, setCurrentSlug] = useState<string>("");
   const [switching, setSwitching] = useState(false);
 
   useEffect(() => {
     refreshAll();
-    control.onReconnect = () => refreshAll();
+    // L3: obtener rol del token actual
+    const fetchRole = () => {
+      control.call("auth_get_role").then((r: any) => {
+        setRole(r?.role ?? "operator");
+      }).catch(() => {});
+    };
+    fetchRole();
+    control.onReconnect = () => { refreshAll(); fetchRole(); };
     control.call("list_projects").then((r: any) => {
       setCurrentSlug(r?.current ?? "");
     }).catch(() => {});
-  }, [refreshAll]);
+  }, [refreshAll, setRole]);
 
   // Reaccionar al evento project_changed: refrescar todo el estado
   useEffect(() => {
@@ -173,6 +182,11 @@ export function App() {
           <ProjectSwitcher current={currentSlug} />
         </div>
         <div className="top-spacer" />
+        {role === "assistant" && (
+          <div className="io-chip" style={{ color: "var(--warn)", fontWeight: 600 }} title="Modo asistente: mutaciones desactivadas">
+            ASISTENTE
+          </div>
+        )}
         <div className="io-chip"><span className={"led " + (playing ? "on" : "off")} /> ART-NET · 10 univ.</div>
         <div className="io-chip">{playing ? Math.round(fps) : 0} FPS</div>
         <button className="icon-btn" title="Guardar" onClick={() => control.call("save_show")}><Ico.save width="15" /></button>
