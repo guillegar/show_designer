@@ -325,6 +325,33 @@ Usa `server/timeline_export.py::export_patch_pdf`. Escritura atómica via `.tmp 
 
 ---
 
+### K2 — Pixel mapping: imagen/vídeo → LEDs
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `set_clip_pixel_map` | `clip_id: str`, `source_path: str`, `x?: int`, `y?: int`, `width?: int`, `height?: int`, `fit_mode?: str`, `speed?: float` | `{ok, clip: Clip}` |
+
+Actualiza los params del clip (`source_path`, `x`, `y`, `width`, `height`, `fit_mode`,
+`speed`) y establece `clip.effect_id = 1010` (PixelMapEffect). Solo los campos presentes
+en la llamada se actualizan; los demás se conservan (merge parcial). Devuelve el clip
+actualizado (I3).
+
+**`src/core/pixel_map.py`** — función pura `sample_image_region(image_path, x, y, width,
+height, output_shape=(1,93,3), fit_mode="stretch", frame_idx=0) → np.ndarray uint8`:
+- Carga imagen con Pillow (caché `_IMG_CACHE` en memoria por ruta).
+- Para MP4/AVI/MOV: `imageio.get_reader()` (import lazy); si no disponible → fallback a
+  imagen estática.
+- `_fit_region`: stretch (Lanczos), crop (centrado), tile (resize nearest).
+- Archivo vacío/inexistente → array negro, sin excepción (I4).
+
+**`plugins/effects/pixel_map.py`** — `PixelMapEffect` (id=1010, scope=PER_BAR):
+PARAM_SCHEMA completo (7 campos). `render` calcula `frame_idx = int(elapsed_ms/1000 × speed × 25)`.
+
+**`ClipInspector.tsx`**: `ParamControl` soporta `spec.type === "str"` como input de texto
+puro (sin conversión numérica). `schema.ts`: `"str"` añadido a la unión de tipos de ParamSpec.
+
+---
+
 ### K1 — Viewer 3D: posicionamiento de fixtures
 
 | Handler | Params | Devuelve |

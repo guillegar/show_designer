@@ -309,6 +309,26 @@ function ParamControl({
     );
   }
 
+  // K2 — tipo "str": texto puro (sin conversión numérica)
+  if (spec.type === "str") {
+    const cur = String(value ?? spec.default ?? "");
+    return (
+      <div className="param-field param-field--str">
+        <label>{label}</label>
+        <input
+          type="text"
+          defaultValue={cur}
+          key={cur}
+          placeholder={spec.label?.includes("Archivo") ? "ruta al archivo..." : ""}
+          style={{ width: "100%", fontFamily: "monospace", fontSize: 11 }}
+          onBlur={async (e) => {
+            await sendParam(e.target.value);
+          }}
+        />
+      </div>
+    );
+  }
+
   // fallback: texto genérico
   return (
     <div className="param-field">

@@ -879,6 +879,15 @@ height: int, fit_mode: str = "stretch")` → clip actualizado (I3).
 vídeo se reproducen sincronizados con el show.
 **Commit**: `roadmap-v4 fase K2: pixel mapping imagen/vídeo a LEDs`.
 
+✅ **APLICADA 2026-06-14** — `src/core/pixel_map.py` (NUEVO): `sample_image_region` pura con
+Pillow; cache `_IMG_CACHE` por ruta; `_fit_region` (stretch/crop/tile); soporte MP4 via
+imageio lazy (fallback a imagen estática). `plugins/effects/pixel_map.py` (NUEVO):
+`PixelMapEffect` (id=1010, scope=PER_BAR): PARAM_SCHEMA `source_path`/x/y/width/height/
+fit_mode/speed; `render` calcula frame_idx para vídeo (elapsed_time × speed × 25fps).
+Handler `set_clip_pixel_map` en `_LOCAL`: actualiza clip.params + clip.effect_id=1010 (I3).
+`ClipInspector.tsx` + `schema.ts`: tipo "str" soportado en ParamControl (input texto, sin
+conversión numérica, placeholder). 5 tests en `test_pixel_map.py`. **953 tests verdes.**
+
 ---
 
 ## K3 — Preview de show en tiempo real en el navegador (~2 días, Sonnet)

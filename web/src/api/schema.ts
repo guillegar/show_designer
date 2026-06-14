@@ -2,7 +2,7 @@
 // Funciones puras de conversión color hex ↔ {r,g,b}.
 
 export interface ParamSpec {
-  type: "float" | "int" | "bool" | "enum" | "color";
+  type: "float" | "int" | "bool" | "enum" | "color" | "str";
   min?: number;
   max?: number;
   step?: number;
