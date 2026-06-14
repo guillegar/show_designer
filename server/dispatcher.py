@@ -2352,6 +2352,53 @@ def _h_export_dmx_csv(session, params):
         return {"ok": False, "error": str(e)}
 
 
+# ── J1 — Editor de patch visual 2D ───────────────────────────────────────────
+
+def _h_move_fixture(session, params):
+    """move_fixture(fixture_id, x, y) → {ok, fixture}.
+
+    Mueve el fixture en el canvas 2D de patch. x/y normalizados 0.0..1.0.
+    Persiste el rig a disco (project/rig.json). Devuelve el fixture actualizado
+    (Invariante I3: actualización optimista en el UI).
+
+    Acepta también position=[x,y,z] (legado bridge) para compatibilidad.
+    En ese caso actualiza también fx.position y guarda patch_x/patch_y como la
+    proyección XZ normalizada (0.5 si sólo hay un fixture).
+    """
+    fixture_id = params.get("fixture_id")
+    if not fixture_id:
+        return {"ok": False, "error": "fixture_id requerido"}
+    rig = getattr(session, "fixture_rig", None)
+    if rig is None:
+        return {"ok": False, "error": "No hay rig cargado"}
+    fx = rig.by_id(fixture_id)
+    if fx is None:
+        return {"ok": False, "error": f"Fixture no encontrado: {fixture_id}"}
+
+    if "x" in params and "y" in params:
+        x = float(params["x"])
+        y = float(params["y"])
+    elif "position" in params:
+        pos = list(params["position"])
+        fx.position = tuple(float(v) for v in pos[:3])
+        all_xs = [f.position[0] for f in rig.fixtures]
+        all_zs = [f.position[2] for f in rig.fixtures]
+        min_x, max_x = min(all_xs), max(all_xs)
+        min_z, max_z = min(all_zs), max(all_zs)
+        x = 0.5 if max_x == min_x else (fx.position[0] - min_x) / (max_x - min_x)
+        y = 0.5 if max_z == min_z else (fx.position[2] - min_z) / (max_z - min_z)
+    else:
+        return {"ok": False, "error": "Parámetros requeridos: x/y o position"}
+
+    fx.patch_x = max(0.0, min(1.0, x))
+    fx.patch_y = max(0.0, min(1.0, y))
+
+    rig_path = session.project.rig_file
+    rig.save(rig_path)
+
+    return {"ok": True, "fixture": fx.to_dict()}
+
+
 # ── E4 — Test de output y patch visual ───────────────────────────────────────
 
 def _h_identify_fixture(session, params):
@@ -2648,6 +2695,8 @@ _LOCAL = {
     "go_next_cue": _h_go_next_cue,
     "go_prev_cue": _h_go_prev_cue,
     "get_cue_state": _h_get_cue_state,
+    # J1 — Editor de patch visual 2D
+    "move_fixture": _h_move_fixture,
     # I5 — Exportación PDF patch + CSV DMX
     "export_patch_pdf": _h_export_patch_pdf,
     "export_dmx_csv": _h_export_dmx_csv,

@@ -325,6 +325,27 @@ Usa `server/timeline_export.py::export_patch_pdf`. Escritura atómica via `.tmp 
 
 ---
 
+### J1 — Editor de patch visual
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `move_fixture` | `fixture_id: str`, `x: float`, `y: float` (0..1) | `{ok, fixture: Fixture}` |
+
+Sobreescribe el handler `move_fixture` del bridge MCP. Acepta `x`/`y` normalizados (0..1)
+o, por compatibilidad con el bridge, `position=[x,y,z]` (en ese caso calcula `patch_x`/`patch_y`
+normalizando respecto al rango del rig).
+
+Actualiza `fx.patch_x` / `fx.patch_y` (clampeados a `[0, 1]`) y persiste el rig a
+`session.project.rig_file` (projects/<slug>/rig.json). En `_RIG_MUTATORS` → llama a
+`sync_rig_layout()` tras la mutación.
+
+Devuelve el fixture actualizado (Invariante I3 — actualización optimista en el cliente).
+
+**Migración**: fixtures sin `patch_x`/`patch_y` en rig.json se cargan con `None`; el frontend
+usa `useLayout` (posición 3D normalizada) como fallback.
+
+---
+
 ### I4 — Vista Arranger
 
 | Handler | Params | Devuelve |

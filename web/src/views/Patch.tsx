@@ -32,10 +32,15 @@ function PatchStage({ fixtures }: { fixtures: Fixture[] }) {
   const refreshFixtures = useStore((s) => s.refreshFixtures);
   const L = useLayout(fixtures);
   const { nx, nz } = L;
-  const [posOverride, setPosOverride] = useState<Record<string, number[]>>({});
+  const [patchOverride, setPatchOverride] = useState<Record<string, [number, number]>>({});
   const dragRef = useRef<{ id: string; moved: boolean } | null>(null);
 
-  const posOf = (f: Fixture) => posOverride[f.fixture_id] ?? f.position ?? [0, 1, 0];
+  const pxOf = (f: Fixture): [number, number] => {
+    const po = patchOverride[f.fixture_id];
+    if (po) return po;
+    if (f.patch_x != null) return [f.patch_x, f.patch_y ?? 0.5];
+    return [nx(f.position?.[0] ?? 0), nz(f.position?.[2] ?? f.position?.[1] ?? 0)];
+  };
 
   useEffect(() => {
     let raf = 0;
@@ -64,9 +69,9 @@ function PatchStage({ fixtures }: { fixtures: Fixture[] }) {
         ctx.fillText("◇ PÚBLICO", w / 2 - 30, h - m + 24);
 
         for (const f of fixtures) {
-          const p = posOf(f);
-          const cx = m + nx(p[0] ?? 0) * (w - 2 * m);
-          const cy = m + nz(p[2] ?? p[1] ?? 0) * (h - 2 * m);
+          const [fpx, fpy] = pxOf(f);
+          const cx = m + fpx * (w - 2 * m);
+          const cy = m + fpy * (h - 2 * m);
           const [r, g, b] = fixtureColor(f);
           ctx.save(); ctx.translate(cx, cy); ctx.rotate(((f.rotation?.[1] ?? 0) * Math.PI) / 180);
           const grd = ctx.createRadialGradient(0, 0, 2, 0, 0, 46);
@@ -87,14 +92,14 @@ function PatchStage({ fixtures }: { fixtures: Fixture[] }) {
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, [fixtures, sel, nx, nz, posOverride]);
+  }, [fixtures, sel, nx, nz, patchOverride]);
 
   const nearest = (mx: number, my: number, w: number, h: number) => {
     const m = 60; let best: Fixture | null = null, bd = 1e9;
     for (const f of fixtures) {
-      const p = posOf(f);
-      const cx = m + nx(p[0] ?? 0) * (w - 2 * m);
-      const cy = m + nz(p[2] ?? p[1] ?? 0) * (h - 2 * m);
+      const [fpx, fpy] = pxOf(f);
+      const cx = m + fpx * (w - 2 * m);
+      const cy = m + fpy * (h - 2 * m);
       const d = Math.hypot(mx - cx, my - cy);
       if (d < bd && d < 34) { bd = d; best = f; }
     }
@@ -114,26 +119,22 @@ function PatchStage({ fixtures }: { fixtures: Fixture[] }) {
       const d = dragRef.current; if (!d) return;
       const cv = ref.current!, r = cv.getBoundingClientRect();
       const w = r.width, h = r.height;
-      const xnorm = Math.max(0, Math.min(1, (e.clientX - r.left - m) / (w - 2 * m)));
-      const znorm = Math.max(0, Math.min(1, (e.clientY - r.top - m) / (h - 2 * m)));
-      const x = L.minX + xnorm * (L.maxX - L.minX);
-      const z = L.minZ + znorm * (L.maxZ - L.minZ);
-      const f = fixtures.find((ff) => ff.fixture_id === d.id);
-      const y = f?.position?.[1] ?? 1;
+      const px = Math.max(0, Math.min(1, (e.clientX - r.left - m) / (w - 2 * m)));
+      const py = Math.max(0, Math.min(1, (e.clientY - r.top - m) / (h - 2 * m)));
       d.moved = true;
-      setPosOverride((o) => ({ ...o, [d.id]: [x, y, z] }));
+      setPatchOverride((o) => ({ ...o, [d.id]: [px, py] }));
     };
     const up = () => {
       const d = dragRef.current; dragRef.current = null;
       if (!d || !d.moved) return;
-      const pos = posOverride[d.id];
-      if (pos) control.call("move_fixture", { fixture_id: d.id, position: pos })
-        .then(() => { refreshFixtures(); setPosOverride((o) => { const n = { ...o }; delete n[d.id]; return n; }); });
+      const po = patchOverride[d.id];
+      if (po) control.call("move_fixture", { fixture_id: d.id, x: po[0], y: po[1] })
+        .then(() => { refreshFixtures(); setPatchOverride((o) => { const n = { ...o }; delete n[d.id]; return n; }); });
     };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
     return () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
-  }, [fixtures, posOverride, L.minX, L.maxX, L.minZ, L.maxZ, refreshFixtures]);
+  }, [fixtures, patchOverride, refreshFixtures]);
 
   return <canvas ref={ref} onMouseDown={onMouseDown} style={{ cursor: "grab" }} />;
 }

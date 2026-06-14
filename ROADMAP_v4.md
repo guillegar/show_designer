@@ -528,6 +528,16 @@ Handler: `move_fixture(fixture_id: str, x: float, y: float)` → fixture actuali
 recargar la página, sigue en el centro. El icono refleja el tipo del fixture.
 **Commit**: `roadmap-v4 fase J1: editor de patch visual drag-and-drop`.
 
+✅ **APLICADA 2026-06-14** — `Fixture` dataclass añade `patch_x`/`patch_y: Optional[float] = None`
+(migración tolerante: `from_dict` carga None si ausentes; `asdict` los serializa).
+Handler `_h_move_fixture` en `_LOCAL` sobreescribe el bridge: acepta `x/y` (0..1) o
+`position=[x,y,z]` legado; actualiza `patch_x`/`patch_y`; clampea a 0..1; persiste
+`session.project.rig_file`. Devuelve `{ok, fixture}` (I3).
+`Patch.tsx`: `posOverride` → `patchOverride: Record<string,[number,number]>`;
+helper `pxOf(f)` prioriza override → `patch_x`/`patch_y` → `useLayout` legado.
+Drag llama `move_fixture({x, y})`, recibe fixture actualizado; `refreshFixtures` limpia override.
+7 tests en `test_patch_visual.py`. **925 tests verdes** (2 bench timing ignorados).
+
 ---
 
 ## J2 — Soporte DMX completo por canal (~4 días, Opus)

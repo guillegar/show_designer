@@ -25,6 +25,7 @@ export type Fixture = {
   position: number[]; rotation: number[]; label: string;
   legacy_bar_idx: number | null; target_ip: string | null;
   manual_channels: Record<string, number>;
+  patch_x?: number | null; patch_y?: number | null;
 };
 export type EffectInfo = { id: number; name: string; family: string; description: string };
 export type Preset = {

@@ -178,6 +178,10 @@ class Fixture:
     # Útil para los sliders del Patch Panel (modo manual) y para
     # `set_fixture_channel` desde MCP. Vacío = sin overrides (modo auto).
     manual_channels: Dict[str, float] = field(default_factory=dict)
+    # J1 — Posición normalizada en el canvas de patch 2D (0.0..1.0).
+    # None si el usuario no ha movido el fixture manualmente (usa auto-layout).
+    patch_x: Optional[float] = None
+    patch_y: Optional[float] = None
 
     def to_dict(self):
         d = asdict(self)
@@ -186,6 +190,8 @@ class Fixture:
     @classmethod
     def from_dict(cls, d: dict) -> 'Fixture':
         # tuples vienen como listas en JSON
+        px = d.get('patch_x')
+        py = d.get('patch_y')
         return cls(
             fixture_id=d['fixture_id'],
             profile_id=d['profile_id'],
@@ -197,6 +203,8 @@ class Fixture:
             legacy_bar_idx=d.get('legacy_bar_idx'),
             target_ip=d.get('target_ip'),
             manual_channels=dict(d.get('manual_channels', {})),
+            patch_x=float(px) if px is not None else None,
+            patch_y=float(py) if py is not None else None,
         )
 
 
