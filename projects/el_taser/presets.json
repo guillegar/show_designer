@@ -1,1 +1,47 @@
-[]
+[
+  {
+    "preset_id": "77663aa0bee9",
+    "name": "TP Azul",
+    "kind": "pixel",
+    "base_effect_id": 1,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "flash",
+    "params": {
+      "hue": 200
+    },
+    "param_links": [],
+    "color": "#0000ff",
+    "scope": "project"
+  },
+  {
+    "preset_id": "26e2e4d92e5b",
+    "name": "TP Azul",
+    "kind": "pixel",
+    "base_effect_id": 1,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "flash",
+    "params": {
+      "hue": 200
+    },
+    "param_links": [],
+    "color": "#0000ff",
+    "scope": "project"
+  },
+  {
+    "preset_id": "d228934aee2f",
+    "name": "TP Azul",
+    "kind": "pixel",
+    "base_effect_id": 1,
+    "channel_effect_id": null,
+    "category": "",
+    "family": "flash",
+    "params": {
+      "hue": 200
+    },
+    "param_links": [],
+    "color": "#0000ff",
+    "scope": "project"
+  }
+]

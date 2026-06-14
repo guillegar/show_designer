@@ -7,9 +7,9 @@
       "universe": 1,
       "dmx_start": 1,
       "position": [
-        -5.0,
         1.0,
-        0.0
+        2.0,
+        3.0
       ],
       "rotation": [
         0.0,
@@ -19,7 +19,10 @@
       "label": "Bar 00",
       "legacy_bar_idx": 0,
       "target_ip": "192.168.1.201",
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": 0.563320401764362,
+      "patch_y": 1.0,
+      "kind_override": null
     },
     {
       "fixture_id": "bar_1",
@@ -39,7 +42,10 @@
       "label": "Bar 01",
       "legacy_bar_idx": 1,
       "target_ip": "192.168.1.202",
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "bar_2",
@@ -59,7 +65,10 @@
       "label": "Bar 02",
       "legacy_bar_idx": 2,
       "target_ip": "192.168.1.203",
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "bar_3",
@@ -79,7 +88,10 @@
       "label": "Bar 03",
       "legacy_bar_idx": 3,
       "target_ip": "192.168.1.204",
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "bar_4",
@@ -99,7 +111,10 @@
       "label": "Bar 04",
       "legacy_bar_idx": 4,
       "target_ip": "192.168.1.205",
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "bar_5",
@@ -119,7 +134,10 @@
       "label": "Bar 05",
       "legacy_bar_idx": 5,
       "target_ip": "192.168.1.206",
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "bar_6",
@@ -139,7 +157,10 @@
       "label": "Bar 06",
       "legacy_bar_idx": 6,
       "target_ip": "192.168.1.207",
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "bar_7",
@@ -159,7 +180,10 @@
       "label": "Bar 07",
       "legacy_bar_idx": 7,
       "target_ip": "192.168.1.208",
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "bar_8",
@@ -179,7 +203,10 @@
       "label": "Bar 08",
       "legacy_bar_idx": 8,
       "target_ip": "192.168.1.209",
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "bar_9",
@@ -199,7 +226,10 @@
       "label": "Bar 09",
       "legacy_bar_idx": 9,
       "target_ip": "192.168.1.210",
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "mover_wash_L_back",
@@ -219,7 +249,10 @@
       "label": "Wash L back",
       "legacy_bar_idx": null,
       "target_ip": null,
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "mover_wash_L_front",
@@ -239,7 +272,10 @@
       "label": "Wash L front",
       "legacy_bar_idx": null,
       "target_ip": null,
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "mover_wash_R_front",
@@ -259,7 +295,10 @@
       "label": "Wash R front",
       "legacy_bar_idx": null,
       "target_ip": null,
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "mover_wash_R_back",
@@ -279,7 +318,10 @@
       "label": "Wash R back",
       "legacy_bar_idx": null,
       "target_ip": null,
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "generic_0",
@@ -299,7 +341,10 @@
       "label": "generic_0",
       "legacy_bar_idx": null,
       "target_ip": null,
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "dimmer_0",
@@ -319,7 +364,10 @@
       "label": "dimmer_0",
       "legacy_bar_idx": null,
       "target_ip": null,
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "dimmer_1",
@@ -339,7 +387,10 @@
       "label": "dimmer_1",
       "legacy_bar_idx": null,
       "target_ip": null,
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "dimmer_2",
@@ -359,7 +410,10 @@
       "label": "dimmer_2",
       "legacy_bar_idx": null,
       "target_ip": null,
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "dimmer_3",
@@ -379,7 +433,10 @@
       "label": "dimmer_3",
       "legacy_bar_idx": null,
       "target_ip": null,
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "dimmer_4",
@@ -399,7 +456,10 @@
       "label": "dimmer_4",
       "legacy_bar_idx": null,
       "target_ip": null,
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "dimmer_5",
@@ -419,7 +479,10 @@
       "label": "dimmer_5",
       "legacy_bar_idx": null,
       "target_ip": null,
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "dimmer_6",
@@ -439,7 +502,10 @@
       "label": "dimmer_6",
       "legacy_bar_idx": null,
       "target_ip": null,
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "dimmer_7",
@@ -459,7 +525,10 @@
       "label": "dimmer_7",
       "legacy_bar_idx": null,
       "target_ip": null,
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "dimmer_8",
@@ -479,7 +548,10 @@
       "label": "dimmer_8",
       "legacy_bar_idx": null,
       "target_ip": null,
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "dimmer_9",
@@ -499,7 +571,10 @@
       "label": "dimmer_9",
       "legacy_bar_idx": null,
       "target_ip": null,
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     },
     {
       "fixture_id": "generic_1",
@@ -519,7 +594,10 @@
       "label": "generic_1",
       "legacy_bar_idx": null,
       "target_ip": null,
-      "manual_channels": {}
+      "manual_channels": {},
+      "patch_x": null,
+      "patch_y": null,
+      "kind_override": null
     }
   ]
 }

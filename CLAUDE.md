@@ -9,8 +9,18 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > documentación** para que refleje el estado real — este `CLAUDE.md` (arquitectura/estado) y los
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
-Estado a **2026-06-14** · **v2.0 · 989 tests Python + 3 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2 APLICADAS** — backend headless + frontend React + REST API + webhooks + multiusuario + tap BPM + show generator.
-**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger + exportación PDF/CSV + editor de patch visual. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+Estado a **2026-06-14** · **v2.0 · 993 tests Python + 3 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3 APLICADAS** — backend headless + frontend React + REST API + webhooks + multiusuario + tap BPM + show generator + historial de gestos.
+**A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger + exportación PDF/CSV + editor de patch visual. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+  - ✅ **M3 APLICADA (2026-06-14, ROADMAP v4)**: Historial de gestos y replay.
+    `server/gesture_log.py` (NUEVO): `GestureLog` — buffer circular 500 entradas, índice global,
+    `should_record()` filtra `list_/get_/preview_/auth_/clear_gesture/list_gesture/replay_gesture`.
+    `session._gesture_log` inicializado en `__init__`. `dispatcher._record_gesture()` llamado tras
+    cada handler (con `t_ms` live). Handlers `list_gesture_history(last=200)`,
+    `replay_gesture(idx)` (re-ejecuta con mismo params), `clear_gesture_history()` en `_LOCAL`.
+    `Live.tsx`: `HistoriaPanel` colapsable — lista scrollable más-reciente-primero, handler en
+    acento + params resumidos (40 chars) + t_ms en mm:ss, botón "▶" por gesto, botón "🗑" en
+    cabecera, polling cada 2 s cuando abierto. Fix: `_LOCAL.pop("add_clip")` en cleanup de test
+    para evitar contaminación entre tests. 5 tests en `test_gesture_log.py`. **993 Python.**
   - ✅ **M2 APLICADA (2026-06-14, ROADMAP v4)**: Generación automática de show.
     `server/show_generator.py` (NUEVO): `generate_show()` pura — paletas por estilo
     (minimal/club/festival/chill), clips en downbeats (layer 0), beats density>0.5 (layer 1),

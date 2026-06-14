@@ -304,6 +304,10 @@ class ShowSession:
         # M1: caché de detección de tonalidad (key_detector.py)
         self._key_cache: Optional[dict] = None
 
+        # M3: historial de gestos en sesión
+        from server.gesture_log import GestureLog
+        self._gesture_log: GestureLog = GestureLog()
+
         # L3: tokens de autenticación (multiusuario)
         _tokens: list = []
         if _ot_path.is_file():

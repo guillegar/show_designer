@@ -1215,6 +1215,91 @@ function SyncPanel() {
   );
 }
 
+// ── Panel Historia de Gestos (M3) ───────────────────────────────────────────
+
+interface GestureEntry {
+  idx: number;
+  handler: string;
+  params: Record<string, unknown>;
+  t_ms: number;
+}
+
+function fmtGestureMs(t_ms: number): string {
+  const s = Math.floor(t_ms / 1000);
+  const mm = Math.floor(s / 60).toString().padStart(2, "0");
+  const ss = (s % 60).toString().padStart(2, "0");
+  return `${mm}:${ss}`;
+}
+
+function summarizeParams(params: Record<string, unknown>): string {
+  const json = JSON.stringify(params);
+  return json.length > 40 ? json.slice(0, 37) + "…" : json;
+}
+
+function HistoriaPanel() {
+  const [expanded, setExpanded] = useState(false);
+  const [gestures, setGestures] = useState<GestureEntry[]>([]);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const load = () =>
+      control.call("list_gesture_history", {}).then((r) => {
+        setGestures(((r.gestures ?? []) as GestureEntry[]).slice().reverse());
+      }).catch(() => {});
+    load();
+    const id = setInterval(load, 2000);
+    return () => clearInterval(id);
+  }, [expanded]);
+
+  const clear = () => {
+    control.call("clear_gesture_history", {}).then(() => setGestures([])).catch(() => {});
+  };
+
+  const replay = (idx: number) => {
+    control.call("replay_gesture", { idx }).catch(() => {});
+  };
+
+  return (
+    <div className="mixer-panel">
+      <div className="mixer-header" onClick={() => setExpanded((e) => !e)}>
+        <span className="mixer-title">Historia de gestos</span>
+        <span className="ph-spacer" style={{ flex: 1 }} />
+        {expanded && (
+          <button
+            className="btn ghost"
+            style={{ fontSize: 10, padding: "2px 6px" }}
+            onClick={(e) => { e.stopPropagation(); clear(); }}
+          >
+            🗑
+          </button>
+        )}
+        <span style={{ opacity: 0.5, marginLeft: 6 }}>{expanded ? "▲" : "▼"}</span>
+      </div>
+      {expanded && (
+        <div style={{ maxHeight: 220, overflowY: "auto", padding: "4px 0" }}>
+          {gestures.length === 0 && (
+            <div style={{ padding: "8px 12px", color: "var(--txt-4)", fontSize: 11 }}>Sin gestos registrados</div>
+          )}
+          {gestures.map((g) => (
+            <div key={g.idx} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 10px", borderBottom: "1px solid var(--line-soft)", fontSize: 11 }}>
+              <span style={{ color: "var(--txt-4)", minWidth: 36, fontVariantNumeric: "tabular-nums" }}>{fmtGestureMs(g.t_ms)}</span>
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ color: "var(--accent)", marginRight: 4 }}>{g.handler}</span>
+                <span style={{ color: "var(--txt-4)" }}>{summarizeParams(g.params)}</span>
+              </span>
+              <button
+                className="btn ghost"
+                style={{ fontSize: 10, padding: "1px 5px", flexShrink: 0 }}
+                onClick={() => replay(g.idx)}
+              >▶</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Vista principal ──────────────────────────────────────────────────────────
 
 export function LiveView() {
@@ -1429,6 +1514,8 @@ export function LiveView() {
         <RenderPanel />
         {/* Panel Mixer (B2) */}
         <MixerPanel />
+        {/* M3: Historia de gestos */}
+        <HistoriaPanel />
 
         <div className="panel-head" style={{ borderTop: "1px solid var(--line-soft)" }}>
           <h3>Feedback</h3><span className="ph-spacer" /><span className="chip mono">{fmtTime(t)}</span>

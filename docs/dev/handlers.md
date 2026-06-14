@@ -325,6 +325,22 @@ Usa `server/timeline_export.py::export_patch_pdf`. Escritura atómica via `.tmp 
 
 ---
 
+### M3 — Historial de gestos y replay
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `list_gesture_history` | `last: int = 200` | `{ok, gestures: [{idx, handler, params, t_ms, ts_wall}]}` |
+| `replay_gesture` | `idx: int` | resultado del handler original re-ejecutado |
+| `clear_gesture_history` | — | `{ok}` |
+
+**Notas:**
+- El `dispatcher._record_gesture()` se llama tras cada handler cuyo nombre NO empiece por `list_`, `get_`, `preview_`, `auth_`, `clear_gesture`, `list_gesture`, o `replay_gesture`.
+- `GestureLog.MAX_ENTRIES = 500`; el más antiguo se descarta al superar el límite.
+- `t_ms` es el `_current_t_ms()` del motor en el momento de ejecución.
+- El polling del frontend es cada 2 s cuando el panel está abierto.
+
+---
+
 ### M2 — Generación automática de show
 
 | Handler | Params | Devuelve |

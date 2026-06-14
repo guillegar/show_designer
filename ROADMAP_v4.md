@@ -1318,7 +1318,7 @@ reconocible. Puedo deshacer la generación con Ctrl+Z.
 
 ---
 
-## M3 — Historial de gestos y replay (~2 días, Sonnet)
+## ✅ APLICADA (2026-06-14) M3 — Historial de gestos y replay (~2 días, Sonnet)
 
 **Qué**: grabar los handlers ejecutados en sesión en vivo en un log en memoria (los 500
 últimos), con capacidad de listarlos y re-ejecutarlos con un clic.

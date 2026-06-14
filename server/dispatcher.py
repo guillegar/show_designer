@@ -3143,6 +3143,45 @@ def _h_generate_show(session, params):
     return {"ok": True, "clips_created": len(new_clips)}
 
 
+# ── M3 — Historial de gestos y replay ────────────────────────────────────────
+
+def _h_list_gesture_history(session, params):
+    """list_gesture_history(last?: int) → {ok, gestures: [...]}."""
+    gl = getattr(session, "_gesture_log", None)
+    if gl is None:
+        return {"ok": True, "gestures": []}
+    last = int(params.get("last", 200))
+    return {"ok": True, "gestures": gl.list(last)}
+
+
+def _h_replay_gesture(session, params):
+    """replay_gesture(idx: int) → resultado del handler re-ejecutado."""
+    from server.validators import require_int
+    idx = require_int(params, "idx")
+    gl = getattr(session, "_gesture_log", None)
+    if gl is None:
+        return {"ok": False, "error": "GestureLog no disponible"}
+    entry = gl.get(idx)
+    if entry is None:
+        return {"ok": False, "error": f"Gesto {idx} no encontrado"}
+    handler_name = entry["handler"]
+    handler_params = entry.get("params") or {}
+    if handler_name in _LOCAL:
+        try:
+            return _LOCAL[handler_name](session, handler_params)
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+    return {"ok": False, "error": f"Handler {handler_name!r} no re-ejecutable"}
+
+
+def _h_clear_gesture_history(session, params):
+    """clear_gesture_history() → {ok}."""
+    gl = getattr(session, "_gesture_log", None)
+    if gl is not None:
+        gl.clear()
+    return {"ok": True}
+
+
 _LOCAL = {
     # H4 — list_clips con paginación (offset/limit)
     "list_clips": _h_list_clips,
@@ -3303,6 +3342,10 @@ _LOCAL = {
     "get_key_info": _h_get_key_info,
     # M2 — Generación automática de show
     "generate_show": _h_generate_show,
+    # M3 — Historial de gestos
+    "list_gesture_history": _h_list_gesture_history,
+    "replay_gesture": _h_replay_gesture,
+    "clear_gesture_history": _h_clear_gesture_history,
 }
 
 
@@ -3351,10 +3394,12 @@ class Dispatcher:
             except Exception:
                 pass
         # Handlers locales (web-only) tienen prioridad
+        params = msg.get("params") or {}
         if method in _LOCAL:
             try:
-                result = _LOCAL[method](self.session, msg.get("params") or {})
+                result = _LOCAL[method](self.session, params)
                 self._maybe_sync_rig(method)
+                self._record_gesture(method, params)
                 return {"jsonrpc": "2.0", "id": msg_id, "result": result}
             except Exception as e:
                 return {"jsonrpc": "2.0", "id": msg_id,
@@ -3362,7 +3407,22 @@ class Dispatcher:
                                   "data": traceback.format_exc()}}
         resp = bridge._dispatch(self.session, msg)
         self._maybe_sync_rig(method)
+        self._record_gesture(method, params)
         return resp
+
+    def _record_gesture(self, method: Optional[str], params: dict) -> None:
+        """M3: graba el gesto en el GestureLog de la sesión."""
+        if not method:
+            return
+        gl = getattr(self.session, "_gesture_log", None)
+        if gl is None:
+            return
+        t_ms = 0
+        try:
+            t_ms = self.session._current_t_ms()
+        except Exception:
+            pass
+        gl.record(method, params, t_ms)
 
     def _maybe_sync_rig(self, method: str) -> None:
         """Tras mutar el rig, regenera rig_layout.json para que el visor 3D lo
