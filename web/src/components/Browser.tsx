@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { control } from "../api/control";
 import { useStore, famColor, EffectInfo, Preset, ChannelEffectInfo } from "../store";
 import type { Pattern } from "../api/types";
@@ -25,7 +25,7 @@ export function Browser({
   const refreshPatternInstances = useStore((s) => s.refreshPatternInstances);
   const t = useStore((s) => s.t);
 
-  const [tab, setTab] = useState<"bank" | "base" | "patterns">("bank");
+  const [tab, setTab] = useState<"bank" | "base" | "patterns" | "marketplace">("bank");
   const [fam, setFam] = useState<string>("");
   const [menu, setMenu] = useState<MenuState>(null);
   const [edit, setEdit] = useState<EditState>(null);
@@ -99,8 +99,9 @@ export function Browser({
     <div className="tl-browser">
       <div className="bk-tabs">
         <button className={"bk-tab" + (tab === "bank" ? " on" : "")} onClick={() => setTab("bank")}>Banco</button>
-        <button className={"bk-tab" + (tab === "base" ? " on" : "")} onClick={() => setTab("base")}>Efectos base</button>
+        <button className={"bk-tab" + (tab === "base" ? " on" : "")} onClick={() => setTab("base")}>Efectos</button>
         <button className={"bk-tab" + (tab === "patterns" ? " on" : "")} onClick={() => setTab("patterns")}>Patterns</button>
+        <button className={"bk-tab" + (tab === "marketplace" ? " on" : "")} onClick={() => setTab("marketplace")}>Market</button>
       </div>
 
       {tab === "bank" && (
@@ -213,6 +214,8 @@ export function Browser({
         </>
       )}
 
+      {tab === "marketplace" && <MarketplaceTab installedIds={effects.map((e) => e.id)} />}
+
       <ContextMenu state={menu} onClose={() => setMenu(null)} />
 
       {edit && (
@@ -222,6 +225,89 @@ export function Browser({
           onSaved={() => { setEdit(null); refreshPresets(); }}
         />
       )}
+    </div>
+  );
+}
+
+// ── Marketplace tab (N1) ─────────────────────────────────────────────────────
+
+interface MarketplacePlugin {
+  name: string;
+  author?: string;
+  version?: string;
+  description?: string;
+  effect_ids?: number[];
+  download_url: string;
+}
+
+function MarketplaceTab({ installedIds }: { installedIds: number[] }) {
+  const [plugins, setPlugins] = useState<MarketplacePlugin[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [installing, setInstalling] = useState<Record<string, boolean>>({});
+  const [installed, setInstalled] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    control.call("list_marketplace_plugins", {})
+      .then((r) => {
+        if (r.ok) setPlugins(r.plugins ?? []);
+        else setError(r.error ?? "error");
+      })
+      .catch(() => setError("error de red"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const isInstalled = (p: MarketplacePlugin) =>
+    installed[p.download_url] ||
+    (p.effect_ids ?? []).some((id) => installedIds.includes(id));
+
+  const doInstall = async (p: MarketplacePlugin) => {
+    setInstalling((s) => ({ ...s, [p.download_url]: true }));
+    try {
+      const r = await control.call("install_plugin", { download_url: p.download_url });
+      if (r.ok) {
+        setInstalled((s) => ({ ...s, [p.download_url]: true }));
+      } else {
+        alert(`Error al instalar: ${r.error}`);
+      }
+    } catch {
+      alert("Error de red al instalar");
+    } finally {
+      setInstalling((s) => ({ ...s, [p.download_url]: false }));
+    }
+  };
+
+  if (loading) return <div style={{ padding: 12, fontSize: 12, color: "var(--txt-4)" }}>Cargando…</div>;
+  if (error) return <div style={{ padding: 12, fontSize: 12, color: "var(--warn)" }}>Error: {error}</div>;
+  if (plugins.length === 0) return <div style={{ padding: 12, fontSize: 12, color: "var(--txt-4)" }}>Sin plugins disponibles</div>;
+
+  return (
+    <div className="fx-list">
+      {plugins.map((p) => {
+        const busy = installing[p.download_url];
+        const done = isInstalled(p);
+        return (
+          <div key={p.download_url} style={{ padding: "6px 10px", borderBottom: "1px solid var(--line-soft)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ flex: 1, fontWeight: 500, fontSize: 12 }}>{p.name}</span>
+              {p.version && <span style={{ fontSize: 10, color: "var(--txt-4)" }}>v{p.version}</span>}
+              {done ? (
+                <span style={{ fontSize: 10, color: "var(--ok)" }}>✓ Instalado</span>
+              ) : busy ? (
+                <span style={{ fontSize: 10, color: "var(--txt-4)" }}>Instalando…</span>
+              ) : (
+                <button className="btn sm" style={{ fontSize: 10 }} onClick={() => doInstall(p)}>
+                  Instalar
+                </button>
+              )}
+            </div>
+            {p.author && <div style={{ fontSize: 10, color: "var(--txt-4)" }}>por {p.author}</div>}
+            {p.description && <div style={{ fontSize: 11, color: "var(--txt-3)", marginTop: 2 }}>{p.description}</div>}
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -1379,7 +1379,7 @@ su t_ms. Hago clic en Replay del gesto 3 → el efecto se re-aplica al show.
 
 > *El ecosistema a largo plazo: comunidad, portabilidad y mantenibilidad.*
 
-## N1 — Marketplace de plugins (~3 días, Sonnet)
+## ✅ APLICADA (2026-06-14) N1 — Marketplace de plugins (~3 días, Sonnet)
 
 **Qué**: directorio online de efectos y presets de la comunidad (manifest JSON remoto,
 por ejemplo en un GitHub Release). El usuario puede instalar plugins con un clic desde

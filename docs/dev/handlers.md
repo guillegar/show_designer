@@ -325,6 +325,21 @@ Usa `server/timeline_export.py::export_patch_pdf`. Escritura atómica via `.tmp 
 
 ---
 
+### N1 — Marketplace de plugins
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `list_marketplace_plugins` | — | `{ok, plugins: [{name, author, version, description, effect_ids, download_url}], cached: bool}` |
+| `install_plugin` | `download_url: str` | `{ok, name}` o `{ok: false, error}` |
+
+**Notas:**
+- URL del manifest configurable en `output_targets.json["marketplace_url"]`; por defecto apunta a `github.com/example/sd-plugins`.
+- `install_plugin` descarga el `.py`, lo valida con el harness H1 (`assert_valid_plugin_effect(cls())`), lo copia a `plugins/effects/` y devuelve `{ok: true, name}`.
+- Si la validación falla → `{ok: false, error: "harness validation failed: ..."}` sin copiar el archivo.
+- Cache del manifest: 5 min en memoria; segunda llamada en ese período no hace HTTP.
+
+---
+
 ### M3 — Historial de gestos y replay
 
 | Handler | Params | Devuelve |

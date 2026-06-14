@@ -3182,6 +3182,46 @@ def _h_clear_gesture_history(session, params):
     return {"ok": True}
 
 
+# ── N1 — Marketplace de plugins ───────────────────────────────────────────────
+
+_DEFAULT_MARKETPLACE_URL = (
+    "https://raw.githubusercontent.com/example/sd-plugins/main/manifest.json"
+)
+
+
+def _get_marketplace_url(session) -> str:
+    try:
+        import json
+        from pathlib import Path as _Path
+        data = json.loads(_Path("output_targets.json").read_text("utf-8"))
+        return data.get("marketplace_url", _DEFAULT_MARKETPLACE_URL)
+    except Exception:
+        return _DEFAULT_MARKETPLACE_URL
+
+
+def _h_list_marketplace_plugins(session, params):
+    """list_marketplace_plugins() → {ok, plugins: [...], cached: bool}."""
+    from server.marketplace import fetch_manifest
+    url = _get_marketplace_url(session)
+    try:
+        plugins, cached = fetch_manifest(url)
+        return {"ok": True, "plugins": plugins, "cached": cached}
+    except TimeoutError:
+        return {"ok": False, "error": "timeout"}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def _h_install_plugin(session, params):
+    """install_plugin(download_url) → {ok, name} or {ok: false, error}."""
+    from server.validators import require_key
+    from server.marketplace import install_plugin
+    from pathlib import Path as _Path
+    download_url = require_key(params, "download_url")
+    plugins_dir = _Path("plugins/effects")
+    return install_plugin(download_url, plugins_dir)
+
+
 _LOCAL = {
     # H4 — list_clips con paginación (offset/limit)
     "list_clips": _h_list_clips,
@@ -3346,6 +3386,9 @@ _LOCAL = {
     "list_gesture_history": _h_list_gesture_history,
     "replay_gesture": _h_replay_gesture,
     "clear_gesture_history": _h_clear_gesture_history,
+    # N1 — Marketplace de plugins
+    "list_marketplace_plugins": _h_list_marketplace_plugins,
+    "install_plugin": _h_install_plugin,
 }
 
 
