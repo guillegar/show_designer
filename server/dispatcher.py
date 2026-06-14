@@ -3072,6 +3072,77 @@ def _h_get_key_info(session, params):
     return {"ok": True, "status": "computing"}
 
 
+# ── M2 — Generación automática de show ───────────────────────────────────────
+
+def _h_generate_show(session, params):
+    """generate_show(style?, density?, replace?) → {ok, clips_created: int}.
+
+    Genera clips automáticamente desde el análisis de audio. Sin IA externa.
+    Toma snapshot antes de mutar (deshaciable con Ctrl+Z) — I1.
+    Corre en executor si los datos son voluminosos — I6.
+    """
+    from server.show_generator import generate_show, STYLES
+
+    style = params.get("style", "club")
+    if style not in STYLES:
+        return {"ok": False, "error": f"style debe ser uno de {STYLES}"}
+    density = float(params.get("density", 0.5))
+    density = max(0.0, min(1.0, density))
+    replace = bool(params.get("replace", False))
+
+    # Obtener datos de análisis
+    analysis = getattr(session, "analysis", None)
+    if analysis is None:
+        return {"ok": False, "error": "No hay análisis disponible para este show"}
+
+    try:
+        beats = analysis.list_beats()
+        downbeats = analysis.list_downbeats()
+        sections = analysis.list_sections()
+    except Exception as e:
+        return {"ok": False, "error": f"Error leyendo análisis: {e}"}
+
+    if not beats and not downbeats:
+        return {"ok": False, "error": "El análisis no tiene beats detectados"}
+
+    bpm = getattr(session, "bpm", None) or 120.0
+
+    # I1: snapshot para undo
+    try:
+        session.snapshot()
+    except Exception:
+        pass
+
+    # Limpiar timeline si replace=True
+    if replace:
+        session.timeline.clips.clear()
+
+    # Generar clips
+    new_clips = generate_show(beats, downbeats, sections, style, density, bpm)
+
+    # Añadir clips al timeline
+    from src.core.timeline_model import Clip
+    for cd in new_clips:
+        clip = Clip(
+            track=cd["track"],
+            start_ms=cd["start_ms"],
+            end_ms=cd["end_ms"],
+            effect_id=cd["effect_id"],
+            scope=cd.get("scope", "per_bar"),
+            params=cd.get("params", {}),
+            color=cd.get("color", "#3a7acc"),
+            label=cd.get("label", "GEN"),
+            layer=cd.get("layer", 0),
+            uid=cd.get("uid") or None,
+        )
+        if cd.get("uid"):
+            clip.uid = cd["uid"]
+        session.timeline.clips.append(clip)
+
+    session.invalidate_caches()
+    return {"ok": True, "clips_created": len(new_clips)}
+
+
 _LOCAL = {
     # H4 — list_clips con paginación (offset/limit)
     "list_clips": _h_list_clips,
@@ -3230,6 +3301,8 @@ _LOCAL = {
     # M1 — Tap BPM + key detection
     "tap_bpm": _h_tap_bpm,
     "get_key_info": _h_get_key_info,
+    # M2 — Generación automática de show
+    "generate_show": _h_generate_show,
 }
 
 

@@ -74,6 +74,12 @@ export function TimelineView() {
   const [genSec, setGenSec] = useState(0);
   const [genTrig, setGenTrig] = useState("on_beat");
   const [genAll, setGenAll] = useState(true);
+  // M2: generación automática de show completo
+  const [genShowOpen, setGenShowOpen] = useState(false);
+  const [genShowStyle, setGenShowStyle] = useState("club");
+  const [genShowDensity, setGenShowDensity] = useState(0.5);
+  const [genShowReplace, setGenShowReplace] = useState(false);
+  const [genShowStatus, setGenShowStatus] = useState<string | null>(null);
   const [lastEffectDuration, setLastEffectDuration] = useState(() => {
     const saved = localStorage.getItem("sd_lastEffectDuration");
     return saved ? parseInt(saved, 10) : 500;
@@ -1107,6 +1113,7 @@ export function TimelineView() {
             onClick={() => setArrangerMode((a) => !a)}
             title="Vista Arranger: secciones como bloques reordenables (requiere marcadores I2)">⊞ Arr</button>
           <button className="btn sm" onClick={() => setGenOpen(true)} disabled={!drawInfo} title="Generar clips en una sección con el efecto/preset activo">✨ Generar</button>
+          <button className="btn sm" onClick={() => setGenShowOpen(true)} title="Generar show completo desde análisis (M2)">🎬 Show</button>
           <button className="btn sm ghost" title="Exportar CSV de clips" onClick={() => doExport("csv")}>⬇ CSV</button>
           <button className="btn sm ghost" title="Exportar workspace QLC+" onClick={() => doExport("qlc")}>⬇ QLC+</button>
           <div className="zoomctl">
@@ -1690,6 +1697,57 @@ export function TimelineView() {
                 <button className="btn primary sm" style={{ flex: 1 }} onClick={runGenerate}>Generar</button>
               </div>
               <p className="muted" style={{ fontSize: 10.5, lineHeight: 1.4 }}>Crea clips con el efecto/preset activo sincronizados a los eventos de la sección.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {genShowOpen && (
+        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) { setGenShowOpen(false); setGenShowStatus(null); } }}>
+          <div className="preset-editor">
+            <div className="ci-head"><h4>Generar show automático</h4><button className="x" onClick={() => { setGenShowOpen(false); setGenShowStatus(null); }}>×</button></div>
+            <div className="ci-body">
+              <div className="ci-row"><label>Estilo</label>
+                <select value={genShowStyle} onChange={(e) => setGenShowStyle(e.target.value)}>
+                  {["minimal", "club", "festival", "chill"].map((s) => <option key={s} value={s}>{s}</option>)}
+                </select></div>
+              <div className="ci-row"><label>Densidad</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+                  <input type="range" min={0} max={100} value={Math.round(genShowDensity * 100)}
+                    onChange={(e) => setGenShowDensity(+e.target.value / 100)} style={{ flex: 1 }} />
+                  <span style={{ minWidth: 30, fontSize: 11 }}>{Math.round(genShowDensity * 100)}%</span>
+                </div></div>
+              <div className="ci-row"><label>Reemplazar</label>
+                <input type="checkbox" checked={genShowReplace} onChange={(e) => setGenShowReplace(e.target.checked)} />
+                <span style={{ fontSize: 11, color: "var(--txt-3)", marginLeft: 6 }}>Limpiar timeline antes</span>
+              </div>
+              <div className="ci-row" style={{ marginTop: 6 }}>
+                <button className="btn primary sm" style={{ flex: 1 }} onClick={async () => {
+                  setGenShowStatus("Generando…");
+                  try {
+                    const r: any = await control.call("generate_show", { style: genShowStyle, density: genShowDensity, replace: genShowReplace });
+                    if (r?.ok) {
+                      setGenShowStatus(`✓ ${r.clips_created} clips creados`);
+                      refreshClips();
+                      setTimeout(() => { setGenShowOpen(false); setGenShowStatus(null); }, 1800);
+                    } else {
+                      setGenShowStatus(r?.error ?? "Error");
+                    }
+                  } catch (e: any) {
+                    setGenShowStatus("Error: " + e.message);
+                  }
+                }} disabled={!!genShowStatus && genShowStatus === "Generando…"}>
+                  {genShowStatus === "Generando…" ? "Generando…" : "Generar show"}
+                </button>
+              </div>
+              {genShowStatus && genShowStatus !== "Generando…" && (
+                <div style={{ fontSize: 11, marginTop: 6, color: genShowStatus.startsWith("✓") ? "var(--good)" : "var(--bad)" }}>
+                  {genShowStatus}
+                </div>
+              )}
+              <p className="muted" style={{ fontSize: 10.5, lineHeight: 1.4, marginTop: 6 }}>
+                Genera clips sincronizados a beats/downbeats. Requiere análisis previo. Deshaciable con Ctrl+Z.
+              </p>
             </div>
           </div>
         </div>

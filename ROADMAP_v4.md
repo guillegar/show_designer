@@ -1253,7 +1253,16 @@ Auto-VJ dispara en beat. El chip de tonalidad muestra "Am" para el himno de Espa
 
 ---
 
-## M2 — Generación automática de show desde análisis (~4 días, Opus)
+## M2 — Generación automática de show desde análisis (~4 días, Opus) ✅ APLICADA 2026-06-14
+
+**Implementación**: `server/show_generator.py` (NUEVO): función pura `generate_show(beats,
+downbeats, sections, style, density, bpm)` — paletas por estilo, clips en downbeats (layer 0),
+beats si density>0.5 (layer 1), strobe si density>0.8 (layer 2), sin solapamientos.
+`dispatcher.py`: handler `generate_show(style, density, replace)` — I1 snapshot, replace,
+executor. `Timeline.tsx`: botón "🎬 Show" + modal con selector de estilo/densidad/replace.
+6 tests en `test_show_generator.py`. **989 Python verdes.**
+
+## M2 — Generación automática de show desde análisis (~4 días, Opus) [spec original]
 
 **Qué**: handler `generate_show(style, density, replace)` que analiza el audio cargado y
 genera clips automáticamente — sin IA externa, solo lógica determinista sobre el análisis.

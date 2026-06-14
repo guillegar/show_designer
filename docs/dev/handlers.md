@@ -325,6 +325,28 @@ Usa `server/timeline_export.py::export_patch_pdf`. Escritura atómica via `.tmp 
 
 ---
 
+### M2 — Generación automática de show
+
+| Handler | Params | Devuelve |
+|---------|--------|----------|
+| `generate_show` | `style: "minimal"\|"club"\|"festival"\|"chill"`, `density: float (0..1)`, `replace: bool` | `{ok, clips_created: int}` |
+
+**Algoritmo** en `server/show_generator.py` (función pura `generate_show()`):
+1. Clips en downbeats → `solid_color` (id 1004), layer 0, 1 beat de duración.
+2. Si `density > 0.5` → beats intermedios, layer 1, 0.5 beats.
+3. Si `density > 0.8` → strobe_color (id 1015), layer 2, 50 ms, 1 de cada 2 beats.
+4. Sin solapamientos en el mismo layer (tracker `occupied`).
+5. I1: `session.snapshot()` antes de mutar (deshaciable).
+6. `replace=True` → `timeline.clips.clear()` antes de añadir.
+
+**Paletas** por estilo: minimal (blanco/azul), club (rojo/azul/verde/magenta), festival
+(arcoíris por sección), chill (pasteles cálidos).
+
+**Frontend**: botón "🎬 Show" en toolbar del timeline → modal con selector de estilo,
+slider de densidad y checkbox "Reemplazar timeline".
+
+---
+
 ### M1 — Tap BPM + key detection
 
 | Handler | Params | Devuelve |
