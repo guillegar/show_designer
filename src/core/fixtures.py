@@ -186,6 +186,11 @@ class Fixture:
     # 'led_strip'). None = usa profile.kind. Permite cambiar el modo de renderizado
     # DMX sin reemplazar el profile completo.
     kind_override: Optional[str] = None
+    # Editor de fixture (ROADMAP v4): notas libres, mapa de canales personalizado,
+    # altura física en metros (persiste como `y` en rig_layout.json).
+    notes: Optional[str] = None
+    channel_map: Optional[List[Dict]] = None   # [{ch: int, role: str}]
+    height_m: Optional[float] = None
 
     def to_dict(self):
         d = asdict(self)
@@ -196,6 +201,7 @@ class Fixture:
         # tuples vienen como listas en JSON
         px = d.get('patch_x')
         py = d.get('patch_y')
+        hm = d.get('height_m')
         return cls(
             fixture_id=d['fixture_id'],
             profile_id=d['profile_id'],
@@ -210,6 +216,9 @@ class Fixture:
             patch_x=float(px) if px is not None else None,
             patch_y=float(py) if py is not None else None,
             kind_override=d.get('kind_override'),
+            notes=d.get('notes'),
+            channel_map=d.get('channel_map'),
+            height_m=float(hm) if hm is not None else None,
         )
 
 

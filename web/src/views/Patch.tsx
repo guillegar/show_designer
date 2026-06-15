@@ -4,6 +4,18 @@ import { stream, LEDS, DmxState } from "../api/stream";
 import type { BlackoutChangedEvent } from "../api/stream";
 import { useStore, Fixture } from "../store";
 
+// ── Editor de fixture (ROADMAP v4) ──────────────────────────────────────────
+type FixtureDetail = {
+  fixture_id: string; label: string; profile_id: string;
+  universe: number; dmx_start: number; num_channels: number;
+  artnet_ip?: string | null; patch_x?: number | null; patch_y?: number | null;
+  height_m?: number | null; notes?: string | null;
+  channel_map?: Array<{ch: number; role: string}> | null;
+  kind_override?: string | null; legacy_bar_idx?: number | null; target_ip?: string | null;
+};
+type FixtureType = { id: string; name: string; modes: Array<{name: string; channels: number}> };
+type ConflictInfo = { fixture_id: string; name: string; address_range: string };
+
 function barAvg(barIdx: number): [number, number, number] {
   let r = 0, g = 0, b = 0;
   for (let i = 0; i < LEDS; i++) { const c = stream.ledRGB(barIdx, i); r += c[0]; g += c[1]; b += c[2]; }
@@ -25,10 +37,13 @@ function useLayout(fixtures: Fixture[]) {
   return { nx, nz, minX, maxX, minZ, maxZ };
 }
 
-function PatchStage({ fixtures }: { fixtures: Fixture[] }) {
+function PatchStage({ fixtures, onSelect, dirtyFixtureId }: {
+  fixtures: Fixture[];
+  onSelect: (id: string) => void;
+  dirtyFixtureId?: string | null;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
   const sel = useStore((s) => s.selectedFixtureId);
-  const selectFixture = useStore((s) => s.selectFixture);
   const refreshFixtures = useStore((s) => s.refreshFixtures);
   const L = useLayout(fixtures);
   const { nx, nz } = L;
@@ -85,7 +100,8 @@ function PatchStage({ fixtures }: { fixtures: Fixture[] }) {
           ctx.restore();
           ctx.fillStyle = sel === f.fixture_id ? "#c9a8ff" : "rgba(170,180,200,0.7)";
           ctx.font = "600 10px 'Hanken Grotesk'"; ctx.textAlign = "center";
-          ctx.fillText(f.label || f.fixture_id, cx, cy + bh / 2 + 15);
+          const lbl = (dirtyFixtureId === f.fixture_id ? "● " : "") + (f.label || f.fixture_id);
+          ctx.fillText(lbl, cx, cy + bh / 2 + 15);
         }
       }
       raf = requestAnimationFrame(draw);
@@ -110,7 +126,7 @@ function PatchStage({ fixtures }: { fixtures: Fixture[] }) {
     const cv = ref.current!, r = cv.getBoundingClientRect();
     const f = nearest(e.clientX - r.left, e.clientY - r.top, r.width, r.height);
     if (!f) return;
-    selectFixture(f.fixture_id);
+    onSelect(f.fixture_id);
     dragRef.current = { id: f.fixture_id, moved: false };
   };
   useEffect(() => {
@@ -834,56 +850,321 @@ function FixtureTestPanel({ fixtures }: { fixtures: Fixture[] }) {
   );
 }
 
+function FixtureEditorPanel({ fixtureId, onBack, onRefresh, universeIpMap, fixtures }: {
+  fixtureId: string;
+  onBack: () => void;
+  onRefresh: () => void;
+  universeIpMap: Record<number, string>;
+  fixtures: Fixture[];
+}) {
+  const [detail, setDetail] = useState<FixtureDetail | null>(null);
+  const [types, setTypes] = useState<FixtureType[]>([]);
+  const [form, setForm] = useState<Partial<FixtureDetail>>({});
+  const [dirty, setDirty] = useState(false);
+  const [conflicts, setConflicts] = useState<ConflictInfo[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
+  const [identifying, setIdentifying] = useState(false);
+  const [testColor, setTestColor] = useState("#ffffff");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selectFixture = useStore((s) => s.selectFixture);
+
+  // Sync patch_x/patch_y bidireccional: canvas drag → inputs
+  const storeFixture = fixtures.find((f) => f.fixture_id === fixtureId);
+
+  useEffect(() => {
+    let cancelled = false;
+    control.call("get_fixture_detail", { fixture_id: fixtureId })
+      .then((r: any) => {
+        if (cancelled || !r?.ok) return;
+        setDetail(r.fixture);
+        setForm(r.fixture);
+        setDirty(false);
+      }).catch(() => {});
+    control.call("list_fixture_types")
+      .then((r: any) => { if (!cancelled && r?.ok) setTypes(r.types ?? []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [fixtureId]);
+
+  useEffect(() => {
+    if (!dirty && storeFixture) {
+      setForm((prev) => ({
+        ...prev,
+        patch_x: storeFixture.patch_x,
+        patch_y: storeFixture.patch_y,
+      }));
+    }
+  }, [storeFixture?.patch_x, storeFixture?.patch_y, dirty]);
+
+  const update = (fields: Partial<FixtureDetail>) => {
+    const next = { ...form, ...fields };
+    setForm(next);
+    setDirty(true);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => autoSave(next), 400);
+    if ("dmx_start" in fields || "universe" in fields) {
+      control.call("update_fixture", {
+        fixture_id: fixtureId,
+        universe: next.universe,
+        start_address: next.dmx_start,
+        dry_run: true,
+      }).then((r: any) => { if (r?.ok) setConflicts(r.conflicts ?? []); }).catch(() => {});
+    }
+  };
+
+  const autoSave = async (cur: Partial<FixtureDetail>) => {
+    const r: any = await control.call("update_fixture", {
+      fixture_id: fixtureId,
+      name: cur.label,
+      start_address: cur.dmx_start,
+      universe: cur.universe,
+      kind_override: cur.kind_override,
+      notes: cur.notes,
+      patch_x: cur.patch_x,
+      patch_y: cur.patch_y,
+      height_m: cur.height_m,
+      channel_map: cur.channel_map,
+    }).catch(() => null);
+    if (r?.ok) { setDirty(false); setConflicts([]); onRefresh(); }
+    else if (r?.conflicts?.length > 0) setConflicts(r.conflicts);
+  };
+
+  const save = async () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    await autoSave(form);
+    if (!conflicts.length) {
+      const name = form.label || fixtureId;
+      setToast(`${name} guardada ✓`);
+      setTimeout(() => setToast(null), 2500);
+    }
+  };
+
+  const identify = () => {
+    setIdentifying(true);
+    const hex = testColor.replace("#", "");
+    const ri = parseInt(hex.slice(0, 2), 16);
+    const gi = parseInt(hex.slice(2, 4), 16);
+    const bi = parseInt(hex.slice(4, 6), 16);
+    control.call("identify_fixture", { fixture_id: fixtureId, duration_ms: 2000, color: [ri, gi, bi] }).catch(() => {});
+    setTimeout(() => setIdentifying(false), 2100);
+  };
+
+  if (!detail) return (
+    <div style={{ padding: 16, color: "var(--txt-3)", fontSize: 12 }}>Cargando…</div>
+  );
+
+  const numChannels = form.num_channels ?? detail.num_channels ?? 0;
+  const addrStart = form.dmx_start ?? 1;
+  const addrEnd = addrStart + numChannels - 1;
+  const ipForUniverse = universeIpMap[form.universe ?? detail.universe] ?? detail.artnet_ip ?? null;
+  const isCustomMode = (form.kind_override ?? "") === "custom";
+
+  return (
+    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* Header */}
+      <div className="panel-head" style={{ borderBottom: "1px solid var(--line)", gap: 6, flexShrink: 0 }}>
+        <button className="btn sm ghost" onClick={onBack} style={{ fontSize: 11, padding: "2px 7px" }}>← Fixtures</button>
+        <span style={{ fontWeight: 600, fontSize: 12, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {dirty ? "● " : ""}{form.label || fixtureId}
+        </span>
+        <button className="btn sm primary" title="Guardar" onClick={save} style={{ fontSize: 12, padding: "2px 8px" }}>✓</button>
+      </div>
+      {toast && (
+        <div style={{ margin: "4px 10px 0", padding: "3px 7px", background: "rgba(80,180,80,0.15)", borderRadius: 4, fontSize: 11, color: "var(--good)", flexShrink: 0 }}>
+          {toast}
+        </div>
+      )}
+
+      <div style={{ flex: 1, overflow: "auto", padding: "0 12px 12px" }}>
+
+        {/* IDENTIDAD */}
+        <div className="ci-sub" style={{ margin: "10px 0 4px" }}>IDENTIDAD</div>
+        <div className="form-row">
+          <span className="fl">Nombre</span>
+          <div className="fv">
+            <input className="field" value={form.label ?? ""} style={{ flex: 1 }}
+              onChange={(e) => update({ label: e.target.value })} />
+          </div>
+        </div>
+        <div className="form-row">
+          <span className="fl">Tipo</span>
+          <div className="fv">
+            <select className="field" value={form.kind_override || form.profile_id || ""}
+              style={{ flex: 1 }}
+              onChange={(e) => update({ kind_override: e.target.value || null })}>
+              {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {!types.find((t) => t.id === (form.kind_override || form.profile_id)) && (
+                <option value={form.profile_id || ""}>{form.profile_id || "(sin tipo)"}</option>
+              )}
+            </select>
+          </div>
+        </div>
+        <div className="form-row" style={{ alignItems: "flex-start" }}>
+          <span className="fl" style={{ paddingTop: 4 }}>Notas</span>
+          <div className="fv">
+            <textarea className="field" value={form.notes ?? ""} rows={2}
+              style={{ flex: 1, resize: "vertical", fontSize: 11, fontFamily: "inherit", minHeight: 34 }}
+              onChange={(e) => update({ notes: e.target.value })} />
+          </div>
+        </div>
+
+        {/* DMX — ART-NET */}
+        <div className="ci-sub" style={{ margin: "10px 0 4px" }}>DMX — ART-NET</div>
+        <div className="form-row">
+          <span className="fl">Universo</span>
+          <div className="fv" style={{ gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <select className="field" value={form.universe ?? 1} style={{ width: 60 }}
+              onChange={(e) => update({ universe: parseInt(e.target.value, 10) })}>
+              {Array.from({ length: 15 }, (_, i) => i + 1).map((u) => (
+                <option key={u} value={u}>{u}{universeIpMap[u] ? ` · ${universeIpMap[u]}` : ""}</option>
+              ))}
+            </select>
+            {ipForUniverse && (
+              <span className="mono" style={{ fontSize: 10, color: "var(--txt-3)" }}>{ipForUniverse}</span>
+            )}
+          </div>
+        </div>
+        <div className="form-row">
+          <span className="fl">DMX start</span>
+          <div className="fv" style={{ gap: 6, alignItems: "center" }}>
+            <input className="field" type="number" min={1} max={512}
+              value={addrStart} style={{ width: 60 }}
+              onChange={(e) => update({ dmx_start: parseInt(e.target.value, 10) || 1 })} />
+            {numChannels > 0 && (
+              <span style={{ fontSize: 10, color: "var(--txt-3)" }}>
+                {numChannels} ch · rango {addrStart}–{addrEnd}
+              </span>
+            )}
+          </div>
+        </div>
+        {conflicts.length > 0 && (
+          <div style={{ marginBottom: 6, padding: "4px 7px", background: "rgba(255,140,0,0.1)", borderRadius: 4, borderLeft: "2px solid var(--warn)", fontSize: 11 }}>
+            {conflicts.map((c) => (
+              <div key={c.fixture_id} style={{ color: "var(--warn)" }}>
+                ⚠ Conflicto con {c.name} ({c.address_range})
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* CANALES — solo si modo custom */}
+        {isCustomMode && (
+          <>
+            <div className="ci-sub" style={{ margin: "10px 0 4px" }}>CANALES</div>
+            {(form.channel_map ?? []).map((entry, i) => (
+              <div className="form-row" key={i}>
+                <span className="fl">Ch {entry.ch}</span>
+                <div className="fv" style={{ gap: 6 }}>
+                  <input className="field" value={entry.role} style={{ flex: 1 }}
+                    placeholder="role (ej. red)"
+                    onChange={(e) => {
+                      const next = (form.channel_map ?? []).map((c, idx) =>
+                        idx === i ? { ...c, role: e.target.value } : c);
+                      update({ channel_map: next });
+                    }} />
+                  <button className="btn sm ghost" style={{ color: "var(--bad)", padding: "1px 6px" }}
+                    onClick={() => update({ channel_map: (form.channel_map ?? []).filter((_, idx) => idx !== i) })}>×</button>
+                </div>
+              </div>
+            ))}
+            <button className="btn sm ghost" style={{ marginTop: 4, fontSize: 11 }}
+              onClick={() => {
+                const nextCh = (form.channel_map ?? []).length + 1;
+                update({ channel_map: [...(form.channel_map ?? []), { ch: nextCh, role: "" }] });
+              }}>+ Añadir canal</button>
+          </>
+        )}
+
+        {/* POSICIÓN */}
+        <div className="ci-sub" style={{ margin: "10px 0 4px" }}>POSICIÓN</div>
+        <div className="form-row">
+          <span className="fl">X</span>
+          <div className="fv" style={{ gap: 6, alignItems: "center" }}>
+            <input className="field" type="number" step={0.01} min={0} max={1}
+              value={form.patch_x != null ? Math.round(form.patch_x * 1000) / 1000 : ""}
+              placeholder="0.00" style={{ width: 68 }}
+              onChange={(e) => update({ patch_x: parseFloat(e.target.value) })} />
+            <span style={{ fontSize: 10, color: "var(--txt-3)" }}>canvas 0–1</span>
+          </div>
+        </div>
+        <div className="form-row">
+          <span className="fl">Y</span>
+          <div className="fv" style={{ gap: 6, alignItems: "center" }}>
+            <input className="field" type="number" step={0.01} min={0} max={1}
+              value={form.patch_y != null ? Math.round(form.patch_y * 1000) / 1000 : ""}
+              placeholder="0.00" style={{ width: 68 }}
+              onChange={(e) => update({ patch_y: parseFloat(e.target.value) })} />
+            <span style={{ fontSize: 10, color: "var(--txt-3)" }}>canvas 0–1</span>
+          </div>
+        </div>
+        <div className="form-row">
+          <span className="fl">Altura</span>
+          <div className="fv" style={{ gap: 6, alignItems: "center" }}>
+            <input className="field" type="number" step={0.1}
+              value={form.height_m != null ? form.height_m : ""}
+              placeholder="2.5" style={{ width: 68 }}
+              onChange={(e) => update({ height_m: e.target.value !== "" ? parseFloat(e.target.value) : null })} />
+            <span style={{ fontSize: 10, color: "var(--txt-3)" }}>m</span>
+          </div>
+        </div>
+
+        {/* TEST EN VIVO */}
+        <div className="ci-sub" style={{ margin: "10px 0 4px" }}>TEST EN VIVO</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <button className={"btn sm" + (identifying ? " on acc" : "")}
+            onClick={identify} disabled={identifying} title="Identificar fixture 2 s">
+            🔦 Identify
+          </button>
+          <input type="color" value={testColor} onChange={(e) => setTestColor(e.target.value)}
+            style={{ width: 26, height: 24, border: "none", cursor: "pointer", background: "none" }} />
+          <span className="mono" style={{ fontSize: 10, color: "var(--txt-3)" }}>{testColor.toUpperCase()}</span>
+        </div>
+
+        {/* Borrar */}
+        <div style={{ marginTop: 14, borderTop: "1px solid var(--line)", paddingTop: 10 }}>
+          <button className="btn ghost" style={{ color: "var(--bad)", fontSize: 11 }}
+            onClick={() => {
+              control.call("delete_fixture", { fixture_id: fixtureId })
+                .then(() => { selectFixture(null); onBack(); onRefresh(); })
+                .catch(() => {});
+            }}>Borrar fixture</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function PatchView() {
   const fixtures = useStore((s) => s.fixtures);
   const sel = useStore((s) => s.selectedFixtureId);
   const selectFixture = useStore((s) => s.selectFixture);
   const refreshFixtures = useStore((s) => s.refreshFixtures);
 
-  const [dmx, setDmx] = useState<DmxState>({});
+  const [editingFixtureId, setEditingFixtureId] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [adding, setAdding] = useState(false);
   const [gdtfBrowser, setGdtfBrowser] = useState(false);
-  const [edit, setEdit] = useState<Record<string, number>>({});
+  const [dirtyInEditor, setDirtyInEditor] = useState(false);
 
-  useEffect(() => { const off = stream.onDmx((d) => setDmx(d)); return off; }, []);
   useEffect(() => { control.call("list_fixture_profiles").then((r) => setProfiles(r.profiles || [])).catch(() => {}); }, []);
 
-  const selFx = fixtures.find((f) => f.fixture_id === sel) || fixtures[0];
-  useEffect(() => { setEdit({}); }, [sel]);
+  // Mapa universo → IP derivado de los fixtures del rig
+  const universeIpMap = Object.fromEntries(
+    fixtures.filter((f) => f.target_ip).map((f) => [f.universe, f.target_ip!])
+  ) as Record<number, string>;
 
-  const setProp = (key: string, value: any) =>
-    control.call("set_fixture_property", { fixture_id: selFx.fixture_id, key, value }).then(refreshFixtures);
-  const del = () =>
-    control.call("delete_fixture", { fixture_id: selFx.fixture_id }).then(() => { selectFixture(null); refreshFixtures(); });
-
-  const isMover = selFx && selFx.legacy_bar_idx == null;
-  const chans = isMover && selFx ? Object.keys(dmx[selFx.fixture_id] || {}) : [];
-  const chVal = (ch: string) => edit[ch] ?? (dmx[selFx.fixture_id]?.[ch] ?? 0);
-  const setCh = (ch: string, v01: number) => {
-    setEdit((e) => ({ ...e, [ch]: v01 }));
-    control.call("set_fixture_channel", { fixture_id: selFx.fixture_id, channel_name: ch, value: v01 });
-  };
-  const clearOverrides = () => {
-    for (const ch of Object.keys(edit)) control.call("set_fixture_channel", { fixture_id: selFx.fixture_id, channel_name: ch, value: null });
-    setEdit({});
+  const openEditor = (id: string) => {
+    selectFixture(id);
+    setEditingFixtureId(id);
+    setDirtyInEditor(false);
   };
 
-  // K1 — Posición 3D del fixture
-  const [pos3d, setPos3d] = useState({ x: 0, y: 4, z: 0, rx: 0, ry: 0, rz: 0 });
-  const [pos3dOpen, setPos3dOpen] = useState(false);
+  // Si el fixture editado fue borrado, volver a la lista
   useEffect(() => {
-    if (!selFx) return;
-    control.call("get_rig_layout", {}).then((r: any) => {
-      const e = (r.fixtures || []).find((f: any) => f.id === selFx.fixture_id);
-      if (e) setPos3d({ x: e.x ?? 0, y: e.y ?? 4, z: e.z ?? 0, rx: e.rx ?? 0, ry: e.ry ?? 0, rz: e.rz ?? 0 });
-      else setPos3d({ x: selFx.position?.[0] ?? 0, y: selFx.position?.[1] ?? 4, z: selFx.position?.[2] ?? 0, rx: 0, ry: 0, rz: 0 });
-    }).catch(() => {});
-  }, [sel]);
-
-  const save3d = () => {
-    control.call("set_fixture_3d", { fixture_id: selFx.fixture_id, ...pos3d }).catch(() => {});
-  };
+    if (editingFixtureId && !fixtures.find((f) => f.fixture_id === editingFixtureId)) {
+      setEditingFixtureId(null);
+    }
+  }, [fixtures, editingFixtureId]);
 
   return (
     <div className="patch">
@@ -892,95 +1173,42 @@ export function PatchView() {
           <button className="btn sm" onClick={() => setAdding(true)}>+ Fixture</button>
           <button className="btn sm ghost" onClick={() => setGdtfBrowser(true)} title="Añadir fixture desde perfil GDTF">GDTF</button>
         </div>
-        <PatchStage fixtures={fixtures} />
+        <PatchStage fixtures={fixtures} onSelect={openEditor} dirtyFixtureId={dirtyInEditor ? editingFixtureId : null} />
         <div className="patch-legend">
           <div className="lg"><i style={{ border: "2px solid var(--acc-2)", background: "none" }} />Seleccionada · arrastra para mover</div>
         </div>
       </div>
 
       <div className="patch-side">
-        <div className="panel-head"><h3>Fixtures</h3><span className="ph-spacer" /><span className="chip">{fixtures.length}</span></div>
-        <div style={{ flex: "0 0 auto", maxHeight: "38%", overflow: "auto" }}>
-          {fixtures.map((f) => {
-            const [r, g, b] = fixtureColor(f);
-            return (
-              <div key={f.fixture_id} className={"fix-item" + (sel === f.fixture_id ? " sel" : "")} onClick={() => selectFixture(f.fixture_id)}>
-                <span className="sw" style={{ background: `rgb(${r},${g},${b})` }} />
-                <div className="fi-txt">
-                  <div className="fi-name">{f.label || f.fixture_id}</div>
-                  <div className="fi-meta">{f.target_ip || f.profile_id} · U{f.universe}</div>
-                </div>
-                <span className="fi-leds">{f.legacy_bar_idx != null ? `${LEDS} px` : f.profile_id}</span>
-              </div>
-            );
-          })}
-        </div>
-
-        {selFx && (
-          <div className="panel-body" style={{ flex: 1, overflow: "auto" }}>
-            <div className="panel-head" style={{ borderTop: "1px solid var(--line)" }}><h3>Propiedades · {selFx.label || selFx.fixture_id}</h3></div>
-            <div className="form-row"><span className="fl">Nombre</span><div className="fv">
-              <input className="field" defaultValue={selFx.label} style={{ width: 120 }} key={"n" + selFx.fixture_id}
-                onBlur={(e) => setProp("label", e.target.value)} /></div></div>
-            <div className="form-row"><span className="fl">IP / Host</span><div className="fv">
-              <input className="field" defaultValue={selFx.target_ip || ""} style={{ width: 130 }} key={"ip" + selFx.fixture_id}
-                onBlur={(e) => setProp("target_ip", e.target.value)} /></div></div>
-            <div className="form-row"><span className="fl">Universo</span><div className="fv">
-              <input className="field" type="number" defaultValue={selFx.universe} style={{ width: 60 }} key={"u" + selFx.fixture_id}
-                onBlur={(e) => setProp("universe", +e.target.value)} /></div></div>
-            <div className="form-row"><span className="fl">DMX start</span><div className="fv">
-              <input className="field" type="number" defaultValue={selFx.dmx_start} style={{ width: 60 }} key={"d" + selFx.fixture_id}
-                onBlur={(e) => setProp("dmx_start", +e.target.value)} /></div></div>
-            <div className="form-row"><span className="fl">Perfil</span><div className="fv">
-              <span className="mono" style={{ color: "var(--txt-3)", fontSize: 11 }}>{selFx.profile_id}</span></div></div>
-
-            {isMover && chans.length > 0 && (
-              <>
-                <div className="ci-sub" style={{ padding: "8px 14px 2px" }}>Canales DMX (override manual)</div>
-                {chans.map((ch) => (
-                  <div className="slider-row" key={ch}>
-                    <span className="lab">{ch}</span>
-                    <input className="rng" type="range" min={0} max={255} value={Math.round(chVal(ch) * 255)}
-                      onChange={(e) => setCh(ch, +e.target.value / 255)} />
-                    <span className="val">{Math.round(chVal(ch) * 255)}</span>
-                  </div>
-                ))}
-                <div style={{ padding: "4px 14px" }}>
-                  <button className="btn sm ghost" disabled={Object.keys(edit).length === 0} onClick={clearOverrides}>⊘ Limpiar overrides</button>
-                </div>
-              </>
-            )}
-
-            {/* K1 — Posición 3D para el viewer */}
-            <div style={{ borderTop: "1px solid var(--line)", padding: "6px 14px" }}>
-              <button className="btn sm ghost" style={{ fontSize: 11, width: "100%", textAlign: "left" }}
-                onClick={() => setPos3dOpen((v) => !v)}>
-                {pos3dOpen ? "▼" : "▶"} Posición 3D (viewer)
-              </button>
-              {pos3dOpen && (
-                <div style={{ paddingTop: 6 }}>
-                  {(["x", "y", "z", "rx", "ry", "rz"] as const).map((k) => (
-                    <div className="form-row" key={k}>
-                      <span className="fl" style={{ width: 36 }}>{k} {k[0] === "r" ? "(°)" : "(m)"}</span>
-                      <div className="fv">
-                        <input className="field" type="number" step={k[0] === "r" ? 5 : 0.1}
-                          value={pos3d[k]}
-                          onChange={(e) => setPos3d((p) => ({ ...p, [k]: parseFloat(e.target.value) || 0 }))}
-                          style={{ width: 70 }} />
-                      </div>
+        {editingFixtureId ? (
+          <FixtureEditorPanel
+            key={editingFixtureId}
+            fixtureId={editingFixtureId}
+            onBack={() => setEditingFixtureId(null)}
+            onRefresh={refreshFixtures}
+            universeIpMap={universeIpMap}
+            fixtures={fixtures}
+          />
+        ) : (
+          <>
+            <div className="panel-head"><h3>Fixtures</h3><span className="ph-spacer" /><span className="chip">{fixtures.length}</span></div>
+            <div style={{ flex: "0 0 auto", maxHeight: "38%", overflow: "auto" }}>
+              {fixtures.map((f) => {
+                const [r, g, b] = fixtureColor(f);
+                return (
+                  <div key={f.fixture_id} className={"fix-item" + (sel === f.fixture_id ? " sel" : "")}
+                    onClick={() => openEditor(f.fixture_id)}>
+                    <span className="sw" style={{ background: `rgb(${r},${g},${b})` }} />
+                    <div className="fi-txt">
+                      <div className="fi-name">{f.label || f.fixture_id}</div>
+                      <div className="fi-meta">{f.target_ip || f.profile_id} · U{f.universe}</div>
                     </div>
-                  ))}
-                  <div style={{ padding: "4px 0" }}>
-                    <button className="btn sm" onClick={save3d}>Guardar posición 3D</button>
+                    <span className="fi-leds">{f.legacy_bar_idx != null ? `${LEDS} px` : f.profile_id}</span>
                   </div>
-                </div>
-              )}
+                );
+              })}
             </div>
-
-            <div style={{ padding: 12, display: "flex", gap: 8 }}>
-              <button className="btn ghost" style={{ color: "var(--bad)" }} onClick={del}>Borrar fixture</button>
-            </div>
-          </div>
+          </>
         )}
         <FixtureTestPanel fixtures={fixtures} />
         <DmxUsbPanel />

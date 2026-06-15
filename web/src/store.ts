@@ -26,6 +26,10 @@ export type Fixture = {
   legacy_bar_idx: number | null; target_ip: string | null;
   manual_channels: Record<string, number>;
   patch_x?: number | null; patch_y?: number | null;
+  kind_override?: string | null;
+  notes?: string | null;
+  channel_map?: Array<{ch: number; role: string}> | null;
+  height_m?: number | null;
 };
 export type EffectInfo = { id: number; name: string; family: string; description: string };
 export type Preset = {
