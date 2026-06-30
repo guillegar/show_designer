@@ -28,17 +28,14 @@ show_designer/
 │   ├── (sin ui/ — la UI PyQt5 se retiró en la Fase 8)
 │   ├── analysis/             # Audio analysis
 │   ├── io/                   # Loaders, exporters, routing
-│   ├── mcp/                  # MCP bridge and server
-│   ├── viewer3d/             # 3D viewer server
-│   └── utils/                # Utilities
-├── tests/                    # 363 pytest tests
+│   └── mcp/                  # MCP bridge and server
+├── server/                   # Headless backend (FastAPI + asyncio @ :8000)
+├── web/                      # React frontend (+ web/public/v3d = 3D viewer)
+├── tests/                    # 1043 pytest tests
 ├── docs/                     # Documentation (this folder)
-├── web/                      # React frontend (v1.10+)
-├── server/                   # Headless backend (v1.10+)
 ├── profiles/                 # Fixture profiles (JSON + GDTF)
 ├── plugins/effects/          # Custom effect plugins
-├── projects/                 # Shows
-└── versions/                 # Version checkpoints with rollback
+└── projects/                 # Shows  (checkpoints = git; no versions/ folder)
 ```
 
 ## Running in Development
@@ -198,11 +195,11 @@ See [Plugins Guide](../advanced/plugins.md).
 
 ### Modifying the 3D Viewer
 
-The 3D viewer is in `src/viewer3d/`. To develop:
+The 3D viewer is in `web/public/v3d/` (Vite copies it to `web/dist/v3d/` on each build). To develop:
 
-1. Edit `src/viewer3d/main.js` or `moving_head.js`
-2. Refresh browser (F5) to reload
-3. Use browser console for debugging (`F12`)
+1. Edit `web/public/v3d/main.js` or `moving_head.js`
+2. Bump the cache-bust `?v=N` in `web/public/v3d/index.html` and rebuild (`cd web && npm run build`)
+3. Reload the Viewer3D tab; use the browser console for debugging (`F12`)
 
 ### Working with Audio Analysis
 

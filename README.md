@@ -34,11 +34,11 @@ que Claude lo controle por MCP.
 | 🎬 **Editor de timeline** | Multipista, *drag-drop* de clips, *snap* a beats, *undo/redo*, capas, patterns reutilizables, automatización y modulación de parámetros |
 | 💡 **Efectos LED** | Biblioteca de efectos *pixel* built-in + sistema de **plugins autodescubiertos** (18 plugins, 25+ efectos) — flash, ondas, gradientes, fuego, scanner, VU, pixel-mapping de imagen/vídeo… |
 | 🎯 **DMX por canal** | *Channel effects* para moving heads / wash / beam / strobe (pan-tilt, color, dimmer) con perfiles **GDTF** y JSON |
-| 🎵 **Análisis de audio** | Beats, downbeats, secciones, BPM y tonalidad (librosa + madmom); además **análisis en vivo** desde entrada de audio |
+| 🎵 **Análisis de audio** | Beats, downbeats, secciones, BPM y tonalidad (librosa + madmom; separación de stems opcional vía demucs); además **análisis en vivo** desde entrada de audio |
 | 📺 **Visor 3D** | Three.js en tiempo real (bloom + niebla), barras LED + movers que responden al DMX |
 | 🤖 **Control por Claude** | 150+ comandos JSON-RPC vía MCP — pídele a Claude que genere o edite el show en lenguaje natural |
 | 🎚️ **Directo** | Macros en vivo, grid de performance, cues profesionales, MIDI, OSC I/O, sync de tempo (tap / Link / MIDI Clock), auto-VJ por reglas |
-| 📤 **Salida y export** | Art-Net, **sACN E1.31**, **ENTTEC Open DMX USB**; export de patch a PDF, DMX a CSV, preview de vídeo (GIF/MP4) y *bundle* de backup/restore |
+| 📤 **Salida y export** | Art-Net, **sACN E1.31**, **ENTTEC Open DMX USB**; export de patch a PDF, DMX a CSV, **QLC+ XML**, preview de vídeo (GIF/MP4) y *bundle* de backup/restore |
 | 🌐 **Integración** | API REST pública (`/api/v1`), webhooks (HMAC) y modo multiusuario con roles |
 
 ---

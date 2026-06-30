@@ -55,7 +55,7 @@ by Guille Garci, licensed under the Prosperity Public License 3.0.0.
 
 ### Third-Party Libraries
 
-Show Designer Pro uses open-source libraries. See [CREDITS.md](https://github.com/guillegar/show_designer/blob/master/src/viewer3d/CREDITS.md) for attributions.
+Show Designer Pro uses open-source libraries. See [CREDITS.md](https://github.com/guillegar/show_designer/blob/main/web/public/v3d/CREDITS.md) for attributions.
 
 ### Disclaimer
 

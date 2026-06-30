@@ -12,7 +12,7 @@ Show Designer Pro is a comprehensive lighting design and control platform that l
 - 🎵 **Audio analysis** — beat/downbeat/section detection, BPM and key via librosa + madmom, plus live audio input
 - 📊 **3D visualization** — real-time Three.js viewer with bloom, fog, and DMX-responsive fixtures
 - 🤖 **Claude Control** — 150+ JSON-RPC commands over MCP to generate, edit and run your light show in natural language
-- 📤 **Output & export** — Art-Net, sACN (E1.31), ENTTEC Open DMX USB; export patch to PDF, DMX to CSV, video preview (GIF/MP4) and backup/restore bundles
+- 📤 **Output & export** — Art-Net, sACN (E1.31), ENTTEC Open DMX USB; export patch to PDF, DMX to CSV, QLC+ XML, video preview (GIF/MP4) and backup/restore bundles
 
 ## Quick Links
 

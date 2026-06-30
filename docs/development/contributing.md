@@ -267,7 +267,7 @@ Update docs when adding features:
 **All PRs must have**:
 
 - Tests that cover the new/changed code
-- All 363 tests pass: `pytest tests/ -v`
+- All 1043 tests pass: `pytest tests/ -v`
 - Coverage >= 60% (target 92%+)
 
 Run before committing:
@@ -280,8 +280,8 @@ pytest tests/ --cov=src --cov-report=term
 
 When a feature is complete:
 
-1. Create version checkpoint: `versions/vX.Y_pN_xxx/`
-2. Tag release: `git tag vX.Y-FN`
+1. Commit per phase/feature (checkpoints = git; there is no `versions/` folder)
+2. Tag release: `git tag v2.0`
 3. Push to GitHub: `git push origin --tags`
 4. Update changelog
 

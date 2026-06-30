@@ -63,7 +63,7 @@ The viewer auto-generates `viewer3d/rig_layout.json` from `fixtures.json`. When 
 
 ## Architecture
 
-- **Server**: `src/viewer3d/viewer3d_server.py` (Python)
+- **Server**: served by the main backend (`server/web.py`; static files in `web/public/v3d/`)
 - **Client**: `viewer3d/main.js` + `moving_head.js` (Three.js)
 - **Communication**: WebSocket (frame streaming + DMX state)
 
