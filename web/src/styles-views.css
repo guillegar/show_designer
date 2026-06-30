@@ -1035,3 +1035,75 @@
 .preview-tms-label { font-family: var(--mono); font-size: 10px; min-width: 10px; }
 .preview-tms-slider { flex: 1; height: 16px; }
 .preview-tms-val { font-family: var(--mono); font-size: 10px; min-width: 26px; text-align: right; }
+
+/* ── Menú de gestión de proyectos (pestaña Proyectos) ─────────────────────── */
+.btn.xs { height: 22px; padding: 0 7px; font-size: 10.5px; }
+
+.pm-view { height: 100%; overflow: auto; padding: 16px 18px 28px; }
+.pm-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 14px; }
+.pm-title { margin: 0; font-size: 16px; color: var(--txt); }
+.pm-sub { font-size: 12px; color: var(--txt-3); margin-top: 2px; }
+
+.pm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.pm-card {
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px; display: flex; flex-direction: column; gap: 7px;
+}
+.pm-card.current { border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc-dim); }
+.pm-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pm-name { font-size: 13.5px; color: var(--txt); }
+.pm-song { font-size: 11.5px; color: var(--txt-2); font-family: var(--mono); }
+.pm-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: var(--txt-3); align-items: center; }
+.pm-notes { font-size: 11px; color: var(--txt-3); line-height: 1.35; max-height: 3.2em; overflow: hidden; }
+.pm-badge {
+  font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em;
+  background: var(--bg-0); border: 1px solid var(--line-soft); border-radius: 999px;
+  padding: 1px 7px; color: var(--txt-3);
+}
+.pm-badge.cur { background: var(--acc); color: var(--bg-0); border-color: var(--acc); }
+.pm-card-actions { display: flex; gap: 6px; margin-top: 2px; }
+.pm-empty, .pm-clist-empty { color: var(--txt-3); font-size: 12px; padding: 6px 2px; }
+
+.pm-swap { margin-top: 20px; }
+.pm-swap-hdr {
+  background: none; border: none; color: var(--txt-2); font-size: 13px; font-weight: 600;
+  cursor: pointer; padding: 4px 0;
+}
+.pm-swap-hdr:hover { color: var(--txt); }
+.pm-swap-body {
+  margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;
+}
+.pm-clist { background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+.pm-clist-hdr { font-size: 12px; font-weight: 600; color: var(--txt); margin-bottom: 6px; }
+.pm-clist-note { font-size: 10px; color: var(--warn, var(--txt-3)); margin-bottom: 6px; line-height: 1.3; }
+.pm-clist-rows { display: flex; flex-direction: column; gap: 5px; }
+.pm-crow {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: var(--bg-0); border: 1px solid var(--line-soft); border-radius: 7px; padding: 5px 8px;
+}
+.pm-crow.current { opacity: .7; }
+.pm-crow-info { display: flex; flex-direction: column; min-width: 0; }
+.pm-crow-name { font-size: 11.5px; color: var(--txt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pm-crow-detail { font-size: 10px; color: var(--txt-3); font-family: var(--mono); }
+
+/* Modales (compositor / duplicar) */
+.pm-overlay {
+  position: fixed; inset: 0; z-index: 9999; background: rgba(8, 10, 14, .68);
+  display: flex; align-items: center; justify-content: center;
+}
+.pm-modal {
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px;
+  width: min(440px, 92vw); max-height: 88vh; overflow: auto; box-shadow: 0 12px 40px rgba(0,0,0,.5);
+}
+.pm-modal-hdr { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.pm-modal-hdr .x { background: none; border: none; color: var(--txt-3); font-size: 18px; cursor: pointer; line-height: 1; }
+.pm-modal-hdr .x:hover { color: var(--txt); }
+.pm-modal-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.pm-modal-ftr { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--line); }
+.pm-field { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--txt-2); }
+.pm-field input, .pm-field select {
+  background: var(--bg-0); border: 1px solid var(--line); border-radius: 6px;
+  color: var(--txt); padding: 6px 8px; font-size: 12px;
+}
+.pm-hint { font-size: 11px; color: var(--txt-3); }
+.pm-check { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--txt-2); }

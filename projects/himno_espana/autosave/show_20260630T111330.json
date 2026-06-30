@@ -1,0 +1,419 @@
+{
+  "version": 4,
+  "duration_ms": 273334,
+  "clips": [
+    {
+      "id": "b6a1eab8ad68",
+      "uid": "b6a1eab8ad68",
+      "track": 0,
+      "start_ms": 0,
+      "end_ms": 600000,
+      "effect_id": 1005,
+      "scope": "per_bar",
+      "label": "Rojo 0 (onda)",
+      "color": "#CE1126",
+      "layer": 0,
+      "locked": false,
+      "muted": false,
+      "params": {
+        "r": 206,
+        "g": 17,
+        "b": 38,
+        "bar_index": 0
+      },
+      "category": "pixel",
+      "channel_effect_id": null,
+      "preset_id": null,
+      "param_links": [],
+      "events": [],
+      "channel_effects": []
+    },
+    {
+      "id": "0e290517dfb1",
+      "uid": "0e290517dfb1",
+      "track": 1,
+      "start_ms": 0,
+      "end_ms": 600000,
+      "effect_id": 1005,
+      "scope": "per_bar",
+      "label": "Rojo 1 (onda)",
+      "color": "#CE1126",
+      "layer": 0,
+      "locked": false,
+      "muted": false,
+      "params": {
+        "r": 206,
+        "g": 17,
+        "b": 38,
+        "bar_index": 1
+      },
+      "category": "pixel",
+      "channel_effect_id": null,
+      "preset_id": null,
+      "param_links": [],
+      "events": [],
+      "channel_effects": []
+    },
+    {
+      "id": "c43b5fde29b2",
+      "uid": "c43b5fde29b2",
+      "track": 2,
+      "start_ms": 0,
+      "end_ms": 600000,
+      "effect_id": 1005,
+      "scope": "per_bar",
+      "label": "Rojo 2 (onda)",
+      "color": "#CE1126",
+      "layer": 0,
+      "locked": false,
+      "muted": false,
+      "params": {
+        "r": 206,
+        "g": 17,
+        "b": 38,
+        "bar_index": 2
+      },
+      "category": "pixel",
+      "channel_effect_id": null,
+      "preset_id": null,
+      "param_links": [],
+      "events": [],
+      "channel_effects": []
+    },
+    {
+      "id": "a6e47bab69df",
+      "uid": "a6e47bab69df",
+      "track": 3,
+      "start_ms": 0,
+      "end_ms": 600000,
+      "effect_id": 1005,
+      "scope": "per_bar",
+      "label": "Amarillo 3 (onda)",
+      "color": "#FFC400",
+      "layer": 0,
+      "locked": false,
+      "muted": false,
+      "params": {
+        "r": 255,
+        "g": 196,
+        "b": 0,
+        "bar_index": 3
+      },
+      "category": "pixel",
+      "channel_effect_id": null,
+      "preset_id": null,
+      "param_links": [],
+      "events": [],
+      "channel_effects": []
+    },
+    {
+      "id": "aa51a7744b50",
+      "uid": "aa51a7744b50",
+      "track": 4,
+      "start_ms": 0,
+      "end_ms": 600000,
+      "effect_id": 1005,
+      "scope": "per_bar",
+      "label": "Amarillo 4 (onda)",
+      "color": "#FFC400",
+      "layer": 0,
+      "locked": false,
+      "muted": false,
+      "params": {
+        "r": 255,
+        "g": 196,
+        "b": 0,
+        "bar_index": 4
+      },
+      "category": "pixel",
+      "channel_effect_id": null,
+      "preset_id": null,
+      "param_links": [],
+      "events": [],
+      "channel_effects": []
+    },
+    {
+      "id": "789a08bccde1",
+      "uid": "789a08bccde1",
+      "track": 5,
+      "start_ms": 0,
+      "end_ms": 600000,
+      "effect_id": 1005,
+      "scope": "per_bar",
+      "label": "Amarillo 5 (onda)",
+      "color": "#FFC400",
+      "layer": 0,
+      "locked": false,
+      "muted": false,
+      "params": {
+        "r": 255,
+        "g": 196,
+        "b": 0,
+        "bar_index": 5
+      },
+      "category": "pixel",
+      "channel_effect_id": null,
+      "preset_id": null,
+      "param_links": [],
+      "events": [],
+      "channel_effects": []
+    },
+    {
+      "id": "5b0c3f6dd8a3",
+      "uid": "5b0c3f6dd8a3",
+      "track": 6,
+      "start_ms": 0,
+      "end_ms": 600000,
+      "effect_id": 1005,
+      "scope": "per_bar",
+      "label": "Amarillo 6 (onda)",
+      "color": "#FFC400",
+      "layer": 0,
+      "locked": false,
+      "muted": false,
+      "params": {
+        "r": 255,
+        "g": 196,
+        "b": 0,
+        "bar_index": 6
+      },
+      "category": "pixel",
+      "channel_effect_id": null,
+      "preset_id": null,
+      "param_links": [],
+      "events": [],
+      "channel_effects": []
+    },
+    {
+      "id": "358a7a05bd64",
+      "uid": "358a7a05bd64",
+      "track": 7,
+      "start_ms": 0,
+      "end_ms": 600000,
+      "effect_id": 1005,
+      "scope": "per_bar",
+      "label": "Rojo 7 (onda)",
+      "color": "#CE1126",
+      "layer": 0,
+      "locked": false,
+      "muted": false,
+      "params": {
+        "r": 206,
+        "g": 17,
+        "b": 38,
+        "bar_index": 7
+      },
+      "category": "pixel",
+      "channel_effect_id": null,
+      "preset_id": null,
+      "param_links": [],
+      "events": [],
+      "channel_effects": []
+    },
+    {
+      "id": "bf746f69a7b8",
+      "uid": "bf746f69a7b8",
+      "track": 8,
+      "start_ms": 0,
+      "end_ms": 600000,
+      "effect_id": 1005,
+      "scope": "per_bar",
+      "label": "Rojo 8 (onda)",
+      "color": "#CE1126",
+      "layer": 0,
+      "locked": false,
+      "muted": false,
+      "params": {
+        "r": 206,
+        "g": 17,
+        "b": 38,
+        "bar_index": 8
+      },
+      "category": "pixel",
+      "channel_effect_id": null,
+      "preset_id": null,
+      "param_links": [],
+      "events": [],
+      "channel_effects": []
+    },
+    {
+      "id": "8eda0e0a5f13",
+      "uid": "8eda0e0a5f13",
+      "track": 9,
+      "start_ms": 0,
+      "end_ms": 600000,
+      "effect_id": 1005,
+      "scope": "per_bar",
+      "label": "Rojo 9 (onda)",
+      "color": "#CE1126",
+      "layer": 0,
+      "locked": false,
+      "muted": false,
+      "params": {
+        "r": 206,
+        "g": 17,
+        "b": 38,
+        "bar_index": 9
+      },
+      "category": "pixel",
+      "channel_effect_id": null,
+      "preset_id": null,
+      "param_links": [],
+      "events": [],
+      "channel_effects": []
+    },
+    {
+      "id": "6b374a88f066",
+      "uid": "6b374a88f066",
+      "track": -1,
+      "start_ms": 0,
+      "end_ms": 600000,
+      "effect_id": 1004,
+      "scope": "per_bar",
+      "label": "Solido fijo (alternativa)",
+      "color": "#888888",
+      "layer": 0,
+      "locked": false,
+      "muted": true,
+      "params": {
+        "r": 206,
+        "g": 17,
+        "b": 38
+      },
+      "category": "pixel",
+      "channel_effect_id": null,
+      "preset_id": null,
+      "param_links": [],
+      "events": [],
+      "channel_effects": []
+    },
+    {
+      "id": "88437ba492fd",
+      "uid": "88437ba492fd",
+      "track": -1,
+      "start_ms": 0,
+      "end_ms": 600000,
+      "effect_id": 1002,
+      "scope": "per_bar",
+      "label": "Bandera franjas ondeante (alternativa)",
+      "color": "#3a7acc",
+      "layer": 0,
+      "locked": false,
+      "muted": true,
+      "params": {
+        "wave_speed": 2.0,
+        "wave_amplitude": 0.15
+      },
+      "category": "pixel",
+      "channel_effect_id": null,
+      "preset_id": null,
+      "param_links": [],
+      "events": [],
+      "channel_effects": []
+    }
+  ],
+  "groups": [
+    {
+      "name": "IZQ",
+      "bars": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "color": "#ff6666",
+      "subgroups": []
+    },
+    {
+      "name": "DER",
+      "bars": [
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "color": "#6699ff",
+      "subgroups": []
+    },
+    {
+      "name": "EXTREMOS",
+      "bars": [
+        0,
+        9
+      ],
+      "color": "#ffdd55",
+      "subgroups": []
+    },
+    {
+      "name": "CENTRO",
+      "bars": [
+        4,
+        5
+      ],
+      "color": "#55ffaa",
+      "subgroups": []
+    },
+    {
+      "name": "PARES",
+      "bars": [
+        0,
+        2,
+        4,
+        6,
+        8
+      ],
+      "color": "#cc88ff",
+      "subgroups": []
+    },
+    {
+      "name": "IMPARES",
+      "bars": [
+        1,
+        3,
+        5,
+        7,
+        9
+      ],
+      "color": "#ff88cc",
+      "subgroups": []
+    },
+    {
+      "name": "TODO",
+      "bars": [],
+      "color": "#ffffff",
+      "subgroups": [
+        "IZQ",
+        "DER"
+      ]
+    },
+    {
+      "name": "BORDES+CENTRO",
+      "bars": [],
+      "color": "#ffaa33",
+      "subgroups": [
+        "EXTREMOS",
+        "CENTRO"
+      ]
+    }
+  ],
+  "cue_points": [
+    {
+      "slot": 1,
+      "time_ms": 0,
+      "name": "Inicio",
+      "color": "#CE1126"
+    }
+  ],
+  "automation": [],
+  "patterns": [],
+  "pattern_instances": [],
+  "mixer": {},
+  "live_slots": [],
+  "cue_list": {
+    "entries": [],
+    "active_uid": null
+  },
+  "markers": []
+}

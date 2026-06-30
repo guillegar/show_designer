@@ -105,6 +105,17 @@ def create_app() -> FastAPI:
         app.state.tick = tick
         asyncio.create_task(tick.run())
 
+        # Precalentar el cache de la waveform FUERA del loop (librosa.load tarda
+        # ~2-5 s): así el primer ≋ WF no congela el tick (ver _h_get_waveform).
+        async def _prewarm_waveform():
+            try:
+                from server.dispatcher import _ensure_waveform_cached
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(None, _ensure_waveform_cached, session)
+            except Exception:
+                pass
+        asyncio.create_task(_prewarm_waveform())
+
         # B4: tarea de autosave (I/O pesado — no en el tick de 30 FPS)
         asyncio.create_task(session.start_autosave_task())
 

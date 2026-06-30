@@ -48,6 +48,7 @@ export type CueChangedEvent = { type: "cue_changed"; active_uid: string | null; 
 export type BlackoutChangedEvent = { type: "blackout_changed"; enabled: boolean };
 export type ProjectChangedEvent = { type: "project_changed"; slug: string; name: string; clips: number; duration_ms: number };
 export type RecordStateEvent = { type: "record_state"; recording: boolean; elapsed_ms: number; points: number };
+export type WaveformReadyEvent = { type: "waveform_ready" };
 
 class StreamClient {
   latestFrame: Uint8Array | null = null;
@@ -63,6 +64,7 @@ class StreamClient {
   private blackoutChangedSubs = new Set<(e: BlackoutChangedEvent) => void>();
   private projectChangedSubs = new Set<(e: ProjectChangedEvent) => void>();
   private recordStateSubs = new Set<(e: RecordStateEvent) => void>();
+  private waveformReadySubs = new Set<() => void>();
 
   constructor() {
     this.connect();
@@ -104,6 +106,8 @@ class StreamClient {
         for (const f of this.projectChangedSubs) f(m as ProjectChangedEvent);
       } else if (m.type === "record_state") {
         for (const f of this.recordStateSubs) f(m as RecordStateEvent);
+      } else if (m.type === "waveform_ready") {
+        for (const f of this.waveformReadySubs) f();
       }
     };
     ws.onclose = () => setTimeout(() => this.connect(), 1000);
@@ -149,6 +153,10 @@ class StreamClient {
   onRecordState(fn: (e: RecordStateEvent) => void): () => void {
     this.recordStateSubs.add(fn);
     return () => this.recordStateSubs.delete(fn);
+  }
+  onWaveformReady(fn: () => void): () => void {
+    this.waveformReadySubs.add(fn);
+    return () => this.waveformReadySubs.delete(fn);
   }
 
   // Color RGB de un LED concreto del último frame (para canvas Live/Patch)

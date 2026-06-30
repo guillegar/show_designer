@@ -1,0 +1,265 @@
+{
+  "version": 1,
+  "fixtures": [
+    {
+      "fixture_id": "bar_0",
+      "profile_id": "wled_strip_93",
+      "universe": 1,
+      "dmx_start": 1,
+      "position": [
+        -5.4,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "label": "Bar 00",
+      "legacy_bar_idx": 0,
+      "target_ip": "192.168.1.201",
+      "manual_channels": {},
+      "patch_x": 0.05,
+      "patch_y": 0.5,
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
+    },
+    {
+      "fixture_id": "bar_1",
+      "profile_id": "wled_strip_93",
+      "universe": 2,
+      "dmx_start": 1,
+      "position": [
+        -4.2,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "label": "Bar 01",
+      "legacy_bar_idx": 1,
+      "target_ip": "192.168.1.202",
+      "manual_channels": {},
+      "patch_x": 0.15,
+      "patch_y": 0.5,
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
+    },
+    {
+      "fixture_id": "bar_2",
+      "profile_id": "wled_strip_93",
+      "universe": 3,
+      "dmx_start": 1,
+      "position": [
+        -3.0,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "label": "Bar 02",
+      "legacy_bar_idx": 2,
+      "target_ip": "192.168.1.203",
+      "manual_channels": {},
+      "patch_x": 0.25,
+      "patch_y": 0.5,
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
+    },
+    {
+      "fixture_id": "bar_3",
+      "profile_id": "wled_strip_93",
+      "universe": 4,
+      "dmx_start": 1,
+      "position": [
+        -1.8,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "label": "Bar 03",
+      "legacy_bar_idx": 3,
+      "target_ip": "192.168.1.204",
+      "manual_channels": {},
+      "patch_x": 0.35,
+      "patch_y": 0.5,
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
+    },
+    {
+      "fixture_id": "bar_4",
+      "profile_id": "wled_strip_93",
+      "universe": 5,
+      "dmx_start": 1,
+      "position": [
+        -0.6,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "label": "Bar 04",
+      "legacy_bar_idx": 4,
+      "target_ip": "192.168.1.205",
+      "manual_channels": {},
+      "patch_x": 0.45,
+      "patch_y": 0.5,
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
+    },
+    {
+      "fixture_id": "bar_5",
+      "profile_id": "wled_strip_93",
+      "universe": 6,
+      "dmx_start": 1,
+      "position": [
+        0.6,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "label": "Bar 05",
+      "legacy_bar_idx": 5,
+      "target_ip": "192.168.1.206",
+      "manual_channels": {},
+      "patch_x": 0.55,
+      "patch_y": 0.5,
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
+    },
+    {
+      "fixture_id": "bar_6",
+      "profile_id": "wled_strip_93",
+      "universe": 7,
+      "dmx_start": 1,
+      "position": [
+        1.8,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "label": "Bar 06",
+      "legacy_bar_idx": 6,
+      "target_ip": "192.168.1.207",
+      "manual_channels": {},
+      "patch_x": 0.65,
+      "patch_y": 0.5,
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
+    },
+    {
+      "fixture_id": "bar_7",
+      "profile_id": "wled_strip_93",
+      "universe": 8,
+      "dmx_start": 1,
+      "position": [
+        3.0,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "label": "Bar 07",
+      "legacy_bar_idx": 7,
+      "target_ip": "192.168.1.208",
+      "manual_channels": {},
+      "patch_x": 0.75,
+      "patch_y": 0.5,
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
+    },
+    {
+      "fixture_id": "bar_8",
+      "profile_id": "wled_strip_93",
+      "universe": 9,
+      "dmx_start": 1,
+      "position": [
+        4.2,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "label": "Bar 08",
+      "legacy_bar_idx": 8,
+      "target_ip": "192.168.1.209",
+      "manual_channels": {},
+      "patch_x": 0.85,
+      "patch_y": 0.5,
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
+    },
+    {
+      "fixture_id": "bar_9",
+      "profile_id": "wled_strip_93",
+      "universe": 10,
+      "dmx_start": 1,
+      "position": [
+        5.4,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "label": "Bar 09",
+      "legacy_bar_idx": 9,
+      "target_ip": "192.168.1.210",
+      "manual_channels": {},
+      "patch_x": 0.95,
+      "patch_y": 0.5,
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
+    }
+  ]
+}

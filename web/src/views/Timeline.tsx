@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Moveable from "react-moveable";
 import Selecto from "react-selecto";
 import { control } from "../api/control";
+import { stream } from "../api/stream";
 import { useStore, famColor, EffectInfo, Clip, Preset, MarkerCategory } from "../store";
 import type { Pattern, PatternInstance } from "../api/types";
 import { fmtTime } from "../icons";
@@ -220,13 +221,21 @@ export function TimelineView() {
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
   }, []);
 
-  // B1 — fetch waveform on demand
+  // B1 — fetch waveform on demand. El backend puede devolver {status:"computing"}
+  // (librosa corre en un executor para no congelar el tick) y avisar luego con el
+  // evento 'waveform_ready' por el stream → reintentamos (ya cache hit).
   useEffect(() => {
     if (!showWaveform || waveformData) return;
-    control.call("get_waveform", {}).then((r: any) => {
-      if (r?.ok) setWaveformData(r);
-    }).catch(() => {});
-  }, [showWaveform]);
+    let cancelled = false;
+    const fetchWf = () => {
+      control.call("get_waveform", {}).then((r: any) => {
+        if (!cancelled && r?.ok && Array.isArray(r.peaks_max)) setWaveformData(r);
+      }).catch(() => {});
+    };
+    fetchWf();
+    const off = stream.onWaveformReady(fetchWf);
+    return () => { cancelled = true; off(); };
+  }, [showWaveform, waveformData]);
 
   // B1 — redraw canvas when zoom or data changes
   useEffect(() => {
@@ -291,6 +300,12 @@ export function TimelineView() {
       }
     }
     const result: Lane[] = [];
+    // Lane GLOBAL (track -1): looks que pintan las 10 barras a la vez (efectos
+    // globales 2D + acentos). Se reutiliza la maquinaria de "bar" con bar=-1.
+    // Solo se muestra si hay clips globales.
+    if (clips.some((c) => c.track === -1 && (c.category ?? "pixel") === "pixel")) {
+      result.push({ key: "bar--1", kind: "bar", bar: -1, label: "GLOBAL", ip: "" });
+    }
     let lastGrp: string | null = null;
     const emitted = new Set<string>();
     for (let i = 0; i < NUM_BARS; i++) {
@@ -1271,6 +1286,15 @@ export function TimelineView() {
                     <div className="hd-txt">
                       <div className="hd-name">{lane.groupName}</div>
                       <div className="hd-ip mono">{lane.groupBars.length} barras colapsadas</div>
+                    </div>
+                  </div>
+                );
+                if (lane.kind === "bar" && lane.bar === -1) return (
+                  <div key={lane.key} className="tl-head" style={{ height: rowHeight(-1) }}>
+                    <span className="sw" style={{ background: "var(--acc, #d24cff)" }} />
+                    <div className="hd-txt">
+                      <div className="hd-name">GLOBAL{laneCount(-1) > 1 ? ` [${laneCount(-1)}]` : ""}</div>
+                      <div className="hd-ip mono">10 barras</div>
                     </div>
                   </div>
                 );

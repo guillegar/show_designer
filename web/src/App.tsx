@@ -12,6 +12,7 @@ import { AnalyzerView } from "./views/Analyzer";
 import { PatchView } from "./views/Patch";
 import { Viewer3DView } from "./views/Viewer3D";
 import { PreviewView } from "./views/Preview";
+import { ProjectManagerView } from "./views/ProjectManager";
 
 type ProjectInfo = { slug: string; name: string; audio_path: string };
 
@@ -80,6 +81,7 @@ function ProjectSwitcher({ current }: { current: string }) {
 }
 
 const TABS: { id: Tab; label: string; icon: keyof typeof Ico }[] = [
+  { id: "projects", label: "Proyectos", icon: "folder" },
   { id: "timeline", label: "Timeline", icon: "timeline" },
   { id: "live", label: "Live · Feedback", icon: "live" },
   { id: "analyzer", label: "Analyzer", icon: "analyzer" },
@@ -148,6 +150,7 @@ export function App() {
   }, []);
 
   const badges: Record<Tab, number | null> = {
+    projects: null,
     timeline: clipCount || null,
     live: null,
     analyzer: null,
@@ -208,6 +211,7 @@ export function App() {
 
       {/* STAGE */}
       <div className="stage">
+        {tab === "projects" && <ProjectManagerView />}
         {tab === "timeline" && <TimelineView />}
         {tab === "live" && <LiveView />}
         {tab === "analyzer" && <AnalyzerView />}

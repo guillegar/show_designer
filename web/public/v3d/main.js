@@ -19,8 +19,10 @@ const NUM_BARS = 10;
 const LEDS_PER_BAR = 93;
 const BAR_WIDTH = 0.06;
 const LED_HEIGHT = 0.012;   // altura visual de cada LED
-// Conecta al servidor web v1.10 en el mismo host/puerto que sirvió el HTML
-const WS_URL = `ws://${location.hostname || '127.0.0.1'}:${location.port || 8000}/ws/stream`;
+// Conecta al servidor web v1.10 en el mismo host/puerto que sirvió el HTML.
+// Deriva el protocolo (ws/wss) como control.ts → funciona también sobre HTTPS.
+const _wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+const WS_URL = `${_wsProto}//${location.host || '127.0.0.1:8000'}/ws/stream`;
 const LAYOUT_URL = './rig_layout.json';
 
 // ── DOM ──────────────────────────────────────────────────────────
@@ -98,51 +100,85 @@ scene.add(keyLight);
 
 // ── Sistema de barras LED ────────────────────────────────────────
 /**
- * Una "barra" se modela como un grupo de cubos pequeños (1 por LED),
- * apilados verticalmente. Cada LED tiene un material emissive cuyo color
- * actualizamos cada frame desde el WebSocket.
+ * Una "barra" usa un único InstancedMesh (1 geometría × numLeds instancias)
+ * en lugar de numLeds Mesh individuales con materiales separados.
+ * Esto reduce los draw calls de 930 a 10 por frame (×93 menos).
+ *
+ * El color emissive per-instancia se consigue con un parche onBeforeCompile
+ * que multiplica totalEmissiveRadiance por el vColor de instancia.
  */
 class LEDBar {
   constructor(position, rotation, length, numLeds) {
     this.group = new THREE.Group();
     this.group.position.set(...position);
     this.group.rotation.set(...rotation);
-
     this.numLeds = numLeds;
     this.length = length;
 
     // Cuerpo MUY delgado y desplazado hacia atrás para que NO oculte los LEDs.
-    // Una barra WLED real es prácticamente solo una tira de LEDs.
     const bodyDepth = BAR_WIDTH * 0.4;
     const bodyGeom = new THREE.BoxGeometry(BAR_WIDTH * 0.5, length, bodyDepth);
     const bodyMat = new THREE.MeshStandardMaterial({
       color: 0x080810, roughness: 0.7, metalness: 0.3,
     });
     const body = new THREE.Mesh(bodyGeom, bodyMat);
-    body.position.set(0, length / 2, -bodyDepth);   // detrás de los LEDs
+    body.position.set(0, length / 2, -bodyDepth);
     this.group.add(body);
 
-    // LEDs como pequeños cubos emissive — visibles en frente del cuerpo
+    // LEDs: InstancedMesh compartido — 1 draw call por barra en GPU.
     const ledHeight = length / numLeds;
-    this.ledMeshes = [];
-    this.ledColors = new Float32Array(numLeds * 3);
-
-    // LEDs un poco más anchos que el body para que sobresalgan a los lados
     const ledGeom = new THREE.BoxGeometry(BAR_WIDTH * 0.95, ledHeight * 0.95, BAR_WIDTH * 0.55);
+    const ledMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(0.3, 0.3, 0.3),  // difuso al 30%, igual que el original
+      emissive: new THREE.Color(1, 1, 1),      // blanco → se modula por vColor
+      emissiveIntensity: 3.5,
+      roughness: 0.25,
+      metalness: 0.0,
+    });
+    // Parche de shader: multiplica el emissive blanco por el color per-instancia,
+    // dando emissive per-LED sin materiales independientes.
+    // IMPORTANTE: usamos un varying PROPIO (vLedColor) declarado en AMBOS shaders y
+    // alimentado desde `instanceColor`. NO usar `vColor`: three r160 NO lo declara en
+    // el fragment cuando solo está USE_INSTANCING_COLOR (sin USE_COLOR), así que el
+    // parche viejo no modulaba nada y las barras quedaban en blanco fijo.
+    ledMat.onBeforeCompile = (shader) => {
+      shader.vertexShader = 'varying vec3 vLedColor;\n' +
+        shader.vertexShader.replace(
+          '#include <begin_vertex>',
+          `#include <begin_vertex>
+           #ifdef USE_INSTANCING_COLOR
+             vLedColor = instanceColor;
+           #else
+             vLedColor = vec3(1.0);
+           #endif`
+        );
+      shader.fragmentShader = 'varying vec3 vLedColor;\n' +
+        shader.fragmentShader.replace(
+          '#include <emissivemap_fragment>',
+          `#include <emissivemap_fragment>
+           totalEmissiveRadiance *= vLedColor;`
+        );
+    };
+
+    this._mesh = new THREE.InstancedMesh(ledGeom, ledMat, numLeds);
+    // Las posiciones de las instancias no cambian — marca como estático
+    this._mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+
+    // Fijar posiciones: LED 0 abajo, LED N-1 arriba
+    const dummy = new THREE.Object3D();
     for (let i = 0; i < numLeds; i++) {
-      const mat = new THREE.MeshStandardMaterial({
-        color: 0x000000,
-        emissive: 0x000000,
-        emissiveIntensity: 3.5,
-        roughness: 0.25,
-        metalness: 0.0,
-      });
-      const led = new THREE.Mesh(ledGeom, mat);
-      // LED 0 abajo, LED N-1 arriba; centrado en X/Z=0 (frente del body)
-      led.position.set(0, ledHeight / 2 + i * ledHeight, 0);
-      this.group.add(led);
-      this.ledMeshes.push(led);
+      dummy.position.set(0, ledHeight / 2 + i * ledHeight, 0);
+      dummy.updateMatrix();
+      this._mesh.setMatrixAt(i, dummy.matrix);
     }
+    this._mesh.instanceMatrix.needsUpdate = true;
+
+    // Inicializar todos a negro
+    this._color = new THREE.Color(0, 0, 0);
+    for (let i = 0; i < numLeds; i++) this._mesh.setColorAt(i, this._color);
+    if (this._mesh.instanceColor) this._mesh.instanceColor.needsUpdate = true;
+
+    this.group.add(this._mesh);
   }
 
   /**
@@ -152,21 +188,20 @@ class LEDBar {
   setRGB(rgbArray) {
     const n = Math.min(this.numLeds, Math.floor(rgbArray.length / 3));
     for (let i = 0; i < n; i++) {
-      const r = rgbArray[i * 3] / 255;
-      const g = rgbArray[i * 3 + 1] / 255;
-      const b = rgbArray[i * 3 + 2] / 255;
-      const mat = this.ledMeshes[i].material;
-      mat.emissive.setRGB(r, g, b);
-      mat.color.setRGB(r * 0.3, g * 0.3, b * 0.3);
+      this._color.setRGB(
+        rgbArray[i * 3] / 255,
+        rgbArray[i * 3 + 1] / 255,
+        rgbArray[i * 3 + 2] / 255
+      );
+      this._mesh.setColorAt(i, this._color);
     }
+    if (this._mesh.instanceColor) this._mesh.instanceColor.needsUpdate = true;
   }
 
   setAllBlack() {
-    for (let i = 0; i < this.numLeds; i++) {
-      const mat = this.ledMeshes[i].material;
-      mat.emissive.setRGB(0, 0, 0);
-      mat.color.setRGB(0, 0, 0);
-    }
+    this._color.setRGB(0, 0, 0);
+    for (let i = 0; i < this.numLeds; i++) this._mesh.setColorAt(i, this._color);
+    if (this._mesh.instanceColor) this._mesh.instanceColor.needsUpdate = true;
   }
 }
 

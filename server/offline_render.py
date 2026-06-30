@@ -22,11 +22,16 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any, Callable, Optional
 
 import numpy as np
+
+from src.log import get_logger, log_throttled
+
+_log = get_logger(__name__)
 
 # ── Constantes ───────────────────────────────────────────────────────────────
 
@@ -220,8 +225,11 @@ def _render_worker(
                     else:
                         frame[clip.track] = np.maximum(frame[clip.track],
                                                         r[clip.track])
-            except Exception:
-                pass
+            except Exception as _e:
+                # Un efecto buggy NO debe abortar el render entero; pero tampoco
+                # debe dejar frames negros en silencio (antes: except: pass).
+                log_throttled(_log, logging.WARNING, f"render_fail:{clip.effect_id}",
+                              f"efecto {clip.effect_id} falló en render offline: {_e}")
 
         frames[frame_idx] = frame
 

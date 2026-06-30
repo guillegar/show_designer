@@ -22,7 +22,10 @@
       "manual_channels": {},
       "patch_x": 0.563320401764362,
       "patch_y": 1.0,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "bar_1",
@@ -45,7 +48,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "bar_2",
@@ -68,7 +74,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "bar_3",
@@ -91,7 +100,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "bar_4",
@@ -114,7 +126,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "bar_5",
@@ -137,7 +152,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "bar_6",
@@ -160,7 +178,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "bar_7",
@@ -183,7 +204,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "bar_8",
@@ -206,7 +230,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "bar_9",
@@ -229,7 +256,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "mover_wash_L_back",
@@ -252,7 +282,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "mover_wash_L_front",
@@ -275,7 +308,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "mover_wash_R_front",
@@ -298,7 +334,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "mover_wash_R_back",
@@ -321,7 +360,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "generic_0",
@@ -344,7 +386,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "dimmer_0",
@@ -367,7 +412,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "dimmer_1",
@@ -390,7 +438,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "dimmer_2",
@@ -413,7 +464,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "dimmer_3",
@@ -436,7 +490,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "dimmer_4",
@@ -459,7 +516,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "dimmer_5",
@@ -482,7 +542,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "dimmer_6",
@@ -505,7 +568,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "dimmer_7",
@@ -528,7 +594,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "dimmer_8",
@@ -551,7 +620,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "dimmer_9",
@@ -574,7 +646,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     },
     {
       "fixture_id": "generic_1",
@@ -597,7 +672,10 @@
       "manual_channels": {},
       "patch_x": null,
       "patch_y": null,
-      "kind_override": null
+      "kind_override": null,
+      "notes": null,
+      "channel_map": null,
+      "height_m": null
     }
   ]
 }

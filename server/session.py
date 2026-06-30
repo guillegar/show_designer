@@ -406,6 +406,66 @@ class ShowSession:
         except Exception as e:
             print(f"[session] sync_rig_layout error: {e}")
 
+    # ── Carga de componentes en caliente (reusada por __init__/switch/apply) ──
+
+    def load_rig(self, rig_file) -> int:
+        """Carga un rig desde disco y lo aplica en caliente a la sesión.
+
+        Reutilizado por `switch_project` (cargar el proyecto entero incluye su rig)
+        y por el handler `apply_rig` (intercambiar solo el rig). El render lee
+        `self.fixture_rig` / `show_engine.rig` fresco en cada frame, así que cambiar
+        el rig en caliente es seguro. Devuelve el nº de fixtures cargados.
+        """
+        from src.core.fixtures import FixtureRig, build_default_wled_rig, DEFAULT_RIG_FILE
+        src = Path(rig_file) if rig_file else None
+        if src is not None and src.is_file():
+            rig = FixtureRig.load(src)
+        elif DEFAULT_RIG_FILE.is_file():
+            rig = FixtureRig.load(DEFAULT_RIG_FILE)
+        else:
+            rig = build_default_wled_rig()
+        self.fixture_rig = rig
+        if getattr(self, "show_engine", None) is not None:
+            try:
+                self.show_engine.rig = rig
+            except Exception:
+                pass
+        self.sync_rig_layout()
+        return len(rig.fixtures)
+
+    def load_song(self, audio_path, analysis_slug) -> int:
+        """Carga análisis + audio de una canción; devuelve la duración en ms.
+
+        Reutilizado por `switch_project` y por el handler `apply_song`. NO toca
+        `self.timeline.duration_ms` (eso lo ajusta el llamante con el valor devuelto).
+        """
+        from src.analysis.analyzer_service import AnalysisService, default_service, ANALIZADAS_DIR
+        dur_ms = self.timeline.duration_ms
+        try:
+            if analysis_slug:
+                self.analysis = AnalysisService(ANALIZADAS_DIR / analysis_slug)
+            else:
+                self.analysis = default_service()
+            summary = self.analysis.summary
+            self.bpm = float(summary.get('bpm') or 128.0)
+            dur_ms = int(float(summary.get('duration_s') or 165.0) * 1000)
+        except Exception as e:
+            print(f"[load_song] analysis fallido: {e}")
+        if getattr(self, "show_engine", None) is not None:
+            try:
+                self.show_engine.analysis = self.analysis
+            except Exception:
+                pass
+        af = Path(audio_path) if audio_path else None
+        try:
+            if af is not None and af.is_file():
+                self.audio.load(af, duration=dur_ms / 1000.0)
+            else:
+                self.audio.duration = dur_ms / 1000.0
+        except Exception as e:
+            print(f"[load_song] audio fallido: {e}")
+        return dur_ms
+
     # ── Notificación de cambios (hacia el stream → el navegador re-fetchea) ──
     def notify_changed(self, kind: str = 'model'):
         self._rev += 1
@@ -1247,24 +1307,17 @@ class ShowSession:
         self._project = new_project
         self.pm._current = new_project
 
-        audio_file = Path(new_project.audio_path)
-        show_file = new_project.show_file
-        analysis_slug = new_project.analysis_slug
+        # Rig del nuevo proyecto (cargar el proyecto entero incluye su rig)
+        try:
+            self.load_rig(new_project.rig_file)
+        except Exception as e:
+            print(f"[switch_project] rig fallido: {e}")
+
+        # Canción del nuevo proyecto (análisis + audio); devuelve la duración
+        dur_ms = self.load_song(new_project.audio_path, new_project.analysis_slug)
 
         # Timeline
-        dur_ms = self.timeline.duration_ms  # fallback si analysis falla
-        try:
-            from src.analysis.analyzer_service import AnalysisService, default_service, ANALIZADAS_DIR
-            if analysis_slug:
-                self.analysis = AnalysisService(ANALIZADAS_DIR / analysis_slug)
-            else:
-                self.analysis = default_service()
-            summary = self.analysis.summary
-            self.bpm = float(summary.get('bpm') or 128.0)
-            dur_ms = int(float(summary.get('duration_s') or 165.0) * 1000)
-        except Exception as e:
-            print(f"[switch_project] analysis fallido: {e}")
-
+        show_file = new_project.show_file
         loaded = Timeline.load(show_file) if show_file.is_file() else Timeline.load()
         loaded.duration_ms = dur_ms
         if not getattr(loaded, 'groups', None):
@@ -1309,15 +1362,6 @@ class ShowSession:
         self.live_engine.stop_all()
         self._rev += 1
 
-        # Audio
-        try:
-            if audio_file.is_file():
-                self.audio.load(audio_file, duration=dur_ms / 1000.0)
-            else:
-                self.audio.duration = dur_ms / 1000.0
-        except Exception as e:
-            print(f"[switch_project] audio fallido: {e}")
-
         # 5. Emitir evento al stream
         if self.hub is not None:
             try:
@@ -1331,7 +1375,7 @@ class ShowSession:
             except Exception as e:
                 print(f"[switch_project] broadcast fallido: {e}")
 
-        print(f"[switch_project] → {new_project.name!r} ({new_slug}), "
+        print(f"[switch_project] -> {new_project.name!r} ({new_slug}), "
               f"{len(self.timeline.clips)} clips")
 
 

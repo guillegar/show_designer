@@ -1,0 +1,8 @@
+{
+  "slug": "el_taser_barras",
+  "name": "El Taser — Barras",
+  "audio_path": "C:\\Users\\guille\\Documents\\Claude\\Projects\\show-designer\\El Taser de Mama Remix.mp3",
+  "analysis_slug": "el_taser_de_mama_remix",
+  "created": "2026-06-16T00:00:00",
+  "notes": "Barras LED 0–1:30. Guión por segmentos (luz lenta + efectos), paleta blanco/rosa/morado, sync a beats reales, barras alineadas y centradas. Generado por scripts/create_taser_barras.py."
+}

@@ -27,6 +27,7 @@ ASSISTANT_HANDLERS: frozenset = frozenset({
     "live_trigger",
     "live_stop_all",
     "auth_get_role",
+    "ping",  # heartbeat keep-alive, permitido para cualquier rol
 })
 
 _ASSISTANT_PREFIXES = ("get_", "list_")

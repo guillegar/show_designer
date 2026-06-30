@@ -1,8 +1,8 @@
 {
   "slug": "himno_espana",
   "name": "Himno de España",
-  "audio_path": "C:\\Users\\guille\\Documents\\Claude\\Projects\\show-designer\\Himno_Espana.mp3",
-  "analysis_slug": "",
+  "audio_path": "C:\\Users\\guille\\Documents\\Claude\\Projects\\show-designer\\assets\\audio\\10-CONCEPTUAL-Red_Sun.mp3",
+  "analysis_slug": "10-CONCEPTUAL-Red_Sun",
   "created": "2026-06-07T20:24:17",
   "notes": "Bandera de España: barras 0,1,2,7,8,9 rojas y 3,4,5,6 amarillas (efecto solid_color 1004). Sin análisis propio: usa el servicio por defecto. Audio = placeholder hasta sustituir Himno_Espana.mp3."
 }

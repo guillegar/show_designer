@@ -7,7 +7,9 @@
     "channel_effect_id": null,
     "category": "",
     "family": "flash",
-    "params": {},
+    "params": {
+      "hue": 0
+    },
     "param_links": [],
     "color": "#f3f4f6",
     "scope": "global"

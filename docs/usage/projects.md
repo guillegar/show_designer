@@ -8,30 +8,57 @@ Each project lives in `projects/<slug>/`:
 
 ```
 projects/el_taser/
-├── project.json      # Metadata (name, BPM, duration)
-├── show.json         # Timeline + clips
-├── rig.json          # Fixtures
-├── presets.json      # Saved effect presets
-└── feedback.json     # UI state
+├── project.json      # Metadata (name, audio_path, analysis_slug, notes)
+├── show.json         # Secuencia de efectos (timeline + clips/patterns/cues)
+├── rig.json          # Rig (fixtures)
+├── rig_layout.json   # Posiciones 3D del rig (visor 3D)
+├── presets.json      # Banco de presets del proyecto
+├── autovj.json       # Reglas Auto-VJ
+└── feedback.json     # Historial de feedback en vivo
 ```
 
-## Creating a Project
+La **canción** vive fuera de la carpeta: el audio en la ruta de `audio_path` y el
+análisis en `analizadas/<analysis_slug>/`. Así, un proyecto = **canción + rig +
+secuencia + presets + auto-VJ**, y cada una de esas piezas se puede intercambiar.
 
-1. **Toolbar** → Project dropdown (📁 button)
-2. Click **"🆕 New Project…"**
-3. Enter:
-   - **Project slug** — Folder name (lowercase, no spaces): `my_event`
-   - **Project name** — Display name: `My Awesome Event`
-4. Click Create
+## La pestaña «Proyectos» (web)
 
-The app creates `projects/my_event/` with default files.
+La pestaña **Proyectos** (primera en la barra de pestañas) es el centro de gestión:
+galería para cargar proyectos enteros, intercambio de componentes sueltos, y
+creación/copia de proyectos. (El desplegable ▾ junto al nombre del proyecto en la
+topbar sigue disponible para cambio rápido.)
 
-## Switching Projects
+### Cargar un proyecto entero
 
-1. **Toolbar** → Project dropdown (📁 button)
-2. Select a project from the list
-3. App saves current show → loads new project
-4. No restart needed
+En la **galería**, cada tarjeta muestra la canción (título · BPM · duración), el
+nº de fixtures del rig, el nº de clips de la secuencia y badges de presets/auto-VJ.
+Pulsa **«Cargar»** → carga **todo** el paquete (canción + rig + secuencia + presets +
+auto-VJ) sin reiniciar el servidor. El proyecto activo aparece marcado **«activo /
+Cargado»**.
+
+### Intercambiar componentes sueltos
+
+Despliega **«Intercambiar componentes en el proyecto activo»**. Hay una lista por
+componente — **Rigs · Secuencias · Presets · Auto-VJ · Canciones** — agregando los de
+todos los proyectos (las canciones incluyen también las de `analizadas/` sin usar).
+**«Aplicar»** intercambia solo esa pieza sobre el proyecto cargado:
+
+- **Rig** y **Presets** y **Auto-VJ** se persisten en el proyecto activo al instante.
+- **Secuencia** se intercambia en memoria (como cualquier edición del timeline); usa
+  Guardar (Ctrl+S) o el autosave para conservarla.
+- **Canción**: re-temporiza el show (los beats/duración de la nueva canción difieren).
+
+### Crear un proyecto nuevo (compositor)
+
+Pulsa **«+ Nuevo proyecto»**. Pon un nombre y, por cada componente (Canción, Rig,
+Secuencia, Presets, Auto-VJ), elige de **qué proyecto** sale (o déjalo vacío). Marca
+«Cargar al crear» si quieres abrirlo al terminar. El slug se deriva del nombre
+(seguro, sin colisiones).
+
+### Duplicar y cambiar un componente
+
+En una tarjeta, **«Duplicar…»** copia el proyecto a un slug nuevo (solo los archivos
+de contenido). Opcionalmente, sustituye **un** componente por el de otro proyecto.
 
 ## Importing Audio
 
@@ -66,15 +93,15 @@ You can manually edit `projects/<slug>/project.json`:
 {
   "slug": "el_taser",
   "name": "El Taser de Mamá Remix",
-  "bpm": 119.68,
-  "duration_ms": 273300,
-  "audio_file": "El Taser de Mama Remix.mp3",
-  "created_at": "2026-05-29T12:34:56Z",
-  "modified_at": "2026-06-03T18:42:00Z"
+  "audio_path": "C:\\...\\El Taser de Mama Remix.mp3",
+  "analysis_slug": "el_taser_de_mama_remix",
+  "created": "2026-05-29T12:34:56",
+  "notes": "..."
 }
 ```
 
-Save and restart to load changes.
+El BPM y la duración salen del análisis (`analizadas/<analysis_slug>/analysis.json`),
+no de `project.json`. Guarda y recarga para aplicar cambios.
 
 ---
 

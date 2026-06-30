@@ -451,6 +451,210 @@ function BundlePanel() {
   );
 }
 
+// ── Patch UX: Mapa de canales DMX por universo ──────────────────────────────
+
+type USlot = { fixture_id: string; label: string; start: number; end: number; num_channels: number };
+const PATCH_PALETTE = [
+  "#7b68ee", "#20b2aa", "#ff6b6b", "#ffa07a", "#4ecdc4",
+  "#45b7d1", "#96ceb4", "#ff9f43", "#fd79a8", "#00b894",
+  "#6c5ce7", "#fdcb6e", "#e17055", "#74b9ff", "#a29bfe",
+];
+
+function UniverseChannelMap({ fixtures, onSelectFixture }: {
+  fixtures: Fixture[];
+  onSelectFixture: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const [activeU, setActiveU] = useState<string | null>(null);
+  const [uMap, setUMap] = useState<Record<string, USlot[]>>({});
+
+  useEffect(() => {
+    control.call("get_universe_channel_map").then((r: any) => {
+      if (!r?.ok) return;
+      const m: Record<string, USlot[]> = r.universes ?? {};
+      setUMap(m);
+      setActiveU(prev => prev && m[prev] ? prev : (Object.keys(m).sort((a, b) => +a - +b)[0] ?? null));
+    }).catch(() => {});
+  }, [fixtures]);
+
+  const universes = Object.keys(uMap).sort((a, b) => +a - +b);
+  const slots = activeU ? (uMap[activeU] ?? []) : [];
+  const usedCh = slots.reduce((s, f) => s + f.num_channels, 0);
+
+  return (
+    <div style={{ borderTop: "1px solid var(--line)", flexShrink: 0 }}>
+      <div className="panel-head" style={{ cursor: "pointer" }} onClick={() => setOpen(v => !v)}>
+        <h3>Mapa DMX</h3>
+        <span className="ph-spacer" />
+        {activeU && <span className="chip" style={{ color: "var(--txt-2)" }}>U{activeU} · {usedCh}/512 ch</span>}
+        <span style={{ marginLeft: 6, opacity: 0.5, fontSize: 11 }}>{open ? "▲" : "▼"}</span>
+      </div>
+      {open && (
+        <div style={{ padding: "6px 14px 12px" }}>
+          {universes.length === 0 ? (
+            <div style={{ color: "var(--txt-3)", fontSize: 11 }}>Sin fixtures en el rig</div>
+          ) : (
+            <>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+                {universes.map(u => (
+                  <button key={u}
+                    className={"btn sm" + (u === activeU ? "" : " ghost")}
+                    style={{ padding: "2px 8px", fontSize: 10 }}
+                    onClick={() => setActiveU(u)}>U{u}</button>
+                ))}
+              </div>
+
+              {/* Barra 512 canales */}
+              <div style={{
+                position: "relative", height: 30, borderRadius: 4, overflow: "hidden",
+                background: "var(--bg-1)", border: "1px solid var(--line)", marginBottom: 4,
+              }}>
+                {slots.map((slot, i) => {
+                  const left = ((slot.start - 1) / 512) * 100;
+                  const width = (slot.num_channels / 512) * 100;
+                  return (
+                    <div key={slot.fixture_id}
+                      title={`${slot.label}: ch ${slot.start}–${slot.end} (${slot.num_channels}ch)`}
+                      onClick={() => onSelectFixture(slot.fixture_id)}
+                      style={{
+                        position: "absolute", left: `${left}%`, width: `${Math.max(width, 0.15)}%`,
+                        top: 0, bottom: 0, background: PATCH_PALETTE[i % PATCH_PALETTE.length],
+                        opacity: 0.88, cursor: "pointer", borderRight: "1px solid rgba(0,0,0,0.25)",
+                        display: "flex", alignItems: "center", paddingLeft: 3, overflow: "hidden",
+                      }}>
+                      {width > 4 && (
+                        <span style={{ fontSize: 8, color: "#fff", fontWeight: 700,
+                          whiteSpace: "nowrap", pointerEvents: "none" }}>{slot.start}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Escala */}
+              <div style={{ display: "flex", justifyContent: "space-between",
+                fontSize: 9, color: "var(--txt-3)", marginBottom: 8 }}>
+                {[1, 64, 128, 192, 256, 320, 384, 448, 512].map(n => <span key={n}>{n}</span>)}
+              </div>
+
+              {/* Leyenda */}
+              {slots.map((slot, i) => (
+                <div key={slot.fixture_id} onClick={() => onSelectFixture(slot.fixture_id)}
+                  style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11,
+                    cursor: "pointer", padding: "2px 3px", borderRadius: 3,
+                    marginBottom: 2 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 2, flexShrink: 0,
+                    background: PATCH_PALETTE[i % PATCH_PALETTE.length] }} />
+                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {slot.label}
+                  </span>
+                  <span className="mono" style={{ fontSize: 10, color: "var(--txt-3)", flexShrink: 0 }}>
+                    {slot.start}–{slot.end}
+                  </span>
+                </div>
+              ))}
+              {slots.length === 0 && (
+                <div style={{ color: "var(--txt-3)", fontSize: 11 }}>Sin fixtures en U{activeU}</div>
+              )}
+              <div style={{ marginTop: 6, fontSize: 10, color: "var(--txt-3)" }}>
+                {usedCh} ch usados · {512 - usedCh} libres
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Patch UX: Destinos Art-Net / WLED ────────────────────────────────────────
+
+type OutputTarget = { type: string; ip?: string };
+
+function OutputTargetsPanel() {
+  const [open, setOpen] = useState(false);
+  const [targets, setTargets] = useState<Record<string, OutputTarget>>({});
+  const [editIps, setEditIps] = useState<Record<string, string>>({});
+  const [status, setStatus] = useState<string | null>(null);
+
+  const load = () =>
+    control.call("get_output_targets").then((r: any) => {
+      if (!r?.ok) return;
+      const t: Record<string, OutputTarget> = r.targets ?? {};
+      setTargets(t);
+      setEditIps(Object.fromEntries(Object.entries(t).map(([u, v]) => [u, v.ip ?? ""])));
+    }).catch(() => {});
+
+  useEffect(() => { if (open) load(); }, [open]);
+
+  const apply = (universe: string) => {
+    const t = targets[universe];
+    if (!t) return;
+    const ip = editIps[universe] ?? "";
+    control.call("set_output_target", { universe: parseInt(universe), type: t.type, ip })
+      .then((r: any) => {
+        if (r?.ok) { setStatus("✓ Aplicado"); load(); }
+        else setStatus(r?.error ?? "Error");
+        setTimeout(() => setStatus(null), 2500);
+      }).catch((e: any) => { setStatus("Error: " + e.message); setTimeout(() => setStatus(null), 3000); });
+  };
+
+  const univs = Object.keys(targets).sort((a, b) => +a - +b);
+
+  return (
+    <div style={{ borderTop: "1px solid var(--line)", flexShrink: 0 }}>
+      <div className="panel-head" style={{ cursor: "pointer" }} onClick={() => setOpen(v => !v)}>
+        <h3>Destinos Art-Net / WLED</h3>
+        <span className="ph-spacer" />
+        <span className="chip">{univs.length} univ</span>
+        <span style={{ marginLeft: 6, opacity: 0.5, fontSize: 11 }}>{open ? "▲" : "▼"}</span>
+      </div>
+      {open && (
+        <div style={{ padding: "0 14px 12px", fontSize: 12 }}>
+          <div style={{ color: "var(--txt-3)", fontSize: 10, marginBottom: 8, lineHeight: 1.4 }}>
+            Universo → IP de destino. Cambios se aplican al router inmediatamente.
+          </div>
+          {univs.map(u => {
+            const t = targets[u];
+            const hasIp = t.ip !== undefined;
+            return (
+              <div key={u} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                <span style={{ width: 24, fontSize: 11, color: "var(--txt-2)", fontWeight: 600, flexShrink: 0 }}>U{u}</span>
+                <span style={{ width: 58, fontSize: 10, color: "var(--txt-3)", flexShrink: 0 }}>{t.type}</span>
+                {hasIp ? (
+                  <>
+                    <input className="field" style={{ flex: 1, fontSize: 11, padding: "2px 5px" }}
+                      value={editIps[u] ?? ""}
+                      onChange={e => setEditIps(p => ({ ...p, [u]: e.target.value }))}
+                      onKeyDown={e => e.key === "Enter" && apply(u)}
+                      placeholder="192.168.x.x" />
+                    <button className="btn sm ghost" style={{ fontSize: 10, padding: "2px 7px" }}
+                      onClick={() => apply(u)}>✓</button>
+                  </>
+                ) : (
+                  <span style={{ fontSize: 10, color: "var(--txt-3)" }}>
+                    {t.type === "sim_only" ? "simulación" : t.type}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+          {univs.length === 0 && (
+            <div style={{ color: "var(--txt-3)", fontSize: 11 }}>
+              Sin destinos en output_targets.json
+            </div>
+          )}
+          {status && (
+            <div style={{ marginTop: 4, fontSize: 11,
+              color: status.startsWith("✓") ? "var(--good)" : "var(--bad)" }}>{status}</div>
+          )}
+          <button className="btn sm ghost" style={{ marginTop: 8, fontSize: 10 }} onClick={load}>↺ Recargar</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function WebhookPanel() {
   const [open, setOpen] = useState(false);
   const [cfgs, setCfgs] = useState<WebhookCfg[]>([]);
@@ -858,6 +1062,7 @@ function FixtureEditorPanel({ fixtureId, onBack, onRefresh, universeIpMap, fixtu
   fixtures: Fixture[];
 }) {
   const [detail, setDetail] = useState<FixtureDetail | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [types, setTypes] = useState<FixtureType[]>([]);
   const [form, setForm] = useState<Partial<FixtureDetail>>({});
   const [dirty, setDirty] = useState(false);
@@ -873,13 +1078,21 @@ function FixtureEditorPanel({ fixtureId, onBack, onRefresh, universeIpMap, fixtu
 
   useEffect(() => {
     let cancelled = false;
+    setDetail(null);
+    setLoadError(null);
     control.call("get_fixture_detail", { fixture_id: fixtureId })
       .then((r: any) => {
-        if (cancelled || !r?.ok) return;
+        if (cancelled) return;
+        if (!r?.ok) {
+          setLoadError(r?.error ?? "Error al cargar fixture");
+          return;
+        }
         setDetail(r.fixture);
         setForm(r.fixture);
         setDirty(false);
-      }).catch(() => {});
+      }).catch((e: any) => {
+        if (!cancelled) setLoadError(e?.message ?? "Error de conexión");
+      });
     control.call("list_fixture_types")
       .then((r: any) => { if (!cancelled && r?.ok) setTypes(r.types ?? []); })
       .catch(() => {});
@@ -949,6 +1162,16 @@ function FixtureEditorPanel({ fixtureId, onBack, onRefresh, universeIpMap, fixtu
     setTimeout(() => setIdentifying(false), 2100);
   };
 
+  if (loadError) return (
+    <div style={{ padding: 16, fontSize: 12 }}>
+      <div style={{ color: "var(--bad)", marginBottom: 8 }}>⚠ {loadError}</div>
+      <div style={{ color: "var(--txt-3)", marginBottom: 10, fontSize: 11 }}>
+        Reinicia el servidor Python si acabas de actualizar el código.
+      </div>
+      <button className="btn sm ghost" onClick={onBack}>← Volver</button>
+    </div>
+  );
+
   if (!detail) return (
     <div style={{ padding: 16, color: "var(--txt-3)", fontSize: 12 }}>Cargando…</div>
   );
@@ -967,6 +1190,13 @@ function FixtureEditorPanel({ fixtureId, onBack, onRefresh, universeIpMap, fixtu
         <span style={{ fontWeight: 600, fontSize: 12, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {dirty ? "● " : ""}{form.label || fixtureId}
         </span>
+        <button className="btn sm ghost" title="Duplicar fixture con siguiente dirección libre"
+          style={{ fontSize: 11, padding: "2px 7px" }}
+          onClick={async () => {
+            const r: any = await control.call("duplicate_fixture", { fixture_id: fixtureId }).catch(() => null);
+            if (r?.ok) { onRefresh(); onBack(); }
+            else if (r?.error) setToast("⚠ " + r.error);
+          }}>⊕</button>
         <button className="btn sm primary" title="Guardar" onClick={save} style={{ fontSize: 12, padding: "2px 8px" }}>✓</button>
       </div>
       {toast && (
@@ -1026,13 +1256,23 @@ function FixtureEditorPanel({ fixtureId, onBack, onRefresh, universeIpMap, fixtu
         </div>
         <div className="form-row">
           <span className="fl">DMX start</span>
-          <div className="fv" style={{ gap: 6, alignItems: "center" }}>
+          <div className="fv" style={{ gap: 6, alignItems: "center", flexWrap: "wrap" }}>
             <input className="field" type="number" min={1} max={512}
               value={addrStart} style={{ width: 60 }}
               onChange={(e) => update({ dmx_start: parseInt(e.target.value, 10) || 1 })} />
+            <button className="btn sm ghost" title="Asignar primera dirección libre en este universo"
+              style={{ fontSize: 10, padding: "2px 7px" }}
+              onClick={async () => {
+                const r: any = await control.call("next_free_address", {
+                  universe: form.universe ?? detail.universe,
+                  num_channels: numChannels || 1,
+                }).catch(() => null);
+                if (r?.ok) update({ dmx_start: r.address });
+                else if (r?.error) setToast("⚠ " + r.error);
+              }}>→ Libre</button>
             {numChannels > 0 && (
               <span style={{ fontSize: 10, color: "var(--txt-3)" }}>
-                {numChannels} ch · rango {addrStart}–{addrEnd}
+                {numChannels} ch · {addrStart}–{addrEnd}
               </span>
             )}
           </div>
@@ -1145,6 +1385,7 @@ export function PatchView() {
   const [adding, setAdding] = useState(false);
   const [gdtfBrowser, setGdtfBrowser] = useState(false);
   const [dirtyInEditor, setDirtyInEditor] = useState(false);
+  const [search, setSearch] = useState("");
 
   useEffect(() => { control.call("list_fixture_profiles").then((r) => setProfiles(r.profiles || [])).catch(() => {}); }, []);
 
@@ -1192,30 +1433,43 @@ export function PatchView() {
         ) : (
           <>
             <div className="panel-head"><h3>Fixtures</h3><span className="ph-spacer" /><span className="chip">{fixtures.length}</span></div>
-            <div style={{ flex: "0 0 auto", maxHeight: "38%", overflow: "auto" }}>
-              {fixtures.map((f) => {
-                const [r, g, b] = fixtureColor(f);
-                return (
-                  <div key={f.fixture_id} className={"fix-item" + (sel === f.fixture_id ? " sel" : "")}
-                    onClick={() => openEditor(f.fixture_id)}>
-                    <span className="sw" style={{ background: `rgb(${r},${g},${b})` }} />
-                    <div className="fi-txt">
-                      <div className="fi-name">{f.label || f.fixture_id}</div>
-                      <div className="fi-meta">{f.target_ip || f.profile_id} · U{f.universe}</div>
-                    </div>
-                    <span className="fi-leds">{f.legacy_bar_idx != null ? `${LEDS} px` : f.profile_id}</span>
-                  </div>
-                );
-              })}
+            {/* Buscador */}
+            <div style={{ padding: "5px 10px 3px", borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
+              <input className="field" placeholder="Buscar fixture…" value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{ width: "100%", fontSize: 11, padding: "3px 7px" }} />
             </div>
+            <div style={{ flex: "0 0 auto", maxHeight: "30%", overflow: "auto" }}>
+              {fixtures
+                .filter(f => !search || (f.label || f.fixture_id).toLowerCase().includes(search.toLowerCase()))
+                .map((f) => {
+                  const [r, g, b] = fixtureColor(f);
+                  return (
+                    <div key={f.fixture_id} className={"fix-item" + (sel === f.fixture_id ? " sel" : "")}
+                      onClick={() => openEditor(f.fixture_id)}>
+                      <span className="sw" style={{ background: `rgb(${r},${g},${b})` }} />
+                      <div className="fi-txt">
+                        <div className="fi-name">{f.label || f.fixture_id}</div>
+                        <div className="fi-meta">U{f.universe} · ch {f.dmx_start}{f.target_ip ? ` · ${f.target_ip}` : ""}</div>
+                      </div>
+                      <span className="fi-leds" style={{ fontSize: 10, color: "var(--txt-3)" }}>
+                        {f.legacy_bar_idx != null ? `${LEDS} px` : f.profile_id}
+                      </span>
+                    </div>
+                  );
+                })}
+            </div>
+            {/* Mapa de canales DMX */}
+            <UniverseChannelMap fixtures={fixtures} onSelectFixture={openEditor} />
+            <FixtureTestPanel fixtures={fixtures} />
+            <OutputTargetsPanel />
+            <DmxUsbPanel />
+            <OscPanel />
+            <WebhookPanel />
+            {/* N2: Bundle backup */}
+            <BundlePanel />
           </>
         )}
-        <FixtureTestPanel fixtures={fixtures} />
-        <DmxUsbPanel />
-        <OscPanel />
-        <WebhookPanel />
-        {/* N2: Bundle backup */}
-        <BundlePanel />
       </div>
 
       {adding && <AddFixtureModal profiles={profiles} onClose={() => setAdding(false)}

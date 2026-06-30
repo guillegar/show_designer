@@ -18,10 +18,14 @@ mutaciones del modelo (control) y las lecturas (este tick) nunca se solapan
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from typing import Set
 
 from src.core.effects_engine import NUM_BARS
+from src.log import get_logger, log_throttled
+
+_log = get_logger(__name__)
 
 
 class StreamHub:
@@ -100,7 +104,9 @@ class TickLoop:
                     try:
                         s.show_engine.send_frame([frame[b].tobytes() for b in range(NUM_BARS)])
                     except Exception as e:
-                        print(f"[tick] Art-Net error: {e}")
+                        # Hot loop (30 FPS): throttled para no spamear si la IP cae.
+                        log_throttled(_log, logging.ERROR, "tick:artnet",
+                                      f"Art-Net error: {e}")
 
                 # Broadcast frame binario (frame ya es uint8 → sin astype redundante)
                 if self.hub.clients:
@@ -183,7 +189,8 @@ class TickLoop:
                         except Exception:
                             pass
             except Exception as e:
-                print(f"[tick] error: {e}")
+                log_throttled(_log, logging.ERROR, "tick:loop",
+                              f"error en el tick loop: {e}")
 
             period = 1.0 / (self.fps if self.session.playing else self.idle_fps)
             elapsed = time.monotonic() - t0

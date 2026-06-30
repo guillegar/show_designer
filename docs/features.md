@@ -79,7 +79,7 @@ Organize shows by project:
 ```
 projects/
 ├── el_taser/
-│   ├── project.json      ← metadata
+│   ├── project.json      ← metadata (name, notes, audio_path, analysis_slug)
 │   ├── rig.json          ← fixtures
 │   ├── show.json         ← timeline + clips
 │   ├── feedback.json     ← saved feedback state
@@ -88,9 +88,22 @@ projects/
 └── ...
 ```
 
-- Quick switch between projects
-- Each project has its own rig and timeline
-- Auto-save on project switch
+**Projects Tab Features:**
+- **Gallery view** — visual card for each project showing rig/sequence/presets/autovj info
+- **Quick switch** — load project with one click
+- **Compose projects** — create new show by choosing components (rig, sequence, presets, autovJ) from existing projects
+- **Duplicate with swap** — clone a project and replace specific components (e.g., use a different rig)
+- **Edit metadata** — rename project, add notes, select song (audio file + analysis)
+- **Component interchange** — apply different rigs, sequences, presets, or autovJ rules to active project
+- **Audio/Analysis selection** — dropdown list of precomputed analyses (BPM, duration) in `analizadas/`
+
+**Song Management:**
+Each project references:
+- `audio_path` (MP3 file, absolute or relative path)
+- `analysis_slug` (precomputed analysis in `analizadas/<slug>/analysis.json`)
+  - Contains: BPM, duration, spectral features, beat times
+  - Generated offline with `scripts/analyzer_pro.py` (librosa + madmom)
+  - Updated via "⚙ Edit" modal dropdown on Projects tab
 
 ## Export Options
 

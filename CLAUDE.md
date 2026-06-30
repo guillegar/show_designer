@@ -9,8 +9,55 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > documentación** para que refleje el estado real — este `CLAUDE.md` (arquitectura/estado) y los
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
-Estado a **2026-06-15** · **v2.0 · 1021 tests Python + 33 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1+N2 APLICADAS · BLOQUE N COMPLETO · HARDENING SEGURIDAD APLICADO · PERF PREVIEW/VIEWER3D APLICADO · EDITOR FIXTURE PATCH APLICADO** — backend headless + frontend React + REST API + webhooks + multiusuario + tap BPM + show generator + historial de gestos + marketplace de plugins + bundle backup/restore + hardening de seguridad (zip slip, marketplace SSRF/RCE, timing-safe tokens, webhook SSRF) + editor completo de fixture desde Patch.
+Estado a **2026-06-30** · **v2.0 · 1043 tests Python + 36 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1+N2 APLICADAS · BLOQUE N COMPLETO · HARDENING SEGURIDAD APLICADO · PERF PREVIEW/VIEWER3D APLICADO · EDITOR FIXTURE PATCH APLICADO · PATCH UX PRO APLICADO · FASE 2 EDICIÓN DE PROYECTOS APLICADA** — backend headless + frontend React + REST API + webhooks + multiusuario + tap BPM + show generator + historial de gestos + marketplace de plugins + bundle backup/restore + hardening de seguridad (zip slip, marketplace SSRF/RCE, timing-safe tokens, webhook SSRF) + editor completo de fixture desde Patch + Patch UX profesional (mapa DMX, siguiente libre, duplicar, búsqueda, destinos Art-Net).
 **A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1+N2 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger + exportación PDF/CSV + editor de patch visual. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+  - ✅ **REVISIÓN COMPLETA — FIXES (2026-06-30)**: 6 hallazgos de una revisión de código
+    completa, aplicados en la rama `review-fixes` (un commit por fix). (1) **La waveform ya no
+    bloquea el tick**: `_h_get_waveform` no hace `librosa.load` en el event loop — si no hay
+    cache lanza el cálculo en un executor (helpers `_compute_waveform`/`_ensure_waveform_cached`)
+    y devuelve `{status:"computing"}`; al terminar emite `waveform_ready` por el stream
+    (`stream.ts` `onWaveformReady` → `Timeline.tsx` reintenta, ya cache hit). `web.py` precalienta
+    el cache en `_startup`. En contextos sin loop (tests / MCP síncrono) calcula inline.
+    (2) `offline_render.py`: el `except: pass` del render de efectos ahora **loguea throttled**
+    (no más frames negros silenciosos). (3) `tick.py`: `print`→`log_throttled` en el hot loop
+    (Art-Net + loop). (4) Visor 3D `main.js`: protocolo WS derivado (`ws`/`wss`) como `control.ts`;
+    cache-bust `?v=11`. (5) `control.ts`: el `?token=` se migra a `sessionStorage` y se quita de la
+    URL (fuera de historial/Referer). (6) `control.ts`: heartbeat `ping` cada 30 s (handler `ping`
+    en `_LOCAL` + permitido en `auth.ASSISTANT_HANDLERS`). Tests: `test_waveform.py` (+2,
+    incl. async) y `web/src/api/control.test.ts` (nuevo).
+  - ✅ **MENÚ DE GESTIÓN DE PROYECTOS (2026-06-30)**: pestaña **«Proyectos»** (galería +
+    intercambio de componentes + crear/copiar). Un proyecto = **canción + rig + secuencia +
+    presets + auto-VJ**; cada pieza se puede ver, intercambiar, componer y copiar. **+10 tests.**
+    - `server/session.py`: helpers reutilizables `load_rig(rig_file)` y `load_song(audio_path,
+      analysis_slug)`; `switch_project` ahora **también recarga el rig** del proyecto (antes no lo
+      hacía) reusando esos helpers. Render lee `fixture_rig`/`show_engine.rig` fresco cada frame →
+      intercambio en caliente seguro. Print final del switch pasado a ASCII (`->`) por la consola
+      cp1252 de Windows.
+    - `server/dispatcher.py`: handlers nuevos en `_LOCAL` — `list_projects_detailed`,
+      `list_components` (lectura); `apply_rig` (en `_RIG_MUTATORS`), `load_sequence` (en
+      `_TIMELINE_MUTATORS`, reusa `bridge._h_load_show`), `apply_presets`, `apply_autovj`,
+      `apply_song`, `create_project_from_components`, `duplicate_project`. Slug seguro como en
+      `show_bundle`. Reusa `ProjectManager`/`FixtureRig`/`PresetBank`/`AutoVJEngine`.
+    - `web/src/views/ProjectManager.tsx` (NUEVO): galería de tarjetas (Cargar→`switch_project` +
+      Duplicar…), zona plegable «Intercambiar componentes» (5 listas → «Aplicar» + `refreshAll`),
+      modales `ComposerModal` (nuevo) y `DuplicateModal`. `App.tsx`/`store.ts`: tab `"projects"`
+      (primera). `icons.tsx`: icono `folder`. Estilos `.pm-*` en `styles-views.css`.
+    - `tests/test_project_manager_menu.py` (NUEVO): 10 tests (aísla `PROJECTS_DIR` con
+      `mock.patch.object`). Verificado en vivo (galería, compositor, 3 switches OK).
+  - ✅ **FASE 2: EDICIÓN DE PROYECTOS (2026-06-30)**: Editar metadatos y seleccionar análisis.
+    - `server/dispatcher.py`: `_h_update_project` (actualiza name/notes/analysis_slug con validación
+      de análisis en ANALIZADAS_DIR), `_h_list_available_analyses` (enumera análisis precompilados).
+      Ambos en `_LOCAL`. Reutiliza `ProjectManager.get_project()` + `project.save_meta()` atómico.
+    - `web/src/views/ProjectManager.tsx`: `EditProjectModal` (inline, fields name/notes/analysis_slug
+      dropdown). Botón "⚙ Editar…" en cada tarjeta. State `editFrom`/`analyses` con `useEffect` que
+      carga análisis al montar. `onDone` recarga lista completa.
+    - `tests/test_project_manager_menu.py`: +6 tests — `test_update_project_name/notes/analysis_slug`,
+      `test_update_project_invalid_analysis`, `test_update_project_name_empty`,
+      `test_list_available_analyses`. Mockea `ANALIZADAS_DIR` en `_env` junto a `PROJECTS_DIR`. **16 tests.**
+  - ✅ **PATCH UX PRO (2026-06-15)**: Patch a nivel de software profesional (GrandMA/ETC Eos). 14 tests. **1041 Python verdes.**
+    - `server/dispatcher.py`: 4 handlers nuevos — `_h_next_free_address` (primera dirección libre en un universo dada una longitud de canal), `_h_duplicate_fixture` (clon con nuevo ID + siguiente libre + sin patch_x/y), `_h_get_universe_channel_map` (mapa de slots usados por universo, ordenado por start), `_h_get_output_targets` (lee output_targets.json filtrando claves numéricas). `duplicate_fixture` añadido a `_RIG_MUTATORS` (regenera rig_layout.json).
+    - `web/src/views/Patch.tsx`: `UniverseChannelMap` (barra visual 512ch + leyenda + selector de universo, colores PATCH_PALETTE, click → abre editor); `OutputTargetsPanel` (tabla universo→IP editable inline con Enter/✓, llama `set_output_target` existente); búsqueda en fixture list (input filtro en tiempo real); botón "⊕" (duplicar) en cabecera del editor de fixture; botón "→ Libre" junto a DMX start (asigna siguiente dirección libre del universo activo). La info de meta en la lista ahora muestra `U{universe} · ch {dmx_start}`.
+    - `tests/test_patch_ux.py` (NUEVO): 14 tests.
   - ✅ **EDITOR FIXTURE PATCH (2026-06-15, ROADMAP v4)**: Editor completo de propiedades de fixture desde la pestaña Patch.
     - `src/core/fixtures.py`: `Fixture` dataclass añade `notes: Optional[str]`, `channel_map: Optional[List[Dict]]` (lista `[{ch, role}]`), `height_m: Optional[float]`. `from_dict` con migración tolerante (None si ausentes). `to_dict` via `asdict` serializa automáticamente.
     - `server/dispatcher.py`: 3 handlers nuevos — `_h_update_fixture` (dry_run, detección de conflictos DMX, sync rig_layout si cambia posición/altura, snapshot I1), `_h_get_fixture_detail` (fixture completo + artnet_ip desde output_targets.json + height_m desde rig_layout.json), `_h_list_fixture_types` (tipos built-in + perfiles GDTF/JSON). Helper `_update_rig_layout_height`: persiste height_m como `y` en rig_layout.json sin perder x/z. Todos registrados en `_LOCAL`; `update_fixture` en `_RIG_MUTATORS`.
@@ -319,10 +366,41 @@ Estado a **2026-06-15** · **v2.0 · 1021 tests Python + 33 Vitest · ROADMAP v2
 - Hardware: **10 barras WLED** (93 LEDs c/u) en universos Art-Net 1..10 (IPs `192.168.1.201..210`).
 - Proyectos en `projects/<slug>/` (canónico). Show de prueba: `el_taser` (`El Taser de Mama
   Remix.mp3`, 273.3 s). Audio NO se versiona (en disco; ver `.gitignore`).
+  - `el_taser_barras` (**"El Taser — Barras"**): show de **0–1:30** sobre **solo las 10 barras LED**
+    (rig = `bar_0..bar_9`, sin movers/wash), **alineadas en fila** (x=−5.4..+5.4, y=1, z=0) con Patch
+    2D = 3D. Mismo MP3 y `analysis_slug` (`el_taser_de_mama_remix`) → reutiliza el análisis. Generado
+    de forma **reproducible** por `scripts/create_taser_barras.py`: construye el timeline desde un
+    **guión por segmentos** (`SEGMENTS`: tramos 'slow'=breathing lento on/off y 'effect'=efectos
+    GLOBALES 2D), snapeado a **beats reales**, con **SOLO la paleta blanco/rosa/morado** (`PALETTE`).
+    - Tramos **'effect'**: efectos cross-bar del plugin **`plugins/effects/color_global.py`** (NUEVO):
+      1030 chase-comet, 1031 ola 2D, 1032 radial desde el centro, 1033 sweep. Son **ALL_BARS**
+      (devuelven `(10,93,3)`) y **aceptan color (r,g,b)** → un solo clip `scope:"global"` pinta las 10
+      barras (a diferencia del catálogo built-in de globales, que es multicolor sin color param).
+      Centrados en el centro real (bar 4.5). Color cambia cada `EFFECT_COLOR_BEATS`, efecto rota cada
+      `EFFECT_ROTATE_BEATS` + acentos de flash blanco (efecto 0) en kicks/snares.
+    - Tramos **'slow'**: breathing 1019 per-bar (10 clips, uniforme).
+    Ajusta `SEGMENTS`/`PALETTE`/`EFFECT_CYCLE`/`*_BEATS`/`ACCENT_EVERY` y re-ejecuta. (Ojo: un efecto
+    de 1 fila en `scope:"global"` solo pinta la barra 0; los cross-bar de color_global devuelven 10.)
+  - `red_sun` (**"Oscar Mulero — Red Sun"**): show **techno-minimal asimétrico**, 5m20s, 10 barras
+    LED. Audio en `assets/audio/10-CONCEPTUAL-Red_Sun.mp3`, `analysis_slug=10-CONCEPTUAL-Red_Sun`.
+    Pipeline propio: (1) `scripts/analyze_red_sun.py` → análisis librosa (schema v2) + `timeseries.npz`
+    **con array `times`** (imprescindible para `get_audio_context`/efectos audio-reactivos); (2)
+    `scripts/create_red_sun_show.py` → composición **data-driven**: agrupa downbeats en **frases (8)**,
+    clasifica cada una en **tier de energía 0..4 por percentiles** (auto-calibrado), y por frase elige
+    un look: void=respiración lenta en subconjunto **asimétrico** de barras · low=respiración
+    audio-reactiva + radial off-center · mid=ola/sweep · high=cometa direccional · peak=cometa rápido +
+    anillos en downbeats. Acentos escasos (ember per-bar en 1-2 barras concretas sobre kicks; blink
+    radial en snares). Paleta **"Sol Rojo"** (ox-blood→rojo→naranja→ámbar→puesta). Barridos asimétricos
+    vía **`plugins/effects/color_async.py`** (NUEVO): **1034** cometa direccional de un solo sentido
+    (con cola, param `direction` ltr/rtl) · **1035** radial desde un **origen lateral** (param `origin`
+    0..9) — complementan a `color_global.py` (1030-1033, que están CENTRADOS en bar 4.5). Re-ejecuta
+    ambos scripts para regenerar. Render headless de prueba (sin libs de imagen): `scripts/_render_red_sun_preview.py`.
 - Licencia: **Prosperity Public License 3.0.0 (PPL)** — código original propio.
 - **Checkpoints = git** (un commit por fase/feature; ya NO existe la carpeta `versions/`).
 - Launchers Windows: `Luces.bat` (reinicio limpio + abre navegador), `Cerrar Luces.bat` (apaga),
-  `Luces Espana.bat` (= `Luces.bat` + `set LUCES_PROJECT=himno_espana`).
+  `Luces Espana.bat` (= `Luces.bat` + `set LUCES_PROJECT=himno_espana`),
+  `Luces Barras.bat` (= `set LUCES_PROJECT=el_taser_barras`),
+  `Luces Red Sun.bat` (= `set LUCES_PROJECT=red_sun`).
 
 ### Estado auditoría (`ANALYSIS.md`) — 25 hallazgos P0→P3, plan en 7 fases
 - **Fase 1 (quick wins) APLICADA** (2026-06-11): hallazgos 1,3,4,5,6,20,21 (contrato de shape en
@@ -430,6 +508,12 @@ Claves:
   (`xToMs/msToX/buildLaneLayout/yToLane`, hit-test de filas con altura variable).
 - Arrastre vertical: el clip sigue al cursor; en `onDrag` se hit-testea bar+layer con rects medidos;
   al soltar commitea `new_track`/`new_layer` vía `move_clip` (`_h_move_clip` soporta ambos + start/end).
+- **Lane GLOBAL (2026-06-16):** los clips con `track===-1` (looks globales que pintan las 10 barras a
+  la vez: efectos cross-bar de `color_global.py`, acentos) se dibujan en una fila **"GLOBAL"** arriba
+  de las barras. Implementado reutilizando "bar" con **bar=-1** (lane `{key:"bar--1", kind:"bar",
+  bar:-1, label:"GLOBAL"}`, solo si hay clips track −1). Las barras 0–9 filtran `track===bar`, así que
+  los globales NO se mezclan en ellas. `barLayerAtClientY` resuelve la key `"bar--1"`→−1 (drag dentro
+  del lane mantiene track −1).
 - **Drop OPTIMISTA (Fase 9, NO romper):** al soltar, `commitMoves` parchea el store (`applyMovesOptimistic`)
   y `pinClipEl` fija el clip imperativamente (left/top/width, reusando `msToX`) ANTES del round-trip,
   para que se quede donde se suelta sin esperar a `move_clip→snapshot→refreshClips` ni al re-render de
@@ -447,6 +531,16 @@ Claves:
 - `session.py.sync_rig_layout()` regenera `rig_layout.json`; el dispatcher lo llama tras cada
   `_RIG_MUTATORS` (move/set/add/delete_fixture, save_rig, load_show). El viewer recarga con cache-bust
   al re-montarse la pestaña (no hay update en vivo mientras editas en Patch).
+- **Emissive per-LED (2026-06-16):** el parche `onBeforeCompile` usa un varying PROPIO `vLedColor`
+  (declarado en vertex+fragment, alimentado de `instanceColor`), NO `vColor`: three r160 NO declara
+  `vColor` en el fragment cuando solo está `USE_INSTANCING_COLOR` → con el parche viejo las barras
+  salían **blancas fijas** en 3D. Si tocas `main.js`, copia también a `web/dist/v3d/` y sube el
+  `?v=N` del `index.html` (en public y dist). Cache-bust actual: **`?v=11`**.
+- **Patch 2D ↔ 3D acoplados (2026-06-16):** `_h_move_fixture` (x/y) ahora mapea el Patch 2D al plano
+  del suelo del escenario (12×6): `x_mundo=(patch_x-0.5)*12`, `z_mundo=(patch_y-0.5)*6`, **preservando
+  la altura `position.y`** (solo se edita desde el panel 3D). `_h_set_fixture_3d` hace el inverso
+  (x/z → patch_x/patch_y). Si hay K1 `rig_layout.json`, `_update_layout_floor` actualiza su x/z. El
+  path legado `position=[x,y,z]` mantiene la normalización por bbox (no se toca).
 
 ### Recetas de color (para el proyecto bandera y similares)
 - **Color sólido estable**: plugin `solid_color.py` (`SolidColorEffect`, id **1004**, params r,g,b) →

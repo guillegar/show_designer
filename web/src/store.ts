@@ -47,7 +47,7 @@ export type MarkerCategory = "intro" | "verso" | "estribillo" | "bridge" | "outr
 export type Marker = { time_ms: number; name: string; color: string; category: MarkerCategory };
 export type Group = { name: string; bars: number[]; color: string; subgroups: string[] };
 
-export type Tab = "timeline" | "live" | "analyzer" | "patch" | "viewer3d" | "preview";
+export type Tab = "projects" | "timeline" | "live" | "analyzer" | "patch" | "viewer3d" | "preview";
 
 // Familia de efecto → variable CSS de color (design tokens)
 export const FAM_COLOR: Record<string, string> = {
