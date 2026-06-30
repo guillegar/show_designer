@@ -78,3 +78,14 @@ analizadas/**/stems/
 
 # Datos de usuario legacy — migrado a projects/<slug>/show.json (ANALYSIS hallazgo 23)
 /show_timeline.json
+
+# Autosaves de runtime — rotación automática del backend, NO versionar
+**/autosave/
+
+# Render offline (regenerable) y caché de build del frontend
+**/render_meta.json
+*.tsbuildinfo
+
+# Temporales y salidas sueltas
+*.tmp
+_test_out.txt

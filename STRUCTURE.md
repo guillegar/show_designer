@@ -1,6 +1,6 @@
 # 📁 Estructura del Proyecto
 
-> Estado real a **2026-06-12** (v1.10, arquitectura WEB). Para arquitectura y decisiones
+> Estado real a **2026-06-30** (v2.0, arquitectura WEB). Para arquitectura y decisiones
 > profundas ver `CLAUDE.md` y `docs/advanced/project-history.md`.
 
 La app corre **headless** (Python, sin Qt) y sirve una **web React**. La UI PyQt5 se **retiró**
@@ -14,8 +14,8 @@ show-designer/
 │   │   ├── show_engine.py        Scheduler + DMX assembler + layer mixing
 │   │   ├── timeline_model.py     Clip, BarGroup, CuePoint, Marker, Timeline
 │   │   ├── fixtures.py           FixtureProfile, Fixture, FixtureRig
-│   │   ├── effects_engine.py     51 efectos pixel + carga de plugins
-│   │   └── channel_effects.py    24 ChannelEffects (movers/wash/beam/strobe)
+│   │   ├── effects_engine.py     efectos pixel built-in + carga de plugins
+│   │   └── channel_effects.py    ChannelEffects (movers/wash/beam/strobe)
 │   ├── analysis/             🎵 análisis de audio (analyzer_service: librosa + madmom)
 │   ├── io/                   📦 loaders GDTF, OutputRouter, exporter, project_manager
 │   ├── mcp/                  🤖 mcp_bridge (WS :9876) + mcp_show_server (FastMCP stdio)
@@ -35,6 +35,8 @@ show-designer/
 │   ├── audio_headless.py         reloj maestro (pygame.mixer + time.monotonic)
 │   ├── validators.py             validación de params
 │   ├── json_rpc.py, presets.py, toggles.py, exporters.py
+│   ├── auth.py, rest_api.py, webhooks.py, marketplace.py, show_bundle.py (REST/multiusuario/N1-N2)
+│   ├── offline_render.py, tempo_sync.py, live_engine.py, live_input.py, osc_bridge.py, …
 │
 ├── web/                      ← FRONTEND React+TS+Vite
 │   ├── src/                      Topbar, Tabs, Transport, views/ (Timeline/Live/Analyzer/Patch)
@@ -43,15 +45,16 @@ show-designer/
 │   ├── index.html, package.json, vite.config.ts, tsconfig.json
 │
 ├── plugins/effects/          ← 🔌 PLUGINS ACTIVOS (IDs ≥1000, autodescubiertos por effects_engine)
-│   ├── example_plugin.py (meteor/heartbeat), solid_color.py, waving_flag.py, spanish_flag.py
+│   ├── 18 plugins / 25+ efectos: solid_color, waving_flag, gradient_sweep, fire, scanner,
+│   │   twinkle, vu_meter, rainbow_wave, pixel_map, color_global, color_async, …
 │
 ├── profiles/                 ← fixture profiles JSON (WLED + genéricos) + GDTF
 ├── projects/                 ← ⭐ PROYECTOS canónicos: projects/<slug>/{project,show,rig,presets,feedback}.json
-│   └── el_taser/  himno_espana/
+│   └── el_taser/ el_taser_barras/ himno_espana/ pista_patinaje/ red_sun/
 ├── analizadas/               ← análisis cacheado por canción (analysis.json + curation.json;
 │                                 timeseries.npz y stems/ NO se versionan — ver .gitignore)
-├── scripts/                  ← utilidades one-off (process_stems, create_himno_show, verify_*)
-├── tests/                    ← ✅ 432 tests verde (pytest)
+├── scripts/                  ← utilidades one-off (create_taser_barras, create_red_sun_show, analyze_red_sun, …)
+├── tests/                    ← ✅ 1043 tests verde (pytest) + 36 Vitest (web/)
 ├── docs/                     ← MkDocs (mkdocs.yml); detalle profundo en docs/advanced/
 ├── data/                     ← (legacy, casi vacío)
 │
@@ -65,7 +68,7 @@ show-designer/
 
 ---
 
-## 🚀 Cómo arranca (v1.10 web)
+## 🚀 Cómo arranca (v2.0 web)
 
 ```
 python -m server.main          → http://localhost:8000 (sirve web/dist + WS) — único entry point
@@ -91,4 +94,4 @@ Claude controla por MCP igual que antes (dispatcher sirve el mismo JSON-RPC en :
 | Añadir un fixture | `profiles/*.json` o `src/io/loaders/gdtf_profile.py` |
 | Control por Claude | `src/mcp/` (bridge + server) |
 | Viewer 3D | `web/public/v3d/` (canónico) |
-| Ejecutar tests | `pytest tests/` (416) |
+| Ejecutar tests | `pytest tests/` (1043) + `cd web && npx vitest run` (36) |

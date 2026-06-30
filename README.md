@@ -1,238 +1,198 @@
-# Show Designer Pro 🎨
+# Show Designer Pro 🎛️
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
-[![Tests: 432/432](https://img.shields.io/badge/tests-432%2F432-brightgreen)](#tests)
-[![Coverage: 92.6%](https://img.shields.io/badge/coverage-92.6%25-green)](#testing)
+[![Tests](https://img.shields.io/badge/tests-1043%20py%20%2B%2036%20web-brightgreen)](#-calidad-y-tests)
+[![Frontend CI](https://github.com/guillegar/show_designer/actions/workflows/frontend-ci.yml/badge.svg)](https://github.com/guillegar/show_designer/actions/workflows/frontend-ci.yml)
 [![License: PPL 3.0](https://img.shields.io/badge/license-PPL%203.0-blue)](LICENSE)
-[![Docs: GitHub Pages](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://guillegar.github.io/show_designer/)
+[![Estado: v2.0](https://img.shields.io/badge/estado-v2.0%20estable-success)](CLAUDE.md)
 
-> **Professional lighting control software**: Design light coreographies for LED strips + DMX fixtures in a visual timeline editor (Adobe/FL Studio style), or control via **Claude** with 50+ MCP tools.
+> **Software profesional de iluminación.** Diseña coreografías de luz para tiras LED y fixtures
+> DMX en un editor de *timeline* visual (estilo FL Studio / Adobe), míralas en un visor 3D en
+> tiempo real, y contrólalas a mano (web) o con **Claude** vía MCP.
 
-**Version**: v1.10 (web) | **Status**: Stable (432 tests passing) | **License**: Prosperity Public License 3.0.0
+El motor corre **headless** (Python, sin Qt) y sirve una **web React**: el audio suena en el PC
+(reloj maestro) y el navegador es control + visualizador. El mismo backend expone JSON-RPC para
+que Claude lo controle por MCP.
+
+```
+┌──────────────┐   /ws/control (JSON-RPC)   ┌─────────────────────────┐   Art-Net / sACN / USB
+│  Navegador   │ ◀────────────────────────▶ │  server/  (FastAPI,      │ ─────────────────────▶ Tiras LED
+│  React + 3D  │   /ws/stream (frames RGB)   │  asyncio, tick 30 FPS)   │                         + fixtures DMX
+└──────────────┘                             └───────────▲─────────────┘
+                                                         │ JSON-RPC (:9876)
+                                                   ┌─────┴─────┐
+                                                   │  Claude   │  (MCP)
+                                                   └───────────┘
+```
 
 ---
 
-## 🚀 Quick Links
+## ✨ Qué puedes hacer
 
 | | |
 |---|---|
-| **📖 [Full Documentation](https://guillegar.github.io/show_designer/)** | Complete guide (20+ pages) |
-| **⚡ [Quick Start (5 min)](https://guillegar.github.io/show_designer/quickstart/)** | Get running now |
-| **✨ [Features](https://guillegar.github.io/show_designer/features/)** | 51 effects + capabilities |
-| **🤖 [Claude Control](https://guillegar.github.io/show_designer/advanced/mcp/)** | AI-powered show design |
-| **🔧 [Installation](https://guillegar.github.io/show_designer/installation/)** | Step-by-step setup |
+| 🎬 **Editor de timeline** | Multipista, *drag-drop* de clips, *snap* a beats, *undo/redo*, capas, patterns reutilizables, automatización y modulación de parámetros |
+| 💡 **Efectos LED** | Biblioteca de efectos *pixel* built-in + sistema de **plugins autodescubiertos** (18 plugins, 25+ efectos) — flash, ondas, gradientes, fuego, scanner, VU, pixel-mapping de imagen/vídeo… |
+| 🎯 **DMX por canal** | *Channel effects* para moving heads / wash / beam / strobe (pan-tilt, color, dimmer) con perfiles **GDTF** y JSON |
+| 🎵 **Análisis de audio** | Beats, downbeats, secciones, BPM y tonalidad (librosa + madmom); además **análisis en vivo** desde entrada de audio |
+| 📺 **Visor 3D** | Three.js en tiempo real (bloom + niebla), barras LED + movers que responden al DMX |
+| 🤖 **Control por Claude** | 150+ comandos JSON-RPC vía MCP — pídele a Claude que genere o edite el show en lenguaje natural |
+| 🎚️ **Directo** | Macros en vivo, grid de performance, cues profesionales, MIDI, OSC I/O, sync de tempo (tap / Link / MIDI Clock), auto-VJ por reglas |
+| 📤 **Salida y export** | Art-Net, **sACN E1.31**, **ENTTEC Open DMX USB**; export de patch a PDF, DMX a CSV, preview de vídeo (GIF/MP4) y *bundle* de backup/restore |
+| 🌐 **Integración** | API REST pública (`/api/v1`), webhooks (HMAC) y modo multiusuario con roles |
 
 ---
 
-## ✨ What You Can Do
+## 🚀 Inicio rápido
 
-| Feature | Details |
-|---------|---------|
-| **🎬 Timeline Editor** | Multi-track, drag-drop clips, snap to beats, undo/redo, layers |
-| **💡 51 LED Effects** | Flash, wave, rainbow, strobe, gradient, pattern, spectral, + plugins |
-| **🎯 24 DMX Effects** | Position, color, intensity, optical, strobe for movers/wash/beam |
-| **🎵 Audio Analysis** | Auto-detect beats, drops, sections, stems (librosa + madmom + demucs) |
-| **📺 3D Viewer** | Real-time visualization (Three.js) with 10 WLED bars + 4 movers |
-| **🤖 Claude Control** | 50+ JSON-RPC tools—ask Claude to generate light shows naturally |
-| **💾 Export** | QLC+ XML, CSV clips, frame-by-frame DMX |
-| **🔌 Multi-Project** | Organize shows by project with separate rigs & timelines |
+**Requisitos:** Python 3.11+, Windows 10/11 (Linux/macOS sin garantía). Node 18+ solo si vas a
+recompilar el frontend.
 
----
-
-## 📋 Key Info
-
-- **Requires**: Python 3.11+, Windows 10+ (Linux/macOS experimental)
-- **Hardware**: Optional WLED bars (Art-Net) + DMX fixtures
-- **License**: **PPL 3.0** — Free for personal/educational, requires license for commercial use
-- **Tests**: 432/432 passing, 92.6% coverage
-
----
-
-## 🎯 Getting Started (2 Steps)
-
-### 1. Install
 ```powershell
 git clone https://github.com/guillegar/show_designer.git
 cd show_designer
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+
+python -m venv venv311
+.\venv311\Scripts\Activate.ps1
 pip install -r requirements.txt
+
+python -m server.main          # → http://localhost:8000
 ```
 
-### 2. Run
+Abre **http://localhost:8000** en el navegador. Eso es todo: el backend sirve el frontend ya
+compilado (`web/dist`).
+
+**Desarrollo del frontend** (hot-reload, opcional):
+
 ```powershell
-python -m server.main
-# Then open http://localhost:8000 in your browser
+cd web
+npm install
+npm run dev                    # → http://localhost:5173 (proxea los WebSocket a :8000)
+npm run build                  # recompila web/dist
 ```
 
-**Full guide**: [Installation →](https://guillegar.github.io/show_designer/installation/)
+**Launchers (Windows):** `Luces.bat` (reinicio limpio + abre el navegador), `Cerrar Luces.bat`
+(apaga). Variantes que arrancan un show concreto: `Luces Espana.bat`, `Luces Barras.bat`,
+`Luces Red Sun.bat`.
+
+Guía detallada: [`docs/installation.md`](docs/installation.md) · [`docs/quickstart.md`](docs/quickstart.md)
 
 ---
 
-## 🖥️ The UI (web, 4 views)
+## 🖥️ La interfaz (web)
 
-Runs in your browser at http://localhost:8000 (served by the headless backend):
+Una sola página en el navegador, con pestañas:
 
-1. **🎨 Timeline** — Design your show with drag-drop effects
-2. **🟢 Live** — Live control + transport
-3. **🎵 Analyzer** — Audio analysis with beats, drops, sections
-4. **🎯 Patch** — Rig editor for fixtures (+ 3D viewer)
+| Pestaña | Para qué |
+|---------|----------|
+| **Proyectos** | Galería de shows; intercambiar componentes (canción / rig / secuencia / presets / auto-VJ), crear y copiar |
+| **Timeline** | Diseñar el show: *drag-drop* de efectos, capas, patterns, marcadores, grupos, waveform |
+| **Live** | Directo: transporte, macros, cues, grid de performance, render offline, MIDI/OSC |
+| **Analyzer** | Análisis de audio: beats, secciones, BPM, tonalidad |
+| **Patch** | Editor de rig: fixtures, mapa DMX, destinos Art-Net/sACN/USB, posición 3D |
+| **Viewer3D / Preview** | Visualización 3D (Three.js) y preview 2D del frame en tiempo real |
 
-**Learn more**: [UI Guide →](https://guillegar.github.io/show_designer/usage/ui-guide/)
-
----
-
-## 🔌 Hardware Support
-
-| Hardware | Status | Notes |
-|----------|--------|-------|
-| **10 WLED Bars** | ✅ Ready | 93 LEDs each, Art-Net universes 1-10 |
-| **4 Moving Heads** | ✅ Ready | 16 channels each, universe 11 |
-| **DMX Fixtures** | ✅ Ready | Art-Net to RS485 converter needed |
-
-**Setup guide**: [Hardware →](https://guillegar.github.io/show_designer/hardware/)
+Guía: [`docs/usage/ui-guide.md`](docs/usage/ui-guide.md) · Atajos: [`docs/usage/shortcuts.md`](docs/usage/shortcuts.md)
 
 ---
 
-## 🧪 Quality Assurance
+## 🔌 Hardware y salidas
 
-- **432 tests** — All passing ✅
-- **92.6% coverage** — Well-tested code
-- **GitHub Actions CI** — Automated testing on every push
-- **Stable v1.10 (web)** — Production-ready
+| Salida | Estado | Notas |
+|--------|--------|-------|
+| **Tiras WLED** | ✅ | p. ej. 10 barras de 93 LEDs en universos Art-Net 1–10 |
+| **Art-Net** | ✅ | unicast por universo, *routing* en `output_targets.json` |
+| **sACN (E1.31)** | ✅ | unicast o multicast |
+| **ENTTEC Open DMX (USB)** | ✅ | framing ENTTEC vía `pyserial` |
+| **Fixtures DMX (movers/wash/beam)** | ✅ | perfiles GDTF o JSON |
 
-**Testing guide**: [Development →](https://guillegar.github.io/show_designer/development/testing/)
+El *routing* físico (universo → WLED / nodo Art-Net / sACN / USB / simulación) vive en
+`output_targets.json`, **separado** del rig (`rig.json`). Guía: [`docs/hardware.md`](docs/hardware.md).
 
 ---
 
-## 🤖 Claude Integration
+## 🤖 Control por Claude (MCP)
 
-Show Designer Pro integrates seamlessly with Claude Code:
+El backend expone el mismo JSON-RPC del dispatcher en `:9876` (compat MCP), así que Claude puede
+controlar el show con `mcp__show-control__*` (configurado en `.mcp.json`).
 
 ```
-You: "Add a 30-second drop effect every 4 bars"
-Claude: [calls mcp__show-control__generate_section]
-Result: Clips created automatically ✅
+Tú:     «añade un drop de estrobo cada 4 compases en el estribillo»
+Claude: [genera los clips vía el dispatcher]   →  aparecen en el timeline ✅
 ```
 
-50+ MCP tools available for:
-- Timeline control (play, pause, seek)
-- Clip creation & editing
-- Audio analysis & features
-- Fixture management
-- Show generation
-
-**Learn more**: [Claude Control →](https://guillegar.github.io/show_designer/advanced/mcp/)
+Detalle: [`docs/advanced/mcp.md`](docs/advanced/mcp.md).
 
 ---
 
-## 📦 Project Structure
+## 🧪 Calidad y tests
+
+- **1043 tests Python** (pytest) + **36 tests de frontend** (Vitest) — verdes.
+- Frontend con **TypeScript estricto** (`tsc -b` limpio) + build de producción (Vite).
+- Benchmarks de rendimiento marcados `@pytest.mark.bench` (presupuesto de latencia por frame).
+- **CI** (GitHub Actions): el frontend se compila y testea en cada push — [`.github/workflows/frontend-ci.yml`](.github/workflows/frontend-ci.yml). La suite Python se ejecuta localmente (deps de audio pesadas).
+
+```powershell
+pytest tests/                         # suite Python
+pytest tests/test_session.py -v       # un archivo
+cd web; npx vitest run; npm run build # frontend
+```
+
+Más detalle: [`docs/development/testing.md`](docs/development/testing.md).
+
+---
+
+## 📦 Estructura
 
 ```
 show_designer/
-├── src/core/              # Timeline, effects, show engine
-├── src/analysis/          # Audio analysis
-├── src/io/                # Loaders, exporters, output routing
-├── src/mcp/               # Claude control (JSON-RPC bridge)
-├── server/                # Headless backend (FastAPI + asyncio tick @ :8000)
-├── web/                   # React + TS frontend (+ public/v3d 3D viewer)
-├── tests/                 # 432 pytest tests
-├── plugins/effects/       # Custom effect plugins
-├── profiles/              # Fixture definitions
-└── projects/              # Your shows
+├── src/core/         # show_engine, timeline_model, fixtures, effects_engine, channel_effects
+├── src/analysis/     # análisis de audio (librosa + madmom)
+├── src/io/           # loaders GDTF, OutputRouter, project_manager, exporters
+├── src/mcp/          # bridge JSON-RPC (:9876) + servidor FastMCP
+├── server/           # backend headless: web.py, dispatcher.py, session.py, tick.py …
+├── web/              # frontend React + TS + Vite  (web/public/v3d = visor 3D)
+├── plugins/effects/  # plugins de efectos (IDs ≥1000, autodescubiertos)
+├── profiles/         # perfiles de fixture (WLED + GDTF)
+├── projects/         # shows: el_taser, el_taser_barras, himno_espana, pista_patinaje, red_sun
+├── tests/            # pytest
+└── docs/             # documentación (MkDocs)
 ```
 
-**Full architecture**: [Architecture Guide →](https://guillegar.github.io/show_designer/advanced/architecture/)
-
----
-
-## 🛠️ Contributing
-
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) or the [Contributing Guide](https://guillegar.github.io/show_designer/development/contributing/) for:
-
-- How to report bugs
-- How to submit features
-- Development setup
-- Testing requirements
-- Code style guidelines
-
-**Good first issue?** Look for [`good first issue`](https://github.com/guillegar/show_designer/issues) labels.
-
----
-
-## 📚 Documentation
-
-**Full documentation available**: [guillegar.github.io/show_designer](https://guillegar.github.io/show_designer/)
-
-- [Quick Start](https://guillegar.github.io/show_designer/quickstart/) — 5 minutes
-- [Installation](https://guillegar.github.io/show_designer/installation/) — Detailed setup
-- [Features](https://guillegar.github.io/show_designer/features/) — What you can do
-- [UI Guide](https://guillegar.github.io/show_designer/usage/ui-guide/) — The 4 tabs
-- [Keyboard Shortcuts](https://guillegar.github.io/show_designer/usage/shortcuts/) — Speed up your workflow
-- [Plugins](https://guillegar.github.io/show_designer/advanced/plugins/) — Create custom effects
-- [FAQ](https://guillegar.github.io/show_designer/faq/) — Common questions
-- [Architecture](https://guillegar.github.io/show_designer/advanced/architecture/) — Deep dive
-- And more...
-
----
-
-## 💬 Support
-
-- **Issues**: [GitHub Issues](https://github.com/guillegar/show_designer/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/guillegar/show_designer/discussions)
-- **Email**: guille@example.com
-- **Docs**: [Complete guide](https://guillegar.github.io/show_designer/)
-
----
+Mapa completo: [`STRUCTURE.md`](STRUCTURE.md). Arquitectura y decisiones: [`CLAUDE.md`](CLAUDE.md)
+y [`docs/advanced/architecture.md`](docs/advanced/architecture.md).
 
 ---
 
 ## 📚 Documentación
 
-- **[CLAUDE.md](CLAUDE.md)** — Arquitectura profunda, decisiones de diseño, estado actual (v1.10+)
-- **[STRUCTURE.md](STRUCTURE.md)** — Organización de directorios y archivos
-- **[SETUP.md](SETUP.md)** — Instalación paso a paso
-- **Checkpoints**: historial de `git` (un commit por fase/feature; sin carpeta `versions/`)
+| Doc | Contenido |
+|-----|-----------|
+| [`CLAUDE.md`](CLAUDE.md) | Arquitectura profunda, decisiones de diseño y estado actual (doc de retoma) |
+| [`STRUCTURE.md`](STRUCTURE.md) | Organización de directorios y archivos |
+| [`SETUP.md`](SETUP.md) | Instalación paso a paso |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Cómo contribuir, flujo de PRs y tests |
+| [`docs/`](docs/index.md) | Sitio completo (MkDocs): instalación, uso, plugins, API REST, ADRs… |
 
 ---
 
-## 🖥️ Requisitos del sistema
+## 🤝 Contribuir
 
-- **Python**: 3.11 o superior
-- **OS**: Windows 10+ (probado en Windows 11), compatible con Linux/macOS (sin garantía)
-- **Hardware WLED (opcional)**: 10 barras WLED en red local (Art-Net compatible)
-- **Hardware DMX (opcional)**: nodo Art-Net→DMX + fixtures convencionales
-
-**Dependencias principales** (ver `requirements.txt`):
-- fastapi + uvicorn + websockets (backend web headless)
-- librosa + madmom (análisis de audio)
-- demucs (separación de stems)
-- pygdtf (soporte GDTF para fixtures)
-- pygame (reproducción de audio / reloj maestro)
-
----
-
-## 🤝 Contribuciones
-
-Las contribuciones son bienvenidas. Ver [CONTRIBUTING.md](CONTRIBUTING.md) para:
-- Cómo reportar bugs
-- Cómo hacer pull requests
-- Estándares de código
-- Proceso de testing
+Las contribuciones son bienvenidas — lee [`CONTRIBUTING.md`](CONTRIBUTING.md). En resumen: crea una
+rama (`fix/…` o `feature/…`), mantén `pytest tests/` en verde, líneas ≤ 120 columnas, y un commit
+por cambio coherente. Dudas o ideas grandes → abre una
+[Discussion](https://github.com/guillegar/show_designer/discussions).
 
 ---
 
 ## 📄 Licencia
 
-**Prosperity Public License 3.0.0 (PPL)**
+**Prosperity Public License 3.0.0** — libre para uso personal, educativo y open-source; el uso
+comercial requiere licencia (incluye periodo de prueba de 30 días). Términos completos en
+[`LICENSE`](LICENSE).
 
-| Uso | Permitido | Nota |
-|-----|-----------|------|
-| Personal / Educativo | ✅ Libre | Siempre |
-| Open Source / Comunidad | ✅ Libre | Mantener crédito |
-| Comercial (prueba) | ✅ 30 días | Período de evaluación |
-| Comercial (producción) | ❌ Requiere licencia | Contacta a guille@example.com |
+**Créditos de terceros** (Three.js, pygdtf, …): [`web/public/v3d/CREDITS.md`](web/public/v3d/CREDITS.md).
 
-Ver [LICENSE](LICENSE) para términos completos.
+---
 
-**Atribuciones**: `src/viewer3d/CREDITS.md`
+<sub>Show Designer Pro — código original propio. Las dependencias se usan como librerías y se acreditan.</sub>

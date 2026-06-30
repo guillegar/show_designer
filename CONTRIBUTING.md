@@ -33,7 +33,7 @@ Sé respetuoso y constructivo. Este es un proyecto abierto para todos.
 
 ### Durante el desarrollo
 
-- **Tests**: asegúrate de que `pytest tests/ -v` pase (363 tests)
+- **Tests**: asegúrate de que `pytest tests/ -v` pase (1043 tests) y, si tocas el frontend, `cd web && npx vitest run` (36)
 - **Cobertura**: target mínimo 60%, ideal 92%+ (run con `pytest --cov`)
 - **Formato**: sin formatters configurados, pero:
   - Máximo 120 caracteres por línea
@@ -75,18 +75,16 @@ Tests nuevos deben:
 
 Cambios grandes (que afecten a múltiples módulos):
 - Documenta en el PR: por qué y qué se gana
-- Sé consciente de acoplamientos (lee `CLAUDE.md` sección "Decisiones tomadas")
+- Sé consciente de acoplamientos (lee `CLAUDE.md` → "Arquitectura — bajo acoplamiento")
 - Prueba en el visualizador 3D y en los tests
 
 ## Release workflow (solo author)
 
+Los **checkpoints son git** (un commit por fase/feature; ya NO existe la carpeta `versions/`).
+
 1. **Finaliza la feature** (tests verdes, PR merged)
-2. **Crea versión checkpoint** en `versions/vX.Y_pN_xxx/` con:
-   - Snapshot de archivos críticos
-   - `CHANGELOG.md` detallado
-   - SHA-256 de archivos clave
-   - Comando de rollback
-3. **Taguea en git**: `git tag v1.9-F2`
+2. **Commit por fase** con mensaje claro (ej. `roadmap-v4 fase L3: multiusuario`)
+3. **Taguea hitos**: `git tag v2.0`
 4. **Pushea**: `git push origin --tags`
 
 ## Preguntas?
