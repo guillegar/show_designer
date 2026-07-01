@@ -21,7 +21,6 @@ show-designer/
 │   ├── mcp/                  🤖 mcp_bridge (WS :9876) + mcp_show_server (FastMCP stdio)
 │   ├── core/undo.py          ↩ UndoManager (lo consume el server; hallazgo 9)
 │   ├── legacy_show.py        render_stub/BARS legacy de El Taser, fuera del core (hallazgo 10)
-│   ├── plugins/              🔌 (residuo histórico — los plugins activos están en /plugins)
 │   └── _paths.py             PROJECT_DIR (raíz del repo)
 │   (NO hay src/ui, src/utils, src/viewer3d: la UI PyQt5 se retiró en la Fase 8 — la web es la única UI)
 │
@@ -55,8 +54,7 @@ show-designer/
 │                                 timeseries.npz y stems/ NO se versionan — ver .gitignore)
 ├── scripts/                  ← utilidades one-off (create_taser_barras, create_red_sun_show, analyze_red_sun, …)
 ├── tests/                    ← ✅ 1043 tests verde (pytest) + 36 Vitest (web/)
-├── docs/                     ← MkDocs (mkdocs.yml); detalle profundo en docs/advanced/
-├── data/                     ← (legacy, casi vacío)
+├── docs/                     ← MkDocs (mkdocs.yml; docs/roadmap/ = roadmaps completados)
 │
 ├── CLAUDE.md                 ← doc de retoma (arquitectura + decisiones + estado auditoría)
 ├── STRUCTURE.md              ← este archivo

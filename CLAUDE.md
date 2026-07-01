@@ -11,6 +11,15 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 
 Estado a **2026-06-30** · **v2.0 · 1043 tests Python + 36 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1+N2 APLICADAS · BLOQUE N COMPLETO · HARDENING SEGURIDAD APLICADO · PERF PREVIEW/VIEWER3D APLICADO · EDITOR FIXTURE PATCH APLICADO · PATCH UX PRO APLICADO · FASE 2 EDICIÓN DE PROYECTOS APLICADA** — backend headless + frontend React + REST API + webhooks + multiusuario + tap BPM + show generator + historial de gestos + marketplace de plugins + bundle backup/restore + hardening de seguridad (zip slip, marketplace SSRF/RCE, timing-safe tokens, webhook SSRF) + editor completo de fixture desde Patch + Patch UX profesional (mapa DMX, siguiente libre, duplicar, búsqueda, destinos Art-Net).
 **A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1+N2 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger + exportación PDF/CSV + editor de patch visual. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+  - ✅ **LIMPIEZA + MIGRACIÓN LEGACY CERRADA (2026-07-01)**: retirado el andamiaje pre-`projects/`.
+    `_h_save_rig` (`mcp_bridge.py`) ahora guarda en el `rig.json` del **proyecto activo** (antes, sin
+    `path`, escribía en el `fixtures.json` raíz — bug). `ProjectManager.ensure_migrated` ya NO copia
+    legacy: si no hay proyectos crea uno vacío por defecto (borradas constantes `LEGACY_*` + `import
+    shutil`). Fallbacks de rig en `session.py` simplificados (rig del proyecto → `build_default_wled_rig`,
+    sin la rama intermedia a `DEFAULT_RIG_FILE`). **Borrados**: `fixtures.json` + `show_timeline.json`
+    raíz, `src/plugins/` (paquete muerto, nadie lo importaba), `data/` (vacío), 3 PNG de preview sueltos
+    (`red_sun_*.png`, gitignoreados). Roadmaps completados movidos a `docs/roadmap/`. Tests:
+    `test_project_manager` simplificado (fuera los 2 tests de copia-legacy). Suite afectada verde.
   - ✅ **REVISIÓN COMPLETA — FIXES (2026-06-30)**: 6 hallazgos de una revisión de código
     completa, aplicados en la rama `review-fixes` (un commit por fix). (1) **La waveform ya no
     bloquea el tick**: `_h_get_waveform` no hace `librosa.load` en el event loop — si no hay
@@ -243,7 +252,7 @@ Estado a **2026-06-30** · **v2.0 · 1043 tests Python + 36 Vitest · ROADMAP v2
 
 ## 0. TL;DR
 
-- 🗺️ **ROADMAP v2 COMPLETO (2026-06-13): `ROADMAP.md`** — "El Secuenciador" (nivel FL
+- 🗺️ **ROADMAP v2 COMPLETO (2026-06-13): `docs/roadmap/ROADMAP.md`** — "El Secuenciador" (nivel FL
   Studio): 15 fases en 4 bloques (Composición/Show/Directo/Impro). Tag: `v1.10-roadmap-v2`.
   700 tests verdes. Invariantes I1-I5 respetados en todas las fases.
   - ✅ **E4 APLICADA (2026-06-13, ROADMAP v3)**: test de output y patch visual. `session.blackout_override` (bool, no muta mixer), `session._identify` (dict fixture_id→t_expires), `session._test_universes` (dict universe→(r,g,b)). Handlers: `identify_fixture` (blanco 2 s, auto-off asyncio), `test_universe` (toggle universo con color), `blackout` (override instantáneo, evento stream `blackout_changed`), `get_output_status` (estado unificado). `FixtureTestPanel` en Patch.tsx: mapa de barras con 🔦 Identify + 🎨 Test + color picker. BLACKOUT toggle grande en cabecera del panel. 8 tests nuevos. **732 verdes.**

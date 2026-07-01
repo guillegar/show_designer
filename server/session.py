@@ -131,11 +131,9 @@ class ShowSession:
 
         # ── FixtureRig ───────────────────────────────────────────────────────
         try:
-            from src.core.fixtures import FixtureRig, build_default_wled_rig, DEFAULT_RIG_FILE
-            rig_source = rig_file if rig_file.is_file() else \
-                (DEFAULT_RIG_FILE if DEFAULT_RIG_FILE.is_file() else None)
-            if rig_source:
-                self.fixture_rig = FixtureRig.load(rig_source)
+            from src.core.fixtures import FixtureRig, build_default_wled_rig
+            if rig_file.is_file():
+                self.fixture_rig = FixtureRig.load(rig_file)
             else:
                 self.fixture_rig = build_default_wled_rig()
             print(f"[session] Rig: {len(self.fixture_rig.fixtures)} fixtures")
@@ -416,12 +414,10 @@ class ShowSession:
         `self.fixture_rig` / `show_engine.rig` fresco en cada frame, así que cambiar
         el rig en caliente es seguro. Devuelve el nº de fixtures cargados.
         """
-        from src.core.fixtures import FixtureRig, build_default_wled_rig, DEFAULT_RIG_FILE
+        from src.core.fixtures import FixtureRig, build_default_wled_rig
         src = Path(rig_file) if rig_file else None
         if src is not None and src.is_file():
             rig = FixtureRig.load(src)
-        elif DEFAULT_RIG_FILE.is_file():
-            rig = FixtureRig.load(DEFAULT_RIG_FILE)
         else:
             rig = build_default_wled_rig()
         self.fixture_rig = rig

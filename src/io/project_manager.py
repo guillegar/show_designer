@@ -10,29 +10,16 @@ Estructura de un proyecto:
 
 El audio queda donde esté (ruta absoluta en project.json).
 El análisis sigue en analizadas/<slug>/ (no se mueve).
-
-En el primer arranque tras esta versión el manager auto-migra:
-  show_timeline.json -> projects/el_taser/show.json
-  fixtures.json      -> projects/el_taser/rig.json
-y crea el project.json con los paths actuales.
 """
 from __future__ import annotations
 
 import json
-import shutil
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import List, Optional
 
 from src._paths import PROJECT_DIR
 PROJECTS_DIR  = PROJECT_DIR / 'projects'
-LEGACY_SHOW   = PROJECT_DIR / 'show_timeline.json'
-LEGACY_RIG    = PROJECT_DIR / 'fixtures.json'
-
-# Slug del proyecto migrado desde el legacy
-LEGACY_SLUG   = 'el_taser'
-LEGACY_AUDIO  = PROJECT_DIR / 'El Taser de Mama Remix.mp3'
-LEGACY_ANALYSIS_SLUG = 'el_taser_de_mama_remix'
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -203,16 +190,16 @@ class ProjectManager:
             if self._current and self._current.slug == slug:
                 self._current = p
 
-    # ── Migración desde legacy ────────────────────────────────────────────────
+    # ── Proyecto por defecto ──────────────────────────────────────────────────
 
     def ensure_migrated(self) -> Project:
-        """
-        Si no existe ningún proyecto, crea 'el_taser' migrando los archivos legacy.
-        Siempre devuelve el proyecto a cargar por defecto.
+        """Devuelve el proyecto a cargar por defecto.
 
-        Estrategia:
           1. Si hay proyectos -> devuelve el primero (o el último usado).
-          2. Si no hay proyectos -> migra y devuelve 'el_taser'.
+          2. Si no hay ninguno -> crea un proyecto vacío por defecto.
+
+        (La migración legacy desde `show_timeline.json`/`fixtures.json` se retiró:
+        todos los proyectos viven ya en `projects/<slug>/`.)
         """
         projects = self.list_projects()
         if projects:
@@ -222,38 +209,20 @@ class ProjectManager:
             self._current = projects[0]
             return projects[0]
 
-        # ── Primera vez: migrar legacy ────────────────────────────────────────
-        print("[project] Primera vez — migrando archivos legacy a projects/el_taser/")
-
-        dest = PROJECTS_DIR / LEGACY_SLUG
+        # Sin proyectos (instalación vacía): crear uno mínimo por defecto.
+        dest = PROJECTS_DIR / 'nuevo_proyecto'
         dest.mkdir(parents=True, exist_ok=True)
-
-        # Copiar show_timeline.json -> show.json
-        if LEGACY_SHOW.is_file():
-            shutil.copy2(LEGACY_SHOW, dest / 'show.json')
-            print(f"[project] {LEGACY_SHOW.name} -> projects/{LEGACY_SLUG}/show.json")
-        else:
-            # Crear show vacío mínimo
-            (dest / 'show.json').write_text(
-                '{"version":2,"duration_ms":273000,"clips":[],"groups":[],"cue_points":[]}',
-                encoding='utf-8')
-
-        # Copiar fixtures.json -> rig.json
-        if LEGACY_RIG.is_file():
-            shutil.copy2(LEGACY_RIG, dest / 'rig.json')
-            print(f"[project] {LEGACY_RIG.name} -> projects/{LEGACY_SLUG}/rig.json")
-        else:
-            (dest / 'rig.json').write_text('{"fixtures":[]}', encoding='utf-8')
-
-        # Crear project.json
-        p = self.create_project(
-            slug           = LEGACY_SLUG,
-            name           = 'El Taser de Mamá Remix',
-            audio_path     = str(LEGACY_AUDIO),
-            analysis_slug  = LEGACY_ANALYSIS_SLUG,
-            notes          = 'Migrado automáticamente desde archivos legacy v1.7',
+        (dest / 'show.json').write_text(
+            '{"version":2,"duration_ms":0,"clips":[],"groups":[],"cue_points":[]}',
+            encoding='utf-8')
+        (dest / 'rig.json').write_text('{"fixtures":[]}', encoding='utf-8')
+        return self.create_project(
+            slug          = 'nuevo_proyecto',
+            name          = 'Nuevo proyecto',
+            audio_path    = '',
+            analysis_slug = '',
+            notes         = '',
         )
-        return p
 
     # ── Persistencia del show y rig activos ──────────────────────────────────
 

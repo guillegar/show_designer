@@ -89,3 +89,9 @@ analizadas/**/stems/
 # Temporales y salidas sueltas
 *.tmp
 _test_out.txt
+
+# Previews de render sueltas en la raíz (regenerables por scripts/_render_*.py)
+/red_sun_*.png
+
+# Legacy retirado (migración a projects/<slug>/ completada) — no recrear en git
+/fixtures.json

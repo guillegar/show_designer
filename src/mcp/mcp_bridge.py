@@ -162,13 +162,18 @@ def _h_list_fixture_profiles(app, params):
 
 
 def _h_save_rig(app, params):
-    """Persiste el rig actual a fixtures.json."""
+    """Persiste el rig actual al rig.json del proyecto activo (o al path indicado)."""
     rig = getattr(app, 'fixture_rig', None)
     if rig is None:
         return {"ok": False, "error": "no hay rig cargado"}
     try:
-        from src.core.fixtures import DEFAULT_RIG_FILE
-        rig.save(params.get('path') or DEFAULT_RIG_FILE)
+        path = params.get('path')
+        if not path:
+            proj = getattr(app, 'project', None)
+            path = str(proj.rig_file) if proj is not None else None
+        if not path:
+            return {"ok": False, "error": "no hay proyecto activo ni path"}
+        rig.save(path)
         return {"ok": True, "fixtures": len(rig.fixtures)}
     except Exception as e:
         return {"ok": False, "error": str(e)}

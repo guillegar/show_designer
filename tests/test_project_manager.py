@@ -224,63 +224,24 @@ def test_ensure_migrated_returns_first_when_existing(tmp_path):
         pm_module.PROJECTS_DIR = old
 
 
-def test_ensure_migrated_creates_el_taser_if_empty(tmp_path):
-    """Si no hay proyectos, ensure_migrated crea el_taser."""
+def test_ensure_migrated_creates_default_if_empty(tmp_path):
+    """Sin proyectos, ensure_migrated crea un proyecto por defecto.
+
+    (La migración legacy desde show_timeline.json/fixtures.json se retiró.)
+    """
     from src.io import project_manager as pm_module
-    old_pdir  = pm_module.PROJECTS_DIR
-    old_slug  = pm_module.LEGACY_SLUG
-    old_show  = pm_module.LEGACY_SHOW
-    old_rig   = pm_module.LEGACY_RIG
-    old_audio = pm_module.LEGACY_AUDIO
+    old_pdir = pm_module.PROJECTS_DIR
     pm_module.PROJECTS_DIR = tmp_path / 'projects'
     (tmp_path / 'projects').mkdir()
-    # Sin archivos legacy (ensure_migrated crea vacíos)
-    pm_module.LEGACY_SHOW  = tmp_path / 'show_timeline.json'
-    pm_module.LEGACY_RIG   = tmp_path / 'fixtures.json'
-    pm_module.LEGACY_AUDIO = tmp_path / 'audio.mp3'
-    pm_module.LEGACY_SLUG  = 'test_legacy'
     try:
         pm = ProjectManager()
         proj = pm.ensure_migrated()
-        assert proj.slug == 'test_legacy'
-        assert (tmp_path / 'projects' / 'test_legacy' / 'project.json').is_file()
+        assert proj is not None
+        assert (pm_module.PROJECTS_DIR / proj.slug / 'project.json').is_file()
+        assert (pm_module.PROJECTS_DIR / proj.slug / 'show.json').is_file()
+        assert (pm_module.PROJECTS_DIR / proj.slug / 'rig.json').is_file()
     finally:
         pm_module.PROJECTS_DIR = old_pdir
-        pm_module.LEGACY_SLUG  = old_slug
-        pm_module.LEGACY_SHOW  = old_show
-        pm_module.LEGACY_RIG   = old_rig
-        pm_module.LEGACY_AUDIO = old_audio
-
-
-def test_ensure_migrated_copies_legacy_show(tmp_path):
-    """ensure_migrated copia show_timeline.json si existe."""
-    from src.io import project_manager as pm_module
-    old_pdir  = pm_module.PROJECTS_DIR
-    old_slug  = pm_module.LEGACY_SLUG
-    old_show  = pm_module.LEGACY_SHOW
-    old_rig   = pm_module.LEGACY_RIG
-    old_audio = pm_module.LEGACY_AUDIO
-    pm_module.PROJECTS_DIR = tmp_path / 'projects'
-    (tmp_path / 'projects').mkdir()
-    legacy_show = tmp_path / 'show_timeline.json'
-    legacy_show.write_text('{"version":2,"clips":[]}', encoding='utf-8')
-    pm_module.LEGACY_SHOW  = legacy_show
-    pm_module.LEGACY_RIG   = tmp_path / 'fixtures.json'
-    pm_module.LEGACY_AUDIO = tmp_path / 'audio.mp3'
-    pm_module.LEGACY_SLUG  = 'migrated'
-    try:
-        pm = ProjectManager()
-        proj = pm.ensure_migrated()
-        dest_show = tmp_path / 'projects' / 'migrated' / 'show.json'
-        assert dest_show.is_file()
-        data = json.loads(dest_show.read_text(encoding='utf-8'))
-        assert data['version'] == 2
-    finally:
-        pm_module.PROJECTS_DIR = old_pdir
-        pm_module.LEGACY_SLUG  = old_slug
-        pm_module.LEGACY_SHOW  = old_show
-        pm_module.LEGACY_RIG   = old_rig
-        pm_module.LEGACY_AUDIO = old_audio
 
 
 # ── 4. save_show / save_rig ───────────────────────────────────────────────────
