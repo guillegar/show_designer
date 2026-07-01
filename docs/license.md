@@ -34,7 +34,7 @@ Show Designer Pro is licensed under the **Prosperity Public License 3.0.0**.
 
 If you want to use Show Designer Pro commercially:
 
-1. **Contact**: guille@example.com
+1. **Contact**: guillermo.pondal@gmail.com
 2. **Subject**: "Commercial License Request - Show Designer Pro"
 3. **Include**: Your use case and expected volume
 4. We'll discuss terms and pricing
@@ -84,7 +84,7 @@ A: Great! All contributions are welcome under the same PPL license.
 A: Yes, if it's non-profit. If the church charges attendees, it might be considered commercial—contact us to be sure.
 
 **Q: I want to build a SaaS around this. What do I do?**
-A: Contact guille@example.com with your business plan. We can discuss commercial licensing.
+A: Contact guillermo.pondal@gmail.com with your business plan. We can discuss commercial licensing.
 
 **Q: What if I don't follow the license?**
 A: You lose the right to use the software. We may pursue legal action if necessary.
@@ -99,4 +99,4 @@ Or visit: [prosperitypubliclicense.com](https://prosperitypubliclicense.com/)
 
 ---
 
-**Questions?** Email: guille@example.com
+**Questions?** Email: guillermo.pondal@gmail.com

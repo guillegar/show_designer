@@ -292,7 +292,7 @@ Contributors don't need to do this—the maintainer handles releases.
 - 📖 Read [Development Setup](setup.md)
 - 📖 Read [Architecture Guide](../advanced/architecture.md)
 - 💬 [GitHub Discussions](https://github.com/guillegar/show_designer/discussions)
-- 📧 Email: guille@example.com
+- 📧 Email: guillermo.pondal@gmail.com
 
 ## What's a "good first issue"?
 

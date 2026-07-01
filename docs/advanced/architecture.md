@@ -33,8 +33,8 @@ High-level overview of Show Designer Pro's architecture. For detailed technical 
 │   └── FixtureRig (collection of fixtures)          │
 │                                                      │
 │ Effects Library                                      │
-│   ├── 51 Pixel Effects (LED strips)                │
-│   ├── 24 Channel Effects (DMX)                     │
+│   ├── Pixel Effects (LED strips)                   │
+│   ├── Channel Effects (DMX)                        │
 │   └── Plugin System (custom effects)               │
 │                                                      │
 │ Audio System                                         │
@@ -261,16 +261,19 @@ def test_router_sends_correct_universes():
     ...
 ```
 
-**Target**: 95%+ coverage. Currently 92.6%.
+**Target**: 95%+ coverage.
 
-## Future Architecture Changes
+## Architecture Evolution
 
-**Planned for v1.10+**:
+**Done (v1.10 → v2.0)**:
 
-- Headless backend (remove Qt dependency)
-- Web UI (React + Vite)
-- Async/await throughout
-- WebSocket real-time collab
+- Headless backend (Qt removed — the web is the only UI)
+- Web UI (React + Vite) with JSON-RPC over WebSocket
+- Async/await throughout (asyncio tick loop + FastAPI)
+
+**Possible future work**:
+
+- WebSocket real-time collaboration
 - Distributed rendering (multiple backends)
 
 ---
@@ -294,7 +297,7 @@ def test_router_sends_correct_universes():
 
 ## Design Decisions (& Why)
 
-See [CLAUDE.md Section 4](https://github.com/guillegar/show_designer/blob/master/CLAUDE.md#4-decisiones-tomadas-y-el-porqué) for detailed rationale on:
+See [CLAUDE.md](https://github.com/guillegar/show_designer/blob/main/CLAUDE.md) for detailed rationale on:
 
 - Low coupling between components
 - Python headless + React web (no Chromium embebido)
@@ -305,4 +308,4 @@ See [CLAUDE.md Section 4](https://github.com/guillegar/show_designer/blob/master
 
 ---
 
-**Questions?** Check the [FAQ](../faq.md) or email guille@example.com
+**Questions?** Check the [FAQ](../faq.md) or email guillermo.pondal@gmail.com

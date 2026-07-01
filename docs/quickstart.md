@@ -4,162 +4,79 @@ Get Show Designer Pro running in **5 minutes**.
 
 ## Prerequisites
 
-  **Python 3.11+** ([download](https://www.python.org/downloads/))
-  **Git** ([download](https://git scm.com/))
-  **Windows 10+** or Linux/macOS (experimental)
+- **Python 3.11+** ([download](https://www.python.org/downloads/))
+- **Git** ([download](https://git-scm.com/))
+- **Windows 10/11** (Linux/macOS experimental)
+- **Node 18+** — only if you plan to recompile the frontend
 
 ## Installation
-
-### 1. Clone the repository
 
 ```powershell
 git clone https://github.com/guillegar/show_designer.git
 cd show_designer
+
+python -m venv venv311
+.\venv311\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
 
-### 2. Create virtual environment
+Main dependencies (see `requirements.txt`): librosa + madmom (audio analysis),
+fastapi + uvicorn + websockets (backend), pygdtf (GDTF fixtures), pygame (audio
+playback), Pillow, sacn, pyserial, python-osc. `demucs` (stem separation) is optional.
+
+## Run
 
 ```powershell
-python  m venv venv
-.\venv\Scripts\Activate.ps1
+python -m server.main
 ```
 
-### 3. Install dependencies
+Then open **http://localhost:8000** in your browser — the backend serves the
+pre-built frontend (`web/dist`). On Windows you can also double-click **`Luces.bat`**
+(clean restart + opens the browser).
 
-```powershell
-pip install  r requirements.txt
-```
-
-This installs:
-  PyQt5 (UI)
-  librosa + madmom (audio analysis)
-  demucs (stem separation)
-  websockets + fastapi (backend)
-  pytest + coverage (testing)
-
-## Running the App
-
-### From terminal
-
-```powershell
-python  m server.main
-```
-
-### From desktop (Windows)
-
-A shortcut **Show Designer Pro.lnk** is created on your Desktop. Double click to run.
-
-## What you'll see
-
-On startup, you'll see:
+On startup you'll see something like:
 
 ```
-[init] Library...        ← Loading 51 pixel effects + plugins
-[init] Waveform...
-[init] Analysis (via AnalysisService)...
-[init] Timeline...
-[init] ShowEngine...
-[+] OutputRouter loaded: 11 routed universes
-[dual] Active project: 'El Taser de Mamá Remix'
-[dual] MCP bridge started on ws://127.0.0.1:9876
-[dual] 3D Viewer started: http://localhost:8000/ (WS :9877)
+[auth] Sin tokens configurados — todos los handlers accesibles sin autenticación
+[web] backend listo · stream + control en :8000 · MCP compat en :9876
 ```
-
-## Open the 3D Viewer
-
-Open your web browser and go to:
-
-```
-http://localhost:8000/
-```
-
-You'll see:
-  10 WLED bars (93 LEDs each)
-  4 moving head wash fixtures
-  Real time light visualization
 
 ## Create your first clip
 
-1. **Go to Timeline tab** (🎨)
-2. **Select a Pixel effect** (left panel, "Pixel" tab, e.g., `rainbow_wave`)
-3. **Draw mode** — Click the effect, cursor changes to a crosshair
-4. **Draw a clip** — Drag horizontally on a bar (track 0 9) to create a clip
-5. **Press Space** — Play!
+1. Go to the **Timeline** tab
+2. Pick a pixel effect from the browser (e.g. `rainbow_wave`) and press **D** (Draw)
+3. Drag horizontally on a bar to create a clip
+4. Press **Space** to play
 
-## Control with Claude
+## Control with Claude (MCP)
 
-If you're using Claude Code:
+If you use Claude Code, the backend exposes the same JSON-RPC on `:9876` (configured
+in `.mcp.json`), so Claude can drive the show with `mcp__show-control__*`:
 
-```python
-# These tools are automatically available:
-mcp__show control__list_clips
-mcp__show control__add_clip
-mcp__show control__play
-mcp__show control__pause
-mcp__show control__analyzer_find_drops
-# ... 50+ more tools
+> "Add 10 flashes on bar 3 every 5 seconds" → Claude creates the clips for you.
+
+## Frontend development (optional)
+
+```powershell
+cd web
+npm install
+npm run dev      # http://localhost:5173 (proxies WebSockets to :8000)
+npm run build    # recompiles web/dist
 ```
-
-Ask Claude: *"Add 10 flashes on bar 3 every 5 seconds"*
-
-Claude will create the clips for you.
-
-## Keyboard Shortcuts
-
-| Key | Action |
-|     |        |
-| **Space** | Play / Pause |
-| **S** | Stop |
-| **Ctrl+S** | Save show |
-| **Ctrl+Z** | Undo |
-| **Ctrl+Shift+Z** | Redo |
-| **D** | Draw mode |
-| **C** | Cut mode |
-| **Escape** | Select mode |
-| **Q** | Toggle snap |
-| **B** | Blackout |
-
-[Full keyboard shortcuts →](usage/shortcuts.md)
-
-## Next Steps
-
-  [📊 Read Features →](features.md)
-  [🏗️ Architecture & Advanced →](advanced/architecture.md)
-  [📚 Full Documentation →](https://github.com/guillegar/show_designer)
-  [🤝 Contributing →](development/contributing.md)
 
 ## Troubleshooting
 
-### Port 9876 already in use
+**Port already in use (`:8000` / `:9876`)** — another instance is running:
 
 ```powershell
-Get Process python | Stop Process  Force
+Get-Process python | Stop-Process -Force
 ```
 
-Then restart the app.
+**ModuleNotFoundError** — activate the venv: `.\venv311\Scripts\Activate.ps1`
 
-### ModuleNotFoundError
+## Next steps
 
-Make sure you activated the virtual environment:
-
-```powershell
-.\venv\Scripts\Activate.ps1
-```
-
-### App is slow / lagging
-
-This is normal on first startup (analyzing audio). Subsequent runs are instant. If persistent:
-
-1. Check CPU usage (should be <20% idle)
-2. Check disk I/O (loading large audio files?)
-3. Try a smaller test project
-
-### Need help?
-
-  [GitHub Issues](https://github.com/guillegar/show_designer/issues)
-  [FAQ](faq.md)
-  [Architecture Guide](advanced/architecture.md)
-
-   
-
-**Stuck?** Check the [Installation](installation.md) page for detailed setup instructions.
+- [Features →](features.md)
+- [UI Guide →](usage/ui-guide.md)
+- [Installation (detailed) →](installation.md)
+- [Architecture →](advanced/architecture.md)

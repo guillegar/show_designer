@@ -1,229 +1,157 @@
 # Installation Guide 📥
 
-Complete step by step installation instructions.
+Complete step-by-step installation instructions.
 
 ## System Requirements
 
 | Component | Minimum | Recommended |
-|           |         |             |
+|-----------|---------|-------------|
 | **OS** | Windows 10 | Windows 11 |
 | **Python** | 3.11 | 3.12 |
 | **RAM** | 4 GB | 8 GB |
 | **Disk** | 2 GB (with venv) | 5 GB |
 
-Linux and macOS are supported but not actively tested.
+Linux and macOS are supported but not actively tested. **Node 18+** is only needed
+to recompile the frontend.
 
 ## Step 1: Install Python
 
 1. Go to [python.org/downloads](https://www.python.org/downloads/)
 2. Download **Python 3.11** or **3.12**
-3. Run installer, **check "Add Python to PATH"**
-4. Click Install
+3. Run the installer and **check "Add Python to PATH"**
 
 Verify:
 ```powershell
-python   version
+python --version
 # Python 3.12.0
 ```
 
 ## Step 2: Install Git
 
-1. Go to [git scm.com](https://git scm.com/)
-2. Download and run installer
-3. Use default options
+Download from [git-scm.com](https://git-scm.com/) and install with defaults.
 
-Verify:
 ```powershell
-git   version
-# git version 2.42.0
+git --version
 ```
 
-## Step 3: Clone the Repository
+## Step 3: Clone the repository
 
 ```powershell
-# Navigate to where you want the project
 cd C:\Users\YourName\Documents
-
-# Clone
 git clone https://github.com/guillegar/show_designer.git
 cd show_designer
 ```
 
-## Step 4: Create Virtual Environment
+## Step 4: Create the virtual environment
 
 ```powershell
-python  m venv venv
+python -m venv venv311
 ```
 
-This creates a `venv/` folder with isolated Python packages.
-
-## Step 5: Activate Virtual Environment
+## Step 5: Activate it
 
 ### Windows (PowerShell)
 ```powershell
-.\venv\Scripts\Activate.ps1
+.\venv311\Scripts\Activate.ps1
 ```
 
-If you get an error about execution policies:
+If PowerShell blocks the script:
 ```powershell
-Set ExecutionPolicy  ExecutionPolicy RemoteSigned  Scope CurrentUser
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
-
-Then try `Activate.ps1` again.
 
 ### Windows (Command Prompt)
 ```cmd
-.\venv\Scripts\activate.bat
+.\venv311\Scripts\activate.bat
 ```
 
 ### Linux/macOS
 ```bash
-source venv/bin/activate
+source venv311/bin/activate
 ```
 
-You should see `(venv)` at the start of your terminal line.
+You should see `(venv311)` at the start of your prompt.
 
-## Step 6: Install Dependencies
+## Step 6: Install dependencies
 
 ```powershell
-pip install  r requirements.txt
+pip install -r requirements.txt
 ```
 
-This installs:
-  **PyQt5** — UI framework
-  **librosa** — audio analysis
-  **madmom** — beat tracking
-  **demucs** — stem separation
-  **pygdtf** — GDTF fixture loader
-  **websockets** — WebSocket server
-  **fastapi** — Web framework
-  **pytest** — Testing
+This installs (see `requirements.txt`):
 
-Wait for installation to complete (~2 3 minutes).
+- **librosa** + **madmom** — audio analysis
+- **fastapi** + **uvicorn** + **websockets** — headless backend
+- **pygdtf** — GDTF fixture loader
+- **pygame** — audio playback (master clock)
+- **Pillow**, **sacn**, **pyserial**, **python-osc** — I/O
+- **pytest** — testing
 
-## Step 7: Verify Installation
+`demucs` (optional stem separation) is not installed by default. Installation
+takes ~2–3 minutes.
+
+## Step 7: Verify
 
 ```powershell
-python  c "import PyQt5; print('PyQt5 OK')"
-python  c "import librosa; print('librosa OK')"
-python  c "import pytest; print('pytest OK')"
+python -c "import librosa; print('librosa OK')"
+python -c "import fastapi; print('fastapi OK')"
+python -c "import pytest; print('pytest OK')"
 ```
 
 All should print "OK".
 
-## Step 8: Run the Application
+## Step 8: Run
 
 ```powershell
-python  m server.main
+python -m server.main
 ```
 
 You should see:
 ```
-[init] Library...
-[init] Waveform...
-[init] Analysis (via AnalysisService)...
-[+] OutputRouter loaded: 11 routed universes
-[dual] MCP bridge started on ws://127.0.0.1:9876
-[dual] 3D Viewer started: http://localhost:8000/
+[auth] Sin tokens configurados — todos los handlers accesibles sin autenticación
+[web] backend listo · stream + control en :8000 · MCP compat en :9876
 ```
 
-## Step 9: Open 3D Viewer
+## Step 9: Open the app
 
-Open your web browser and go to:
-```
-http://localhost:8000/
-```
+Open your browser at **http://localhost:8000/** — you'll see the views
+(Timeline, Live, Analyzer, Patch, Viewer3D) served by the headless backend.
 
-You should see the 3D scene with WLED bars and moving head fixtures.
-
-   
+On Windows you can also use the launchers: `Luces.bat`, `Luces Espana.bat`,
+`Luces Barras.bat`, `Luces Red Sun.bat`.
 
 ## Troubleshooting
 
 ### "Python not found"
-
-Make sure Python is in your PATH:
-
-```powershell
-python   version
-```
-
-If not found, reinstall Python and check "Add Python to PATH".
+Ensure Python is on your PATH (`python --version`). Reinstall and check
+"Add Python to PATH" if needed.
 
 ### "venv not found"
+You're in the wrong directory. `cd` into `show_designer/` (it should contain
+`server/`, `web/`, `tests/`, `README.md`).
 
-You may be in the wrong directory. Make sure you're in the `show_designer/` folder:
-
+### "ModuleNotFoundError"
+Activate the venv and reinstall:
 ```powershell
-cd C:\path\to\show_designer
-ls  # Should see: venv, src, tests, README.md, etc.
+.\venv311\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
 
-### "ModuleNotFoundError: No module named 'PyQt5'"
-
-You didn't activate the virtual environment. Run:
-
+### "Port 8000 / 9876 already in use"
+Another instance is running:
 ```powershell
-.\venv\Scripts\Activate.ps1
-pip install  r requirements.txt
+Get-Process python | Stop-Process -Force
 ```
 
-### "Port 9876 already in use"
-
-Another instance is running. Kill it:
-
+### Path has spaces
 ```powershell
-Get Process python | Stop Process  Force
+& "C:\Program Files\Python312\python.exe" -m venv venv311
 ```
 
-Then restart.
+## Next steps
 
-### "Cannot find the file specified" on Windows
+- [Quick Start →](quickstart.md)
+- [Features →](features.md)
+- [UI Guide →](usage/ui-guide.md)
 
-Your path might have spaces. Try:
-
-```powershell
-"C:\Program Files\Python312\python.exe"  m venv venv
-```
-
-### "Permission denied" on Linux/macOS
-
-```bash
-chmod +x venv/bin/activate
-source venv/bin/activate
-```
-
-### App crashes on startup
-
-Check the console for error messages. Common causes:
-
-  **Missing audio driver** — Check audio settings
-  **Qt plugin missing** — Reinstall PyQt5: `pip install   force reinstall PyQt5`
-  **Corrupted project file** — Delete `projects/el_taser/` and restart
-
-   
-
-## Optional: Create Desktop Shortcut (Windows)
-
-```powershell
-# Run this once to create a shortcut
-python  c "import os; os.system('cmd /c \"powershell  Command \\\"$WshShell = New Object  ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut([Environment]::GetFolderPath([Environment+SpecialFolder]::Desktop) + '\\\\Show Designer Pro.lnk'); $Shortcut.TargetPath = 'powershell.exe'; $Shortcut.Arguments = ' NoExit  Command cd C:\\\\path\\\\to\\\\show_designer; .\\\\venv\\\\Scripts\\\\Activate.ps1; python src\\\\ui\\\\dual_app.py'; $Shortcut.Save()\\\"\"')"
-```
-
-Or create it manually:
-1. Right click Desktop → New → Shortcut
-2. Location: `powershell.exe  NoExit  Command cd C:\path\to\show_designer; .\venv\Scripts\Activate.ps1; python  m server.main`
-3. Name: "Show Designer Pro"
-4. Click Finish
-
-   
-
-## Next Steps
-
-  [Quick Start →](quickstart.md)
-  [Features →](features.md)
-  [UI Guide →](usage/ui guide.md)
-
-   
-
-**Still stuck?** Open a [GitHub Issue](https://github.com/guillegar/show_designer/issues) and we'll help!
+**Still stuck?** Open a [GitHub Issue](https://github.com/guillegar/show_designer/issues).

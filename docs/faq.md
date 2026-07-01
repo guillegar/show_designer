@@ -58,7 +58,7 @@ A: Click "📤 Export" button:
 - CSV (clips or DMX frames)
 
 **Q: Can I use MIDI controllers?**
-A: Not yet. MIDI support is planned for v2.0.
+A: Yes — MIDI is supported (Web MIDI API). Map notes/CC to live triggers and macros, with MIDI Learn.
 
 **Q: The 3D viewer looks dark**
 A: Try:
@@ -109,21 +109,21 @@ A: Yes! Edit `fixtures.json` and change the LED count per fixture.
 **Q: What about DMX fixtures?**
 A: Show Designer supports:
 - Art-Net protocol (UDP 6454)
-- 24 channel effects (position, color, intensity, etc.)
+- Channel effects (pan-tilt, color, dimmer, strobe)
 - GDTF profiles (import from [gdtf-share.com](https://gdtf-share.com))
 
 **Q: How many universes can I use?**
 A: Currently 11 universes (configurable). Each universe = 512 DMX channels.
 
 **Q: Can I use sACN instead of Art-Net?**
-A: Not yet. Art-Net is the current standard. sACN support planned for v2.0.
+A: Yes — sACN (E1.31) is supported (unicast or multicast), plus ENTTEC Open DMX USB output.
 
 ---
 
 ## Claude & MCP
 
 **Q: What is MCP?**
-A: Model Context Protocol. It lets Claude control Show Designer via 50+ tools. Say things like:
+A: Model Context Protocol. It lets Claude control Show Designer via 150+ commands. Say things like:
 - "Add a drop effect every 30 seconds"
 - "Create a 10-bar rainbow wave on bars 1-5"
 - "Find all the kicks in the song"
@@ -201,7 +201,7 @@ A: Check:
 A: Not without a license. See [License](license.md) for details.
 
 **Q: How much does a commercial license cost?**
-A: Contact guille@example.com for pricing. It depends on your use case.
+A: Contact guillermo.pondal@gmail.com for pricing. It depends on your use case.
 
 **Q: Can I modify the source code for commercial use?**
 A: Yes, but only under a commercial license.
@@ -236,4 +236,4 @@ pytest tests/ --cov --cov-report=html
 - 📖 Check the [Architecture Guide](advanced/architecture.md)
 - 💬 Open a [GitHub Discussion](https://github.com/guillegar/show_designer/discussions)
 - 🐛 Report a [GitHub Issue](https://github.com/guillegar/show_designer/issues)
-- 📧 Email: guille@example.com
+- 📧 Email: guillermo.pondal@gmail.com

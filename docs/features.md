@@ -13,7 +13,7 @@
 
 ## Effects Library
 
-### 51 Pixel Effects (LED Strips)
+### Pixel Effects (LED Strips)
 
 For WLED bars and LED strips:
 
@@ -27,9 +27,9 @@ For WLED bars and LED strips:
 - **Chase** — moving chase patterns
 - **Pulse** — intensity breathing
 - **Glitch** — digital distortion effects
-- **Plus 40 more...** (fire, plasma, kaleidoscope, etc.)
+- **Plus many more** via auto-discovered plugins (fire, scanner, twinkle, VU, rainbow, pixel-map, etc.)
 
-### 24 Channel Effects (DMX Fixtures)
+### Channel Effects (DMX Fixtures)
 
 For movers, wash, beam, strobe:
 
@@ -157,7 +157,7 @@ Plugins are auto-discovered on startup. No restart needed for reload.
 
 ## MCP Control (Claude Integration)
 
-50+ JSON-RPC tools for Claude:
+150+ JSON-RPC commands for Claude:
 
 - **Transport** — play, pause, stop, seek, blackout
 - **Clips** — list, add, move, delete, edit
@@ -188,8 +188,8 @@ Ask Claude: *"Create a 30-second drop effect on bars 1-5"* → Claude generates 
 
 ## Performance
 
-- ✅ 363 tests (92.6% coverage)
-- ✅ Headless backend ready (v1.10)
+- ✅ 1043 Python + 36 Vitest tests
+- ✅ Headless backend (v2.0)
 - ✅ 30 FPS render pipeline
 - ✅ Real-time DMX output
 - ✅ Sub-10ms clip calculation

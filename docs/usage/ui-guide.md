@@ -8,8 +8,8 @@ The heart of Show Designer.
 
 ### Left Panel: Effect Browser
 
-- **Pixel** tab — 51 effects for LED strips (flash, wave, rainbow, etc.)
-- **Channel** tab — 24 effects for DMX fixtures (position, color, intensity, etc.)
+- **Pixel** tab — LED-strip effects: built-in library + auto-discovered plugins (flash, wave, rainbow, fire, scanner…)
+- **Channel** tab — DMX fixture effects (pan-tilt, color, dimmer, strobe)
 - Click an effect → cursor changes to crosshair
 - Drag on timeline to create a clip
 

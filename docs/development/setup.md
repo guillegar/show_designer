@@ -225,13 +225,17 @@ sys.stdout.reconfigure(encoding='utf-8')  # For emojis
 print(f"→ Debug message: {variable}")
 ```
 
-### PyQt Debugging
+### Backend logging
 
-Use `QDebugStream` for detailed Qt logging:
+The backend uses `src/log.py` (console + optional rotating file), configured via env vars:
 
-```python
-from PyQt5.QtCore import QtDebugMsg, QtCriticalMsg
+```powershell
+$env:LUCES_LOG_LEVEL = "DEBUG"       # DEBUG / INFO / WARNING / ERROR
+$env:LUCES_LOG_FILE  = "luces.log"   # optional rotating file
+python -m server.main
 ```
+
+In code: `from src.log import get_logger; log = get_logger(__name__)`.
 
 ### Check Open Ports
 
@@ -331,7 +335,7 @@ Must pass with coverage >= 60% (target 92%+).
 - 📖 Read [Architecture Guide](../advanced/architecture.md)
 - 💬 [GitHub Discussions](https://github.com/guillegar/show_designer/discussions)
 - 🐛 [Report Issues](https://github.com/guillegar/show_designer/issues)
-- 📧 Email: guille@example.com
+- 📧 Email: guillermo.pondal@gmail.com
 
 ---
 

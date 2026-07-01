@@ -286,7 +286,7 @@ Types:
 **Hardware issues?**
 - Check [FAQ Hardware section](faq.md#hardware--output)
 - Open a [GitHub Issue](https://github.com/guillegar/show_designer/issues)
-- Email: guille@example.com
+- Email: guillermo.pondal@gmail.com
 
 **WLED Support:**
 - Docs: [wled.me/docs](https://wled.me/docs)
