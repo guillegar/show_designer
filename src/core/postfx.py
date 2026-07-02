@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import numpy as np
 
-
 # ── Funciones públicas ────────────────────────────────────────────────────────
 
 def apply_track_chain(frame_bar: np.ndarray, chain: dict) -> np.ndarray:

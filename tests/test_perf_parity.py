@@ -17,8 +17,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 def test_get_active_events_bisect_parity():
     import random
-    from src.core.show_engine import TimelineScheduler
+
     from src.core.effects_engine import EffectLibrary
+    from src.core.show_engine import TimelineScheduler
 
     lib = EffectLibrary()
     sched = TimelineScheduler()
@@ -42,8 +43,8 @@ def test_get_active_events_bisect_parity():
 
 
 def test_get_active_events_empty():
-    from src.core.show_engine import TimelineScheduler
     from src.core.effects_engine import EffectLibrary
+    from src.core.show_engine import TimelineScheduler
     sched = TimelineScheduler()
     assert sched.get_active_events(10.0, EffectLibrary()) == []
 

@@ -14,7 +14,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.core.param_pipeline import resolve_params, ParamStage  # noqa: E402
+from src.core.param_pipeline import ParamStage, resolve_params  # noqa: E402
 from src.core.timeline_model import Clip  # noqa: E402
 
 

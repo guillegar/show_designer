@@ -18,7 +18,6 @@ import math
 
 from src.core.show_engine import LEDS, NUM_BARS, hsv
 
-
 BARS = [
     # 10 barras WLED — IPs estáticas + universes Art-Net contiguos (1-10)
     # Las 7 originales:

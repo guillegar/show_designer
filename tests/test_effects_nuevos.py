@@ -15,7 +15,7 @@ crear instancias frescas cuando los tests de estado lo requieren.
 import numpy as np
 import pytest
 
-from src.core.effects_engine import EffectLibrary, NUM_BARS, LEDS_PER_BAR
+from src.core.effects_engine import LEDS_PER_BAR, NUM_BARS, EffectLibrary
 
 SHAPE_PER_BAR = (1, LEDS_PER_BAR, 3)
 

@@ -183,10 +183,10 @@ def build_prompt(phases, sections, tests, applied_ids):
     prompt = f"Lee CLAUDE.md §0 TL;DR y ROADMAP_v3.md §{phases_str} completo"
     if len(phases) > 1:
         prompt += "s"
-    prompt += f".\nTu tarea es implementar la"
+    prompt += ".\nTu tarea es implementar la"
     if len(phases) > 1:
         prompt += "s"
-    prompt += f" Fase"
+    prompt += " Fase"
     if len(phases) > 1:
         prompt += "s"
     prompt += f" {phases_str}.\n\n"
@@ -249,7 +249,7 @@ def main():
 
     print(f"\n{'='*60}")
     print(f"  Arranca con:  {cmd}")
-    print(f"  Luego pega el prompt de arriba.")
+    print("  Luego pega el prompt de arriba.")
     print(f"{'='*60}\n")
 
 

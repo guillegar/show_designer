@@ -5,13 +5,11 @@ Elimina duplicación en _h_set_track_mute y _h_set_track_solo (dispatcher.py).
 """
 from __future__ import annotations
 
-from typing import Optional
-
 
 def toggle_set_membership(
     container: set,
     item: int,
-    on: Optional[bool] = None,
+    on: bool | None = None,
 ) -> bool:
     """
     Añade/quita un item de un set con lógica de toggle.

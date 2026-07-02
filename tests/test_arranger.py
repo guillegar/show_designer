@@ -10,12 +10,12 @@ Cubre:
   test_duplicate_then_delete       — reordenar sección: duplicate+delete da resultado correcto
   test_undo_delete_range           — undo restaura clips eliminados (invariante I1)
 """
-import pytest
 from unittest.mock import MagicMock
 
-from src.core.timeline_model import Timeline, Clip
-from server.dispatcher import _h_duplicate_range, _h_delete_range
+import pytest
 
+from server.dispatcher import _h_delete_range, _h_duplicate_range
+from src.core.timeline_model import Clip, Timeline
 
 # ── Fake session ──────────────────────────────────────────────────────────────
 

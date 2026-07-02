@@ -13,10 +13,9 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 # (time, plugins_list) — _CACHE[0] = monotonic timestamp, _CACHE[1] = plugin list
-_CACHE: Optional[Tuple[float, List[Dict]]] = None
+_CACHE: tuple[float, list[dict]] | None = None
 _CACHE_TTL = 300.0  # 5 minutos
 # FIX 6: threading.Lock protects the check+assign atomically across threads
 _CACHE_LOCK = threading.Lock()
@@ -39,7 +38,7 @@ def _assert_url_in_manifest(url: str) -> None:
         raise ValueError(f"URL no autorizada: {url}")
 
 
-async def fetch_manifest(url: str) -> Tuple[List[Dict], bool]:
+async def fetch_manifest(url: str) -> tuple[list[dict], bool]:
     """Fetch manifest remoto con timeout 10 s. Devuelve (plugins, from_cache).
     Lanza TimeoutError o RuntimeError en caso de error.
     FIX 3: usa httpx.AsyncClient (non-blocking).
@@ -69,7 +68,7 @@ async def fetch_manifest(url: str) -> Tuple[List[Dict], bool]:
     return data, False
 
 
-async def install_plugin(download_url: str, plugins_dir: Path) -> Dict:
+async def install_plugin(download_url: str, plugins_dir: Path) -> dict:
     """Descarga un .py, lo valida con el harness H1 y lo instala.
     Devuelve {ok, name} o {ok: false, error}.
     FIX 2: valida download_url contra el manifiesto cacheado ANTES de descargar.
@@ -105,10 +104,10 @@ async def install_plugin(download_url: str, plugins_dir: Path) -> Dict:
         sys.modules["_mp_validate_mod"] = mod
         spec.loader.exec_module(mod)  # type: ignore[union-attr]
 
-        from tests.plugin_test_harness import assert_valid_plugin_effect
         from src.core.effects_engine import Effect
+        from tests.plugin_test_harness import assert_valid_plugin_effect
 
-        found: List[str] = []
+        found: list[str] = []
         for attr_name in dir(mod):
             cls = getattr(mod, attr_name)
             if (

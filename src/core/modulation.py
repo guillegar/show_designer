@@ -17,8 +17,9 @@ Módulo puro: SIN imports de server/, web/, fastapi, efectos concretos.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
-from typing import Any, Dict, List, Optional
+from dataclasses import asdict, dataclass
+from typing import Any
+
 import numpy as np
 
 from src.core.param_pipeline import ParamStage
@@ -45,11 +46,11 @@ class ParamLink:
     min_v: float = 0.0
     max_v: float = 1.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> ParamLink:
+    def from_dict(cls, d: dict[str, Any]) -> ParamLink:
         return cls(
             param=d['param'],
             source=d['source'],
@@ -76,7 +77,7 @@ def _apply_curve(value: float, curve: str) -> float:
         return value
 
 
-def _read_signal_from_context(source: str, audio_context: Dict[str, Any]) -> Optional[float]:
+def _read_signal_from_context(source: str, audio_context: dict[str, Any]) -> float | None:
     """Lee una señal del audio_context, soportando índices con punto.
 
     Ej: 'mel_bands.3' → audio_context['norm']['mel_bands'][3].
@@ -117,8 +118,8 @@ class ModulationStage(ParamStage):
     Si el clip no tiene links o una señal no existe, devuelve params sin modificar.
     """
 
-    def apply(self, params: Dict[str, Any], clip: Any, t_ms: int,
-              audio_context: Dict[str, Any]) -> Dict[str, Any]:
+    def apply(self, params: dict[str, Any], clip: Any, t_ms: int,
+              audio_context: dict[str, Any]) -> dict[str, Any]:
         """Aplica los param_links del clip.
 
         Fast path: si el clip no tiene links, devuelve params sin copiar.

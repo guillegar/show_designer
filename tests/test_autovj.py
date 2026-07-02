@@ -30,21 +30,25 @@ Cubre:
   test_none_ruleset_noop               — evaluate con ruleset=None es no-op
   test_empty_rules_noop                — evaluate con rules=[] es no-op
 """
-import math
 import json
+import math
 import tempfile
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+from server.live_engine import NUM_LIVE_SLOTS, LiveEngine
 from src.core.autovj import (
-    Rule, RuleSet, AutoVJEngine,
-    PRESET_FIESTA, PRESET_CHILL, PRESET_TECHNO, PRESETS,
     _BEAT_WINDOW_MS,
+    PRESET_CHILL,
+    PRESET_FIESTA,
+    PRESET_TECHNO,
+    PRESETS,
+    AutoVJEngine,
+    Rule,
+    RuleSet,
 )
-from server.live_engine import LiveEngine, NUM_LIVE_SLOTS
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

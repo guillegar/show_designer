@@ -15,9 +15,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.core.fixtures import build_default_wled_rig
 from server.dispatcher import _h_get_rig_layout, _h_set_fixture_3d
-
+from src.core.fixtures import build_default_wled_rig
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

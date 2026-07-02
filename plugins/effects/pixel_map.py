@@ -8,11 +8,11 @@ PARAM_SCHEMA es compatible con la UI auto-generada de F2 (get_effect_schema).
 """
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 
-from src.core.effects_engine import Effect, EffectScope, LEDS_PER_BAR
+from src.core.effects_engine import LEDS_PER_BAR, Effect, EffectScope
 from src.core.pixel_map import sample_image_region
 
 
@@ -57,7 +57,7 @@ class PixelMapEffect(Effect):
         self,
         elapsed_time: float,
         bars_state: np.ndarray,
-        audio_context: Dict[str, Any],
+        audio_context: dict[str, Any],
         **params,
     ) -> np.ndarray:
         source_path: str = params.get("source_path", "") or ""

@@ -11,16 +11,17 @@ el proximo arranque (o tras reiniciar el ShowEngine).
 IDs asignados en PLUGIN_EFFECTS (si se define); si no, el loader
 los asigna automaticamente empezando desde 1000.
 """
-import math
+from typing import Any
+
 import numpy as np
-from typing import Dict, Any
 
 # Importar base y helpers desde effects_engine
 from src.core.effects_engine import (
-    Effect, EffectScope, EffectGeometry, EffectSymmetry,
-    NUM_BARS, LEDS_PER_BAR,
+    Effect,
+    EffectGeometry,
+    EffectScope,
+    EffectSymmetry,
 )
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Efecto 1: Meteoros (lluvia de puntos luminosos que caen por las barras)
@@ -45,7 +46,7 @@ class MeteorShowerEffect(Effect):
     }
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         n_bars    = bars_state.shape[0]
         n_leds    = bars_state.shape[1]
         out       = np.zeros_like(bars_state)
@@ -114,7 +115,7 @@ class HeartbeatEffect(Effect):
     }
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         n_bars = bars_state.shape[0]
         n_leds = bars_state.shape[1]
         out    = np.zeros_like(bars_state)

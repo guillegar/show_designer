@@ -12,10 +12,10 @@ Uso:
     # → {'pan': 142, 'tilt': 98}
 """
 from __future__ import annotations
+
 import colorsys
 import math
 import random
-from typing import Dict, List, Optional
 
 CATEGORIES = ('position', 'color', 'intensity', 'optical', 'strobe')
 
@@ -28,12 +28,12 @@ class ChannelEffect:
     effect_id: str = ""
     name: str = ""
     category: str = ""
-    required_channels: List[str] = []
-    optional_channels: List[str] = []
-    default_params: Dict = {}
+    required_channels: list[str] = []
+    optional_channels: list[str] = []
+    default_params: dict = {}
 
-    def render(self, t: float, audio_context: Optional[Dict],
-               params: Optional[Dict]) -> Dict[str, int]:
+    def render(self, t: float, audio_context: dict | None,
+               params: dict | None) -> dict[str, int]:
         """
         t: segundos desde el inicio del clip.
         audio_context: dict con rms, flux, etc. Puede ser None.
@@ -42,12 +42,12 @@ class ChannelEffect:
         """
         raise NotImplementedError
 
-    def _p(self, params: Optional[Dict], key: str, default=None):
+    def _p(self, params: dict | None, key: str, default=None):
         if params and key in params:
             return params[key]
         return self.default_params.get(key, default)
 
-    def _rms(self, audio_context: Optional[Dict]) -> float:
+    def _rms(self, audio_context: dict | None) -> float:
         if audio_context is None:
             return 0.0
         return float(audio_context.get('rms', 0.0))
@@ -56,7 +56,7 @@ class ChannelEffect:
     def _clamp(v: float) -> int:
         return max(0, min(255, int(round(v))))
 
-    def describe(self) -> Dict:
+    def describe(self) -> dict:
         return {
             'effect_id':        self.effect_id,
             'name':             self.name,
@@ -621,7 +621,7 @@ class PanTiltWaveEffect(ChannelEffect):
         "speed": 0.5, "mode": "circle",
     }
 
-    def render(self, t: float, audio_context: Optional[Dict], params: Optional[Dict] = None) -> Dict[str, int]:
+    def render(self, t: float, audio_context: dict | None, params: dict | None = None) -> dict[str, int]:
         p = {**self.default_params, **(params or {})}
         cp = float(p.get("pan_center", 0.5))
         ct = float(p.get("tilt_center", 0.5))
@@ -652,7 +652,7 @@ class PanTiltWaveEffect(ChannelEffect):
         }
 
 
-_ALL_EFFECTS: List[ChannelEffect] = [
+_ALL_EFFECTS: list[ChannelEffect] = [
     # position
     PanTiltWaveEffect(), ChanCircle(), ChanFigure8(), ChanSway(), ChanBeatSnap(), ChanPanSweep(),
     # color
@@ -671,26 +671,26 @@ class ChannelEffectLibrary:
     """Registro y acceso a todos los ChannelEffect."""
 
     def __init__(self):
-        self._by_id: Dict[str, ChannelEffect] = {e.effect_id: e for e in _ALL_EFFECTS}
+        self._by_id: dict[str, ChannelEffect] = {e.effect_id: e for e in _ALL_EFFECTS}
 
-    def get(self, effect_id: str) -> Optional[ChannelEffect]:
+    def get(self, effect_id: str) -> ChannelEffect | None:
         return self._by_id.get(effect_id)
 
-    def all(self) -> List[ChannelEffect]:
+    def all(self) -> list[ChannelEffect]:
         return list(_ALL_EFFECTS)
 
-    def by_category(self, category: str) -> List[ChannelEffect]:
+    def by_category(self, category: str) -> list[ChannelEffect]:
         return [e for e in _ALL_EFFECTS if e.category == category]
 
-    def compatible_with_profile(self, profile) -> List[ChannelEffect]:
+    def compatible_with_profile(self, profile) -> list[ChannelEffect]:
         """Efectos cuyas required_channels están todas en profile.channel_map."""
         avail = set(profile.channel_map.keys())
         return [e for e in _ALL_EFFECTS
                 if all(ch in avail for ch in e.required_channels)]
 
-    def describe_all(self) -> List[Dict]:
+    def describe_all(self) -> list[dict]:
         return [e.describe() for e in _ALL_EFFECTS]
 
-    def describe(self, effect_id: str) -> Optional[Dict]:
+    def describe(self, effect_id: str) -> dict | None:
         e = self._by_id.get(effect_id)
         return e.describe() if e else None

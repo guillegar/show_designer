@@ -14,8 +14,8 @@ import os
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
 
 import numpy as np
 
@@ -34,7 +34,7 @@ def export_preview(
     format: str = "gif",
     scale: int = 4,
     fps: int = 30,
-    progress_cb: Optional[Callable[[float], None]] = None,
+    progress_cb: Callable[[float], None] | None = None,
 ) -> None:
     """Exporta render.npz a GIF o MP4 de preview.
 
@@ -81,9 +81,8 @@ def _export_gif(
     scale: int,
     fps: int,
     n_frames: int,
-    progress_cb: Optional[Callable[[float], None]],
+    progress_cb: Callable[[float], None] | None,
 ) -> None:
-    from PIL import Image
 
     duration_ms = max(1, round(1000 / fps))
     frames_pil = []
@@ -111,9 +110,8 @@ def _export_mp4(
     scale: int,
     fps: int,
     n_frames: int,
-    progress_cb: Optional[Callable[[float], None]],
+    progress_cb: Callable[[float], None] | None,
 ) -> None:
-    from PIL import Image
 
     report_every = max(1, n_frames // 20)
     with tempfile.TemporaryDirectory() as tmpdir:

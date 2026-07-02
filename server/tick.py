@@ -20,7 +20,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Set
 
 from src.core.effects_engine import NUM_BARS
 from src.log import get_logger, log_throttled
@@ -32,7 +31,7 @@ class StreamHub:
     """Conjunto de clientes WebSocket /ws/stream + broadcast tolerante a fallos."""
 
     def __init__(self):
-        self.clients: Set = set()
+        self.clients: set = set()
 
     def add(self, ws):
         self.clients.add(ws)

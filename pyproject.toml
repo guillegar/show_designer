@@ -1,0 +1,98 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "show-designer"
+version = "2.0.0"
+description = "Professional lighting control software for LED strips and DMX fixtures (headless + web + MCP)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Prosperity Public License 3.0.0" }
+authors = [{ name = "Guille Garci" }]
+
+# Dependencias de runtime (espejo de requirements.txt).
+dependencies = [
+    "numpy==1.24.3",
+    "scipy==1.11.4",
+    "librosa==0.10.0",
+    "madmom==0.17.0",
+    "pygdtf==0.3.1",
+    "pygame==2.6.1",
+    "mcp==1.4.0",
+    "websockets==12.0",
+    "fastapi==0.110.0",
+    "uvicorn[standard]==0.29.0",
+    "httpx==0.27.2",
+    "python-osc>=1.8",
+    "Pillow>=10.0.0",
+    "sacn>=1.6",
+    "pyserial>=3.5",
+]
+
+[project.optional-dependencies]
+# Herramientas de desarrollo: pip install -e ".[dev]"
+dev = [
+    "pytest==7.4.3",
+    "pytest-cov==4.1.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+# Separación de stems (opcional, pesado): pip install -e ".[audio]"
+audio = ["demucs>=4.0"]
+
+[project.scripts]
+show-designer = "server.main:main"
+
+[project.urls]
+Homepage = "https://github.com/guillegar/show_designer"
+Documentation = "https://guillegar.github.io/show_designer/"
+
+# ── Packaging: layout multi-top-level (server/, src/, plugins/) ───────────────
+[tool.setuptools]
+packages = ["server", "src", "plugins"]
+
+# ── Ruff (lint + format) ──────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["venv311", "web", "docs", "projects", "analizadas", "profiles"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+# Adopción GRADUAL: se ignoran reglas de estilo (one-liners del proyecto) y de
+# best-practice que se irán apretando con el tiempo. E501 (longitud) no se bloquea
+# para evitar re-flow masivo del código existente.
+ignore = [
+    "E501",                                   # longitud de línea
+    "E701", "E702",                           # sentencias en una línea (estilo del proyecto)
+    "B008", "UP031",                          # defaults FastAPI, printf-format
+    "B007", "B904", "B905", "B019", "B027",   # best-practices (gradual)
+    "F841",                                   # variable asignada sin usar (gradual)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402", "F401", "F811"]      # sys.path.insert antes de imports; fixtures
+"scripts/*" = ["E402"]
+"__init__.py" = ["F401", "F403"]          # re-exports intencionados
+# Bootstrap de sys.path (`from src._setup_paths import *`) antes de importar src:
+"conftest.py" = ["E402", "F403"]
+"server/main.py" = ["E402", "F403"]
+"server/dispatcher.py" = ["E402", "F403"]
+"src/mcp/mcp_show_server.py" = ["E402"]
+"src/core/show_engine.py" = ["E402", "F401"]   # import perezoso + probe de tipo
+"src/core/effects_engine.py" = ["I001"]        # bloque de import local
+# Probes de disponibilidad de deps opcionales (import para chequear, no para usar):
+"server/key_detector.py" = ["F401"]       # numpy
+"server/timeline_export.py" = ["F401"]    # fpdf
+
+# ── mypy (gradual, no bloqueante al principio) ────────────────────────────────
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+follow_imports = "skip"
+check_untyped_defs = false
+warn_unused_ignores = false
+no_implicit_optional = false
+exclude = ["venv311", "tests", "scripts", "web"]

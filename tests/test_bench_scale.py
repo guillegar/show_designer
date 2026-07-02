@@ -135,10 +135,10 @@ def test_bench_compute_frame_200_active_clips_p95():
 
     # Construye una sesión mínima sin audio ni analysis real
     session = object.__new__(ShowSession)
-    from src.core.effects_engine import EffectLibrary
-    from src.core.timeline_model import Timeline, make_default_groups
     from server.live_engine import LiveEngine
     from server.undo_manager import UndoManager
+    from src.core.effects_engine import EffectLibrary
+    from src.core.timeline_model import Timeline, make_default_groups
 
     session.library = EffectLibrary()
     session.channel_lib = None
@@ -167,10 +167,11 @@ def test_bench_compute_frame_200_active_clips_p95():
     session._pattern_expanded = []
     session._pattern_expanded_rev = -1
     session._postfx_chains = {}
+    session._recording = False  # I1: compute_frame -> _maybe_record_macros lo lee
 
-    from src.core.modulation import ModulationStage
     from src.core.automation import AutomationStage
     from src.core.micro_events import MicroEventStage
+    from src.core.modulation import ModulationStage
     session.param_stages = [ModulationStage(), AutomationStage(), MicroEventStage()]
 
     session._cached_actx = {

@@ -20,12 +20,14 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.io.loaders.gdtf_profile import (    # noqa: E402
-    load_gdtf_profile, list_gdtf_modes, _canonical_name, _guess_kind,
+from src.core.fixtures import FixtureProfile, load_profile  # noqa: E402
+from src.io.loaders.gdtf_profile import (  # noqa: E402
     GDTF_ATTR_TO_CANONICAL,
+    _canonical_name,
+    _guess_kind,
+    list_gdtf_modes,
+    load_gdtf_profile,
 )
-from src.core.fixtures import FixtureProfile, load_profile     # noqa: E402
-
 
 GDTF_TEST = ROOT / "tests" / "fixtures" / "test_wash_4ch.gdtf"
 

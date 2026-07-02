@@ -11,8 +11,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from server.session import ShowSession  # noqa: E402
 from server.dispatcher import Dispatcher  # noqa: E402
+from server.session import ShowSession  # noqa: E402
 
 
 @pytest.fixture(scope="module")

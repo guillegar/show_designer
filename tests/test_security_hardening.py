@@ -13,7 +13,6 @@ from unittest.mock import patch
 
 import pytest
 
-
 # ─── FIX 1: Zip Slip ─────────────────────────────────────────────────────────
 
 def test_zip_slip_blocked(tmp_path):
@@ -97,6 +96,7 @@ def test_webhook_url_valid_dns_accepted():
 def test_timing_safe_token_compare():
     """check_permission usa hmac.compare_digest para la comparación de tokens."""
     import hmac as hmac_mod
+
     from server.auth import check_permission
 
     tokens_cfg = [{"token": "secret123", "role": "operator"}]

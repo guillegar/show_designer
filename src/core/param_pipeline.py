@@ -27,15 +27,15 @@ Este módulo NO importa nada de server/, web/, fastapi ni efectos concretos
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
 class ParamStage(Protocol):
     """Contrato de una etapa del pipeline de parámetros."""
 
-    def apply(self, params: Dict[str, Any], clip: Any, t_ms: int,
-              audio_context: Dict[str, Any]) -> Dict[str, Any]:
+    def apply(self, params: dict[str, Any], clip: Any, t_ms: int,
+              audio_context: dict[str, Any]) -> dict[str, Any]:
         """Devuelve los params transformados (o `params` sin tocar si no aplica)."""
         ...
 
@@ -51,17 +51,17 @@ class MacroStage:
     params sin copiar (cero allocs a 30 FPS × N clips).
     """
 
-    def __init__(self, macros: Dict[str, Any]) -> None:
+    def __init__(self, macros: dict[str, Any]) -> None:
         self._macros = macros  # referencia viva a session.macros
 
-    def apply(self, params: Dict[str, Any], clip: Any, t_ms: int,
-              audio_context: Dict[str, Any]) -> Dict[str, Any]:
+    def apply(self, params: dict[str, Any], clip: Any, t_ms: int,
+              audio_context: dict[str, Any]) -> dict[str, Any]:
         bm = self._macros.get("brightness_mul", 1.0)
         sm = self._macros.get("speed_mul", 1.0)
         # fast path: ambos defaults → sin copia (invariante I5)
         if bm == 1.0 and sm == 1.0:
             return params
-        out: Dict[str, Any] | None = None
+        out: dict[str, Any] | None = None
         if bm != 1.0 and "brightness" in params:
             if out is None:
                 out = dict(params)
@@ -73,9 +73,9 @@ class MacroStage:
         return out if out is not None else params
 
 
-def resolve_params(clip: Any, t_ms: int, audio_context: Dict[str, Any],
-                   stages: List[ParamStage],
-                   base_params: Dict[str, Any] | None = None) -> Dict[str, Any]:
+def resolve_params(clip: Any, t_ms: int, audio_context: dict[str, Any],
+                   stages: list[ParamStage],
+                   base_params: dict[str, Any] | None = None) -> dict[str, Any]:
     """Devuelve los parámetros EFECTIVOS del clip en el instante t_ms.
 
     Args:

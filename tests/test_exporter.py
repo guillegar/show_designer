@@ -5,10 +5,10 @@ import csv
 import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
 import pytest
 
-from src.core.timeline_model import Timeline, Clip, CuePoint, BarGroup
-
+from src.core.timeline_model import BarGroup, Clip, CuePoint, Timeline
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -201,8 +201,8 @@ def test_export_qlc_no_cues_uses_defaults(tmp_path):
 
 def test_export_qlc_with_rig(tmp_path):
     """Con rig, los fixtures aparecen en el XML."""
+    from core.fixtures import Fixture, FixtureRig
     from src.io.exporter import export_qlc_workspace
-    from core.fixtures import FixtureRig, Fixture
 
     tl = _make_timeline()
     # Usar el rig real si existe

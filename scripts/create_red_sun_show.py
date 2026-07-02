@@ -29,10 +29,10 @@ Uso:
 """
 from __future__ import annotations
 
-import sys
-import os
 import json
+import os
 import random
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -40,10 +40,10 @@ import numpy as np
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.analysis.analyzer_service import AnalysisService
 # NOTA: create_taser_barras reconfigura sys.stdout a UTF-8 en win32 al importarse
 # (una sola vez). No lo dupliquemos aquí o se cierra el buffer.
 from scripts.create_taser_barras import make_rig, nearest, next_in  # reutilizamos rig + snap
+from src.analysis.analyzer_service import AnalysisService
 
 # ── Identidad del proyecto ──────────────────────────────────────────────────
 DST_SLUG = "red_sun"

@@ -25,7 +25,6 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import List, Tuple
 
 log = logging.getLogger(__name__)
 
@@ -47,11 +46,11 @@ class OscBridge:
         self.port_in = port_in
         self.port_out = port_out
         self.enabled = True
-        self.clients_out: List[Tuple[str, int]] = []
-        self._osc_clients: List = []
+        self.clients_out: list[tuple[str, int]] = []
+        self._osc_clients: list = []
         self._transport = None
         self._last_out_t: float = -999.0  # asegura que la primera emisión pasa el throttle
-        self._recv_log: List[dict] = []
+        self._recv_log: list[dict] = []
 
     # ── Ciclo de vida ─────────────────────────────────────────────────────────
 
@@ -160,7 +159,7 @@ class OscBridge:
 
     # ── Emisión OSC OUT ───────────────────────────────────────────────────────
 
-    def set_clients_out(self, clients: List[Tuple[str, int]]) -> None:
+    def set_clients_out(self, clients: list[tuple[str, int]]) -> None:
         """Actualiza clientes OUT y reconstruye los sockets UDP."""
         self.clients_out = list(clients)
         self._rebuild_osc_clients()

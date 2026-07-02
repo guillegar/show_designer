@@ -19,12 +19,12 @@ energy = np.mean(S, axis=0)
 # Convert frames to time
 times = librosa.frames_to_time(np.arange(len(energy)), sr=sr)
 
-print(f"=== AUDIO ANALYSIS: 10-CONCEPTUAL-Red_Sun ===")
+print("=== AUDIO ANALYSIS: 10-CONCEPTUAL-Red_Sun ===")
 print(f"Duration: {duration:.2f}s ({int(duration//60)}m {int(duration%60)}s)")
 print(f"BPM: {bpm:.1f}")
 print(f"Sample Rate: {sr}Hz")
 
-print(f"\nEnergy Stats:")
+print("\nEnergy Stats:")
 print(f"  Mean: {np.mean(energy):.3f}")
 print(f"  Std Dev: {np.std(energy):.3f}")
 print(f"  Min: {np.min(energy):.3f}")
@@ -36,6 +36,6 @@ print(f"\nSpectral Centroid (brightness): {np.mean(spec_center):.0f} Hz")
 
 # Detect onsets (structural changes)
 onset_frames = librosa.onset.onset_detect(y=y, sr=sr, units='time')
-print(f"\nDetected Onsets (structural changes):")
+print("\nDetected Onsets (structural changes):")
 for i, onset in enumerate(onset_frames[:15]):  # First 15
     print(f"  {onset:.2f}s")

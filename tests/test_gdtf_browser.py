@@ -15,8 +15,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from server.dispatcher import _gdtf_cache, _h_add_fixture_from_gdtf, _h_list_gdtf_profiles
 from src.core.fixtures import Fixture, FixtureRig, build_default_wled_rig
-from server.dispatcher import _h_list_gdtf_profiles, _h_add_fixture_from_gdtf, _gdtf_cache
 
 # Ruta al GDTF de prueba (incluido en el repo)
 TEST_GDTF = Path(__file__).parent / "fixtures" / "test_wash_4ch.gdtf"

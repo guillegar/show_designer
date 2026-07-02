@@ -8,12 +8,13 @@ Esto es el modelo subyacente del editor estilo Adobe.
 """
 import json
 import os
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 from src._paths import PROJECT_DIR
+
 TIMELINE_FILE = PROJECT_DIR / 'show_timeline.json'
 
 NUM_TRACKS = 10   # Una pista por barra (0-9). Track 10+ podría usarse para "global all bars" en futuras versiones.
@@ -32,17 +33,17 @@ class BarGroup:
     bars=[]) — es lo que indica que es un "set" de otros grupos.
     """
     name: str
-    bars: List[int] = field(default_factory=list)
+    bars: list[int] = field(default_factory=list)
     color: str = "#888888"
-    subgroups: List[str] = field(default_factory=list)  # nombres de otros grupos
+    subgroups: list[str] = field(default_factory=list)  # nombres de otros grupos
 
     @property
     def is_set(self) -> bool:
         """True si este grupo está compuesto por otros (grupos-de-grupos)."""
         return bool(self.subgroups)
 
-    def resolve_bars(self, all_groups: List['BarGroup'],
-                     _visited: Optional[set] = None) -> List[int]:
+    def resolve_bars(self, all_groups: list['BarGroup'],
+                     _visited: set | None = None) -> list[int]:
         """
         Resuelve TODAS las barras finales, expandiendo subgrupos recursivamente.
         Evita ciclos infinitos con un set de nombres visitados.
@@ -60,7 +61,7 @@ class BarGroup:
                     break
         return sorted(result)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             'name': self.name,
             'bars': list(self.bars),
@@ -86,7 +87,7 @@ class Clip:
     end_ms: int
     effect_id: int           # 0..50
     scope: str = "per_bar"   # "per_bar" | "global" (afecta la renderizacion)
-    params: Dict[str, Any] = field(default_factory=dict)   # {'hue': 200, 'saturation': 0.9, ...}
+    params: dict[str, Any] = field(default_factory=dict)   # {'hue': 200, 'saturation': 0.9, ...}
     label: str = ""          # nombre opcional que muestra el clip
     color: str = "#3a7acc"   # color del rectangulo en el track (hex)
     layer: int = 0           # 0=base, 1=layer1, ... (sub-fila dentro del track)
@@ -94,20 +95,20 @@ class Clip:
     muted: bool = False      # si True el clip no se renderiza (silenciado individual)
     # v1.7 Fase 5 — clips de canal (no-pixel)
     category: str = 'pixel'               # 'pixel' | 'position' | 'color' | 'intensity' | 'optical' | 'strobe'
-    channel_effect_id: Optional[str] = None  # ID del ChannelEffect (solo si category != 'pixel')
+    channel_effect_id: str | None = None  # ID del ChannelEffect (solo si category != 'pixel')
     # v1.10 — banco de presets: si está set, el clip RESUELVE su efecto+params
     # del preset (enlace vivo: editar el preset cambia todos sus clips).
-    preset_id: Optional[str] = None
+    preset_id: str | None = None
     # v1.10 — ANALYSIS hallazgo 2: id ESTABLE y persistido. Reemplaza id(self),
     # que no era estable entre sesiones y CPython puede reusar tras GC.
     uid: str = field(default_factory=lambda: uuid4().hex[:12])
     # A1 — Modulación: vínculos param ← señal del análisis
-    param_links: List[Dict[str, Any]] = field(default_factory=list)
+    param_links: list[dict[str, Any]] = field(default_factory=list)
     # A4 — Micro-eventos: overrides puntuales en instantes relativos al clip
-    events: List[Dict[str, Any]] = field(default_factory=list)
+    events: list[dict[str, Any]] = field(default_factory=list)
     # G3 — Channel effects (lista de configs: [{"id": str, "params": dict}])
     # Complementa a channel_effect_id/params (que sigue siendo el efecto principal legacy).
-    channel_effects: List[Dict[str, Any]] = field(default_factory=list)
+    channel_effects: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def duration_ms(self) -> int:
@@ -238,9 +239,9 @@ class Pattern:
     uid: str = field(default_factory=lambda: uuid4().hex[:12])
     name: str = ""
     color: str = "#8855cc"
-    clips: List['Clip'] = field(default_factory=list)
+    clips: list['Clip'] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "uid": self.uid,
             "name": self.name,
@@ -249,7 +250,7 @@ class Pattern:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> 'Pattern':
+    def from_dict(cls, d: dict[str, Any]) -> 'Pattern':
         return cls(
             uid=d.get("uid") or uuid4().hex[:12],
             name=d.get("name", ""),
@@ -270,7 +271,7 @@ class PatternInstance:
     start_ms: int = 0
     track_offset: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "uid": self.uid,
             "pattern_uid": self.pattern_uid,
@@ -279,7 +280,7 @@ class PatternInstance:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> 'PatternInstance':
+    def from_dict(cls, d: dict[str, Any]) -> 'PatternInstance':
         return cls(
             uid=d.get("uid") or uuid4().hex[:12],
             pattern_uid=d.get("pattern_uid", ""),
@@ -303,7 +304,7 @@ class CueEntry:
     hold_ms: int = -1     # -1 = esperar GO manual; >= 0 = auto-follow tras N ms
     auto_follow: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "uid": self.uid,
             "number": self.number,
@@ -315,7 +316,7 @@ class CueEntry:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> 'CueEntry':
+    def from_dict(cls, d: dict[str, Any]) -> 'CueEntry':
         return cls(
             uid=d.get("uid") or uuid4().hex[:12],
             number=float(d.get("number", 1.0)),
@@ -330,17 +331,17 @@ class CueEntry:
 @dataclass
 class CueList:
     """Lista de cues operativa (E1, ROADMAP v3). Persistida en show.json como cue_list."""
-    entries: List[CueEntry] = field(default_factory=list)  # ordenadas por number
-    active_uid: Optional[str] = None                       # cue actualmente activo
+    entries: list[CueEntry] = field(default_factory=list)  # ordenadas por number
+    active_uid: str | None = None                       # cue actualmente activo
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "entries": [e.to_dict() for e in self.entries],
             "active_uid": self.active_uid,
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> 'CueList':
+    def from_dict(cls, d: dict[str, Any]) -> 'CueList':
         entries = [CueEntry.from_dict(e) for e in d.get("entries", [])]
         return cls(entries=entries, active_uid=d.get("active_uid"))
 
@@ -365,37 +366,37 @@ class Timeline:
 
     SCHEMA_VERSION = 4
 
-    def __init__(self, clips: Optional[List[Clip]] = None,
+    def __init__(self, clips: list[Clip] | None = None,
                  duration_ms: int = 165_000,
-                 groups: Optional[List[BarGroup]] = None,
-                 cue_points: Optional[List[CuePoint]] = None,
-                 automation: Optional[List[Dict]] = None,
-                 patterns: Optional[List[Dict]] = None,
-                 pattern_instances: Optional[List[Dict]] = None,
-                 mixer: Optional[Dict] = None,
-                 live_slots: Optional[List[Dict]] = None,
+                 groups: list[BarGroup] | None = None,
+                 cue_points: list[CuePoint] | None = None,
+                 automation: list[dict] | None = None,
+                 patterns: list[dict] | None = None,
+                 pattern_instances: list[dict] | None = None,
+                 mixer: dict | None = None,
+                 live_slots: list[dict] | None = None,
                  cue_list: Optional['CueList'] = None,
-                 markers: Optional[List[Marker]] = None):
-        self.clips: List[Clip] = clips or []
+                 markers: list[Marker] | None = None):
+        self.clips: list[Clip] = clips or []
         self.duration_ms = duration_ms
-        self.groups: List[BarGroup] = groups or []
+        self.groups: list[BarGroup] = groups or []
         # 9 cue points por defecto (todos vacíos)
-        self.cue_points: List[CuePoint] = cue_points or [
+        self.cue_points: list[CuePoint] = cue_points or [
             CuePoint(slot=i) for i in range(1, 10)
         ]
         # v3: contenedores del secuenciador (dicts crudos hasta que su fase
         # los modele — A2/A3/B2/C1 los convertirán en dataclasses propias).
-        self.automation: List[Dict] = automation or []
-        self.patterns: List[Dict] = patterns or []
-        self.pattern_instances: List[Dict] = pattern_instances or []
-        self.mixer: Dict = mixer or {}
+        self.automation: list[dict] = automation or []
+        self.patterns: list[dict] = patterns or []
+        self.pattern_instances: list[dict] = pattern_instances or []
+        self.mixer: dict = mixer or {}
         # C1: configuración de los 16 slots del performance grid (uid, pattern_uid,
         # key, quantize, mode). El estado _active/_armed NO se persiste.
-        self.live_slots: List[Dict] = live_slots or []
+        self.live_slots: list[dict] = live_slots or []
         # E1: lista de cues profesional (schema v4). Migración tolerante: si falta → vacía.
         self.cue_list: CueList = cue_list or CueList(entries=[])
         # I2: marcadores de timeline con nombre, color y categoría (ROADMAP v4).
-        self.markers: List[Marker] = markers or []
+        self.markers: list[Marker] = markers or []
 
     def add(self, clip: Clip):
         self.clips.append(clip)
@@ -404,10 +405,10 @@ class Timeline:
         if clip in self.clips:
             self.clips.remove(clip)
 
-    def clips_on_track(self, track: int) -> List[Clip]:
+    def clips_on_track(self, track: int) -> list[Clip]:
         return [c for c in self.clips if c.track == track]
 
-    def active_clips_at(self, time_ms: int) -> List[Clip]:
+    def active_clips_at(self, time_ms: int) -> list[Clip]:
         """Clips que cubren ese instante (puede haber varios por track si se solapan)."""
         return [c for c in self.clips if c.contains(time_ms)]
 
@@ -484,7 +485,7 @@ class Timeline:
         p = Path(path)
         if not p.is_file():
             return cls()
-        with open(p, 'r', encoding='utf-8') as f:
+        with open(p, encoding='utf-8') as f:
             data = json.load(f)
         clips  = [Clip.from_dict(d)  for d in data.get('clips',  [])]
         groups = [BarGroup.from_dict(d) for d in data.get('groups', [])]
@@ -506,7 +507,7 @@ class Timeline:
                    markers=markers)
 
 
-def make_default_groups() -> List[BarGroup]:
+def make_default_groups() -> list[BarGroup]:
     """
     Grupos por defecto para layout 5+gap+5 (10 barras).
     Incluye grupos simples y grupos-de-grupos.

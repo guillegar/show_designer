@@ -26,10 +26,9 @@ from __future__ import annotations
 
 import math
 import threading
-import time
 from bisect import bisect_left, bisect_right
 from collections import deque
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -89,15 +88,15 @@ class LiveInput:
         self._t_s: float = 0.0             # tiempo transcurrido (s) desde start
 
         # Onset times para estimación de BPM (lista podada cada nuevo onset)
-        self._onset_times: List[float] = []
+        self._onset_times: list[float] = []
 
         # Beats sintéticos generados a partir del BPM estimado
         self._bpm: float = 120.0
-        self._beats: List[float] = []
-        self._downbeats: List[float] = []
+        self._beats: list[float] = []
+        self._downbeats: list[float] = []
 
         # FFT anterior para flux espectral
-        self._prev_mag: Optional[np.ndarray] = None
+        self._prev_mag: np.ndarray | None = None
 
     # ── Propiedades / interfaz pública ────────────────────────────────────────
 
@@ -114,7 +113,7 @@ class LiveInput:
                 and getattr(self._stream, 'active', False))
 
     @property
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         with self._lock:
             return {
                 "bpm": round(self._bpm, 1),
@@ -127,7 +126,7 @@ class LiveInput:
     # ── Dispositivos ──────────────────────────────────────────────────────────
 
     @staticmethod
-    def list_devices() -> List[Dict[str, Any]]:
+    def list_devices() -> list[dict[str, Any]]:
         """Lista dispositivos de entrada disponibles."""
         try:
             import sounddevice as sd
@@ -191,7 +190,7 @@ class LiveInput:
     # ── Interfaz AnalysisService ──────────────────────────────────────────────
 
     def list_beats(self, t0: float = 0.0,
-                   t1: Optional[float] = None) -> List[float]:
+                   t1: float | None = None) -> list[float]:
         with self._lock:
             beats = self._beats
             lo = bisect_left(beats, t0)
@@ -199,7 +198,7 @@ class LiveInput:
             return list(beats[lo:hi])
 
     def list_downbeats(self, t0: float = 0.0,
-                       t1: Optional[float] = None) -> List[float]:
+                       t1: float | None = None) -> list[float]:
         with self._lock:
             dbs = self._downbeats
             lo = bisect_left(dbs, t0)
@@ -210,7 +209,7 @@ class LiveInput:
         """Sin análisis estructural en vivo: devuelve siempre None."""
         return None
 
-    def get_audio_context(self, time_sec: float) -> Dict[str, Any]:
+    def get_audio_context(self, time_sec: float) -> dict[str, Any]:
         """
         Devuelve el mismo shape que AnalysisService.get_audio_context.
         En modo live siempre devuelve el frame MÁS RECIENTE (time_sec ignorado):
@@ -328,7 +327,7 @@ class LiveInput:
         ref = onsets[-1]
         max_t = current_t + 5.0   # 5 s hacia el futuro para list_beats()
 
-        beats: List[float] = []
+        beats: list[float] = []
         t = ref
         while t >= 0.0:
             beats.append(t)
@@ -345,7 +344,7 @@ class LiveInput:
 
 # ── Helpers globales ──────────────────────────────────────────────────────────
 
-def _default_ctx() -> Dict[str, Any]:
+def _default_ctx() -> dict[str, Any]:
     """Contexto de audio neutro (mismo shape que AnalysisService)."""
     return {
         'rms': 0.0, 'energy': 0.0, 'flux': 0.0,

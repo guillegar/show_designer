@@ -11,10 +11,8 @@ I4: retorna clips vacíos y error si no hay análisis.
 """
 from __future__ import annotations
 
-import math
 import uuid
-from typing import Any, Dict, List, Literal, Optional, Tuple
-
+from typing import Any
 
 SOLID_COLOR_ID = 1004   # plugins/effects/solid_color.py
 STROBE_COLOR_ID = 1015  # plugins/effects/strobe_color.py
@@ -24,7 +22,7 @@ STYLES = ("minimal", "club", "festival", "chill")
 
 # ── Paletas de colores por estilo ─────────────────────────────────────────────
 
-def _style_colors(style: str, n_sections: int) -> List[str]:
+def _style_colors(style: str, n_sections: int) -> list[str]:
     """Devuelve lista de colores hex (uno por sección)."""
     if style == "minimal":
         base = ["#ffffff", "#3a7acc", "#ffffff", "#a0a0a0"]
@@ -54,12 +52,10 @@ def _hsv_to_hex(h: float, s: float, v: float) -> str:
         (v, t, p), (q, v, p), (p, v, t),
         (p, q, v), (t, p, v), (v, p, q),
     ][i % 6]
-    return "#{:02x}{:02x}{:02x}".format(
-        int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255)
-    )
+    return f"#{int(rgb[0] * 255):02x}{int(rgb[1] * 255):02x}{int(rgb[2] * 255):02x}"
 
 
-def _parse_hex_color(hex_color: str) -> Tuple[int, int, int]:
+def _parse_hex_color(hex_color: str) -> tuple[int, int, int]:
     h = hex_color.lstrip("#")
     if len(h) == 6:
         return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
@@ -69,13 +65,13 @@ def _parse_hex_color(hex_color: str) -> Tuple[int, int, int]:
 # ── Lógica de generación ──────────────────────────────────────────────────────
 
 def generate_show(
-    beats: List[float],
-    downbeats: List[float],
-    sections: List[Any],
+    beats: list[float],
+    downbeats: list[float],
+    sections: list[Any],
     style: str = "club",
     density: float = 0.5,
     bpm: float = 120.0,
-) -> List[Dict]:
+) -> list[dict]:
     """
     Genera una lista de dicts de clips (ya serializados, listos para timeline.clips).
 
@@ -105,9 +101,9 @@ def generate_show(
                 return palette[i % len(palette)]
         return palette[0] if palette else "#3a7acc"
 
-    clips: List[Dict] = []
+    clips: list[dict] = []
     # tracker de ocupación por layer: {layer: [(start_ms, end_ms)]}
-    occupied: Dict[int, List[Tuple[int, int]]] = {0: [], 1: [], 2: []}
+    occupied: dict[int, list[tuple[int, int]]] = {0: [], 1: [], 2: []}
 
     def _can_place(layer: int, start_ms: int, end_ms: int) -> bool:
         for s, e in occupied.get(layer, []):
@@ -115,7 +111,7 @@ def generate_show(
                 return False
         return True
 
-    def _place(clip_dict: Dict, layer: int, start_ms: int, end_ms: int):
+    def _place(clip_dict: dict, layer: int, start_ms: int, end_ms: int):
         occupied.setdefault(layer, []).append((start_ms, end_ms))
         clips.append(clip_dict)
 

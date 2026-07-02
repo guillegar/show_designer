@@ -12,12 +12,12 @@ Cubre:
   test_set_macro_invalid_name  — set_macro("foo", 1.0) → {ok:False}
   test_set_macro_out_of_range  — set_macro("brightness_mul", 5.0) → {ok:False}
 """
-import numpy as np
-import pytest
 from unittest.mock import MagicMock
 
-from src.core.param_pipeline import MacroStage
+import numpy as np
+import pytest
 
+from src.core.param_pipeline import MacroStage
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -82,8 +82,9 @@ def test_strobe_dark_phase():
     """strobe_rate=10Hz → periodo=100ms, half=50ms. t_ms=75 → fase oscura → frame ceros."""
     # Strobe 10Hz: half_period = 50ms.
     # t_ms=75: 75 % 100 = 75 >= 50 → fase oscura → frame[:] = 0
-    from server.session import ShowSession
     import os
+
+    from server.session import ShowSession
 
     # Construir sesión mínima con mock: evitar I/O real
     # En su lugar, testar la lógica de strobe directamente

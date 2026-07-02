@@ -12,7 +12,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ─── helpers ─────────────────────────────────────────────────────────────────
 
 _DUMMY_PLUGIN = """\
@@ -112,8 +111,9 @@ async def test_fetch_manifest_cache(monkeypatch):
 @pytest.mark.asyncio
 async def test_fetch_manifest_timeout():
     """Timeout en el fetch → lanza TimeoutError."""
-    import server.marketplace as mp
     import httpx
+
+    import server.marketplace as mp
     mp.invalidate_cache()
 
     mock_client = AsyncMock()

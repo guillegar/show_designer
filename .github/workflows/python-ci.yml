@@ -1,0 +1,37 @@
+name: python-ci
+
+# Lint (ruff) + type-check informativo (mypy) del backend Python.
+# NOTA: la suite pytest NO corre aquí todavía — depende de audio/proyectos locales
+# que no están versionados (el audio está en .gitignore). Correr los tests en CI
+# requiere una estrategia de fixtures sintéticos (pendiente). El frontend se testea
+# en frontend-ci.yml.
+
+on:
+  push:
+    paths:
+      - "server/**"
+      - "src/**"
+      - "plugins/**"
+      - "pyproject.toml"
+      - ".github/workflows/python-ci.yml"
+  pull_request:
+    paths:
+      - "server/**"
+      - "src/**"
+      - "plugins/**"
+      - "pyproject.toml"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install tooling
+        run: pip install ruff mypy
+      - name: Ruff (lint — bloqueante)
+        run: ruff check .
+      - name: Mypy (gradual — informativo, no bloquea)
+        run: mypy server src || true

@@ -16,7 +16,7 @@ import math
 import numpy as np
 import pytest
 
-from server.live_input import LiveInput, _ONSET_GAP_MS, _HISTORY_SEC
+from server.live_input import _HISTORY_SEC, _ONSET_GAP_MS, LiveInput
 
 _SR = 44100
 _BS = 1024  # blocksize por defecto

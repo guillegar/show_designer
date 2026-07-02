@@ -9,13 +9,13 @@ Cubre:
   test_last_wins_mixing           — mezcla LAST_WINS: capa más alta gana
   test_compute_fixture_channels   — session: _fixture_dmx_channels poblado
 """
-import pytest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from src.core.dmx_render import render_fixture_channels, _to_dmx
+import pytest
+
+from src.core.dmx_render import _to_dmx, render_fixture_channels
 from src.core.fixtures import Fixture, FixtureRig
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -103,7 +103,7 @@ def test_last_wins_mixing():
 def test_compute_fixture_channels(tmp_path):
     """Session._compute_fixture_channels pobla _fixture_dmx_channels."""
     from server.session import ShowSession
-    from src.core.timeline_model import Timeline, Clip
+    from src.core.timeline_model import Clip, Timeline
 
     # Rig con un dimmer en universe=11, dmx_start=1
     rig = FixtureRig()

@@ -10,10 +10,11 @@ Lanzar manualmente para test:
     python mcp_show_server.py
 """
 from __future__ import annotations
+
 import asyncio
 import json
 import sys
-from typing import Any, Dict, Optional
+from typing import Any
 
 try:
     from mcp.server.fastmcp import FastMCP
@@ -37,7 +38,7 @@ mcp = FastMCP("show-control")
 # Cliente JSON-RPC a través de mcp_bridge
 # ───────────────────────────────────────────────────────────────
 
-async def _rpc(method: str, params: Optional[dict] = None) -> dict:
+async def _rpc(method: str, params: dict | None = None) -> dict:
     """Envía una llamada JSON-RPC al bridge y devuelve el result/error."""
     if params is None:
         params = {}
@@ -54,7 +55,7 @@ async def _rpc(method: str, params: Optional[dict] = None) -> dict:
     except (OSError, ConnectionRefusedError) as e:
         return {"_error": f"Bridge no conectado en {BRIDGE_URL}. "
                           f"¿Está dual_app.py corriendo? ({e})"}
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return {"_error": "Timeout esperando respuesta del bridge"}
     except Exception as e:
         return {"_error": f"Error RPC: {e}"}
@@ -64,7 +65,7 @@ import threading as _threading
 
 # Loop dedicado en thread aparte: evita "Cannot run the event loop while another
 # loop is running" cuando FastMCP nos llama desde su propio event loop.
-_bg_loop: Optional[asyncio.AbstractEventLoop] = None
+_bg_loop: asyncio.AbstractEventLoop | None = None
 
 def _ensure_bg_loop():
     global _bg_loop
@@ -76,7 +77,7 @@ def _ensure_bg_loop():
     return _bg_loop
 
 
-def _sync_rpc(method: str, params: Optional[dict] = None) -> dict:
+def _sync_rpc(method: str, params: dict | None = None) -> dict:
     """Wrapper sincrono: ejecuta _rpc en un thread/loop dedicado."""
     loop = _ensure_bg_loop()
     fut = asyncio.run_coroutine_threadsafe(_rpc(method, params), loop)
@@ -100,7 +101,7 @@ def get_state() -> dict:
 
 
 @mcp.tool()
-def play(start_sec: Optional[float] = None) -> dict:
+def play(start_sec: float | None = None) -> dict:
     """
     Reproduce el audio del show. Si se pasa start_sec, salta a ese tiempo antes.
     """
@@ -167,7 +168,7 @@ def list_fixture_profiles() -> dict:
 
 
 @mcp.tool()
-def save_rig(path: Optional[str] = None) -> dict:
+def save_rig(path: str | None = None) -> dict:
     """
     Guarda el rig actual a fixtures.json (o al path indicado).
     El rig persistirá entre sesiones de la app.
@@ -180,9 +181,9 @@ def save_rig(path: Optional[str] = None) -> dict:
 
 @mcp.tool()
 def add_fixture(fixture_id: str, profile_id: str, universe: int = 1,
-                dmx_start: int = 1, position: Optional[list] = None,
-                rotation: Optional[list] = None, label: str = "",
-                target_ip: Optional[str] = None) -> dict:
+                dmx_start: int = 1, position: list | None = None,
+                rotation: list | None = None, label: str = "",
+                target_ip: str | None = None) -> dict:
     """
     Añade un fixture al rig.
 
@@ -212,13 +213,13 @@ def delete_fixture(fixture_id: str) -> dict:
 
 
 @mcp.tool()
-def move_fixture(fixture_id: str, position: Optional[list] = None,
-                 rotation: Optional[list] = None) -> dict:
+def move_fixture(fixture_id: str, position: list | None = None,
+                 rotation: list | None = None) -> dict:
     """
     Mueve un fixture cambiando su posición (x,y,z metros) y/o rotación
     (pan,tilt,roll grados).
     """
-    params: Dict[str, Any] = {"fixture_id": fixture_id}
+    params: dict[str, Any] = {"fixture_id": fixture_id}
     if position is not None: params["position"] = position
     if rotation is not None: params["rotation"] = rotation
     return _sync_rpc("move_fixture", params)
@@ -238,7 +239,7 @@ def set_fixture_property(fixture_id: str, key: str, value) -> dict:
 
 @mcp.tool()
 def set_fixture_channel(fixture_id: str, channel_name: str,
-                         value: Optional[float] = None) -> dict:
+                         value: float | None = None) -> dict:
     """
     Override manual de un canal DMX de un fixture (0..1 normalizado).
     El override pisa lo que generen los clips channel-level. El viewer 3D
@@ -264,8 +265,8 @@ def set_fixture_channel(fixture_id: str, channel_name: str,
 
 
 @mcp.tool()
-def list_channel_effects(category: Optional[str] = None,
-                         fixture_id: Optional[str] = None) -> dict:
+def list_channel_effects(category: str | None = None,
+                         fixture_id: str | None = None) -> dict:
     """
     Lista los ChannelEffect disponibles para fixtures no-LED.
 
@@ -288,7 +289,7 @@ def list_channel_effects(category: Optional[str] = None,
 def add_channel_clip(fixture_id: str, channel_effect_id: str,
                      start_ms: int, duration_ms: int,
                      layer: int = 0,
-                     clip_params: Optional[dict] = None) -> dict:
+                     clip_params: dict | None = None) -> dict:
     """
     Añade un clip de canal (category != 'pixel') al timeline para un fixture.
 
@@ -366,16 +367,16 @@ def apply_channel_preset(fixture_id: str, preset: dict) -> dict:
 def generate_section(
     effect_id: int,
     trigger: str = "on_beat",
-    start_sec: Optional[float] = None,
-    end_sec: Optional[float] = None,
-    section_name: Optional[str] = None,
+    start_sec: float | None = None,
+    end_sec: float | None = None,
+    section_name: str | None = None,
     scope: str = "per_bar",
     track: int = 0,
     layer: int = 0,
-    clip_duration_ms: Optional[int] = None,
+    clip_duration_ms: int | None = None,
     spacing_ms: int = 0,
     color: str = "#3a7acc",
-    clip_params: Optional[dict] = None,
+    clip_params: dict | None = None,
     max_clips: int = 200,
     dry_run: bool = False,
 ) -> dict:
@@ -429,10 +430,10 @@ def generate_section(
 @mcp.tool()
 def mirror_clips_lr(
     start_ms: int,
-    end_ms: Optional[int] = None,
-    track: Optional[int] = None,
+    end_ms: int | None = None,
+    track: int | None = None,
     layer_offset: int = 1,
-    color: Optional[str] = None,
+    color: str | None = None,
     dry_run: bool = False,
 ) -> dict:
     """Espeja clips bar:N → bar:(9-N) para crear simetría lateral.
@@ -465,8 +466,8 @@ def mirror_clips_lr(
 def apply_palette_to_range(
     palette: str,
     start_ms: int = 0,
-    end_ms: Optional[int] = None,
-    track: Optional[int] = None,
+    end_ms: int | None = None,
+    track: int | None = None,
     mode: str = "cycle",
 ) -> dict:
     """Aplica una paleta de colores (parámetro 'hue') a los clips de un rango.
@@ -506,10 +507,10 @@ def apply_palette_to_range(
 
 
 @mcp.tool()
-def list_clips(track: Optional[int] = None,
-               scope: Optional[str] = None,
-               start_ms_min: Optional[int] = None,
-               start_ms_max: Optional[int] = None) -> dict:
+def list_clips(track: int | None = None,
+               scope: str | None = None,
+               start_ms_min: int | None = None,
+               start_ms_max: int | None = None) -> dict:
     """
     Lista clips del timeline. Filtra opcionalmente por track, scope o rango temporal.
     Cada clip incluye: id, track, start_ms, end_ms, effect_id, scope, color, layer.
@@ -523,7 +524,7 @@ def list_clips(track: Optional[int] = None,
 
 
 @mcp.tool()
-def get_active_clips(t_sec: Optional[float] = None) -> dict:
+def get_active_clips(t_sec: float | None = None) -> dict:
     """
     Devuelve los clips activos en un tiempo dado (el que está sonando ahora
     si no se especifica).
@@ -541,8 +542,8 @@ def list_cue_points() -> dict:
 
 
 @mcp.tool()
-def set_cue(slot: int, t_sec: Optional[float] = None,
-            name: Optional[str] = None) -> dict:
+def set_cue(slot: int, t_sec: float | None = None,
+            name: str | None = None) -> dict:
     """
     Asigna un cue point: slot 1..9 al tiempo dado (o al actual si no se da).
     Opcionalmente con nombre descriptivo (ej. "DROP 1").
@@ -584,7 +585,7 @@ def list_effects() -> dict:
 
 
 @mcp.tool()
-def save_show(path: Optional[str] = None) -> dict:
+def save_show(path: str | None = None) -> dict:
     """
     Guarda el timeline actual. Si no se pasa path, guarda en show_timeline.json
     por defecto.
@@ -637,14 +638,14 @@ def delete_clip(clip_id: str) -> dict:
 
 
 @mcp.tool()
-def move_clip(clip_id: str, new_start_ms: Optional[int] = None,
-              new_end_ms: Optional[int] = None,
-              new_track: Optional[int] = None) -> dict:
+def move_clip(clip_id: str, new_start_ms: int | None = None,
+              new_end_ms: int | None = None,
+              new_track: int | None = None) -> dict:
     """
     Mueve/redimensiona un clip.
     Si solo se da new_start_ms, mantiene la duración.
     """
-    params: Dict[str, Any] = {"clip_id": clip_id}
+    params: dict[str, Any] = {"clip_id": clip_id}
     if new_start_ms is not None: params["new_start_ms"] = new_start_ms
     if new_end_ms is not None: params["new_end_ms"] = new_end_ms
     if new_track is not None: params["new_track"] = new_track
@@ -690,8 +691,8 @@ def set_clip_scope(clip_id: str, scope: str) -> dict:
 # ─── Group write operations ─────────────────────────────────────
 
 @mcp.tool()
-def add_group(name: str, bars: Optional[list] = None,
-              subgroups: Optional[list] = None, color: str = "#888888") -> dict:
+def add_group(name: str, bars: list | None = None,
+              subgroups: list | None = None, color: str = "#888888") -> dict:
     """
     Crea un nuevo grupo de barras.
     - bars: lista de índices de barra (0-9)
@@ -712,11 +713,11 @@ def delete_group(name: str) -> dict:
 
 
 @mcp.tool()
-def set_group_bars(name: str, bars: Optional[list] = None,
-                   subgroups: Optional[list] = None,
-                   color: Optional[str] = None) -> dict:
+def set_group_bars(name: str, bars: list | None = None,
+                   subgroups: list | None = None,
+                   color: str | None = None) -> dict:
     """Modifica las barras / subgrupos / color de un grupo existente."""
-    params: Dict[str, Any] = {"name": name}
+    params: dict[str, Any] = {"name": name}
     if bars is not None: params["bars"] = bars
     if subgroups is not None: params["subgroups"] = subgroups
     if color is not None: params["color"] = color
@@ -784,7 +785,7 @@ def analyzer_list_sections(with_curated: bool = True) -> dict:
 
 @mcp.tool()
 def analyzer_list_beats(start_sec: float = 0.0,
-                        end_sec: Optional[float] = None) -> dict:
+                        end_sec: float | None = None) -> dict:
     """
     Tiempos (segundos) de los beats detectados en el rango [start_sec, end_sec].
     Útil para alinear clips exactamente con el ritmo. Si end_sec es None,
@@ -798,7 +799,7 @@ def analyzer_list_beats(start_sec: float = 0.0,
 
 @mcp.tool()
 def analyzer_list_downbeats(start_sec: float = 0.0,
-                            end_sec: Optional[float] = None) -> dict:
+                            end_sec: float | None = None) -> dict:
     """
     Tiempos (segundos) de los downbeats (primer beat de cada compás).
     Devuelve también `source`: 'madmom' (real), 'fallback_4_4' (asumido 4/4
@@ -814,7 +815,7 @@ def analyzer_list_downbeats(start_sec: float = 0.0,
 @mcp.tool()
 def analyzer_list_events(kind: str,
                          start_sec: float = 0.0,
-                         end_sec: Optional[float] = None) -> dict:
+                         end_sec: float | None = None) -> dict:
     """
     Eventos musicales detectados de un tipo concreto. Respeta la curación:
     excluye los marcados como disabled e incluye los manuales añadidos.
@@ -837,7 +838,7 @@ def analyzer_list_events(kind: str,
 
 @mcp.tool()
 def analyzer_get_features_at(time_sec: float,
-                             names: Optional[list] = None) -> dict:
+                             names: list | None = None) -> dict:
     """
     Features de audio interpolados a un instante concreto. Devuelve un dict
     con las features pedidas.
@@ -857,8 +858,8 @@ def analyzer_get_features_at(time_sec: float,
 @mcp.tool()
 def analyzer_get_features_range(start_sec: float,
                                 end_sec: float,
-                                downsample_to: Optional[int] = None,
-                                names: Optional[list] = None) -> dict:
+                                downsample_to: int | None = None,
+                                names: list | None = None) -> dict:
     """
     Series temporales de features en un rango. Si `downsample_to` está dado
     (ej. 200), decima para que no devuelva miles de puntos.

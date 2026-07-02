@@ -16,10 +16,12 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.mcp import mcp_bridge as mb            # noqa: E402
-from src.analysis.analyzer_service import (    # noqa: E402
-    AnalysisService, Curation, default_service,
+from src.analysis.analyzer_service import (  # noqa: E402
+    AnalysisService,
+    Curation,
+    default_service,
 )
+from src.mcp import mcp_bridge as mb  # noqa: E402
 
 
 class MockApp:

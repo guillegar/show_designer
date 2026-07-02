@@ -72,13 +72,13 @@ def _make_project(tmp_path: Path, slug: str, clip_count: int = 3):
 
 def _make_minimal_session(tmp_path: Path, slug: str, clip_count: int = 3):
     """Construye una ShowSession mínima sin audio ni analysis reales."""
-    from server.session import ShowSession
-    from src.core.timeline_model import Timeline, make_default_groups
-    from src.core.effects_engine import EffectLibrary
     from server.live_engine import LiveEngine
-    from src.core.autovj import AutoVJEngine
-    from server.undo_manager import UndoManager
+    from server.session import ShowSession
     from server.tempo_sync import TempoSyncService
+    from server.undo_manager import UndoManager
+    from src.core.autovj import AutoVJEngine
+    from src.core.effects_engine import EffectLibrary
+    from src.core.timeline_model import Timeline, make_default_groups
 
     p = _make_project(tmp_path, slug, clip_count)
 

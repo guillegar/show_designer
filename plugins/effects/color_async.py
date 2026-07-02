@@ -10,10 +10,10 @@ IDs: 1034 cometa direccional (barrido de un solo sentido, con cola) · 1035 radi
 
 Mismo contrato que color_global: ALL_BARS → (NUM_BARS, LEDS_PER_BAR, 3) uint8, color por params.
 """
-import numpy as np
-from typing import Dict, Any
 
-from src.core.effects_engine import Effect, EffectScope, NUM_BARS, LEDS_PER_BAR
+import numpy as np
+
+from src.core.effects_engine import LEDS_PER_BAR, NUM_BARS, Effect, EffectScope
 
 _BARS = np.arange(NUM_BARS, dtype=np.float32).reshape(NUM_BARS, 1)          # (10,1)
 _LEDS = np.arange(LEDS_PER_BAR, dtype=np.float32).reshape(1, LEDS_PER_BAR)  # (1,93)

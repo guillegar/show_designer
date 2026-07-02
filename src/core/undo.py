@@ -16,10 +16,9 @@ retire la UI Qt (Fase 7). Mantenerlas aquí garantiza que no se desincronicen.
 """
 from __future__ import annotations
 
-from typing import Callable, List, Optional
+from collections.abc import Callable
 
 from src.core.timeline_model import Clip
-
 
 # ── Canónica (callbacks, sin Qt) — la consume el server headless ─────────────
 
@@ -41,8 +40,8 @@ class UndoManager:
         self,
         get_clips: Callable[[], list],
         restore_clips: Callable[[list], None],
-        get_extra: Optional[Callable[[], dict]] = None,
-        restore_extra: Optional[Callable[[dict], None]] = None,
+        get_extra: Callable[[], dict] | None = None,
+        restore_extra: Callable[[dict], None] | None = None,
         max_depth: int = 60,
     ):
         """
@@ -59,8 +58,8 @@ class UndoManager:
         self._get_extra = get_extra
         self._restore_extra = restore_extra
         self._max = max_depth
-        self._undo: List = []
-        self._redo: List = []
+        self._undo: list = []
+        self._redo: list = []
 
     def _snapshot_current(self):
         snap: dict = {"clips": [c.to_dict() for c in self._get_clips()]}
@@ -117,11 +116,11 @@ class ClipSnapshotUndoManager:
     `undo()`/`redo()`. Misma semántica de snapshots que `UndoManager`.
     """
     def __init__(self, max_size: int = 60):
-        self._stack: List[list] = []   # lista de snapshots (listas de dicts)
+        self._stack: list[list] = []   # lista de snapshots (listas de dicts)
         self._pos   = -1
         self._max   = max_size
 
-    def snapshot(self, clips: List[Clip]):
+    def snapshot(self, clips: list[Clip]):
         """Guardar estado ANTES de una modificación."""
         self._stack = self._stack[:self._pos + 1]
         self._stack.append([c.to_dict() for c in clips])
@@ -130,13 +129,13 @@ class ClipSnapshotUndoManager:
         else:
             self._pos += 1
 
-    def undo(self) -> Optional[List[Clip]]:
+    def undo(self) -> list[Clip] | None:
         if self._pos <= 0:
             return None
         self._pos -= 1
         return [Clip.from_dict(d) for d in self._stack[self._pos]]
 
-    def redo(self) -> Optional[List[Clip]]:
+    def redo(self) -> list[Clip] | None:
         if self._pos >= len(self._stack) - 1:
             return None
         self._pos += 1

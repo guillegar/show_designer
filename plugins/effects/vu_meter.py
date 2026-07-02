@@ -3,10 +3,11 @@ vu_meter.py — Barra de nivel reactiva al audio (RMS).
 
 ID: 1016 · scope: PER_BAR · shape: (1, 93, 3) · AUDIO REACTIVO
 """
-import numpy as np
-from typing import Dict, Any
+from typing import Any
 
-from src.core.effects_engine import Effect, EffectScope, LEDS_PER_BAR
+import numpy as np
+
+from src.core.effects_engine import LEDS_PER_BAR, Effect, EffectScope
 
 
 class VuMeterEffect(Effect):
@@ -34,7 +35,7 @@ class VuMeterEffect(Effect):
         self._peak_time    = 0.0
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         t = elapsed_time / 1000.0
 
         r_low  = max(0, min(255, int(params.get('r_low',  0))))

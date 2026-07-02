@@ -11,11 +11,11 @@ Verifica la lógica que `TimelineView.mouseReleaseEvent` ejecuta cuando
 """
 import json
 from pathlib import Path
+
 import pytest
 
-from src.core.timeline_model import Timeline, Clip
 from src.core.channel_effects import ChannelEffectLibrary
-
+from src.core.timeline_model import Clip, Timeline
 
 # ── 1. Construcción del Clip ─────────────────────────────────────────────────
 
@@ -146,7 +146,7 @@ def test_default_params_copied_to_clip():
 
 def test_fixture_lane_index_to_fixture_id():
     """El primer fixture lane corresponde al primer fixture non-LED del rig."""
-    from core.fixtures import FixtureRig, DEFAULT_RIG_FILE
+    from core.fixtures import DEFAULT_RIG_FILE, FixtureRig
     # Cargar rig real si existe; sino crear uno mínimo
     if DEFAULT_RIG_FILE.is_file():
         rig = FixtureRig.load()

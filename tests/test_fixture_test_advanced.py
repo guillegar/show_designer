@@ -14,11 +14,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.core.fixtures import Fixture, FixtureRig, build_default_wled_rig
 from server.dispatcher import (
-    _h_identify_fixture, _h_chase_test, _h_chase_stop,
+    _h_chase_stop,
+    _h_chase_test,
+    _h_identify_fixture,
 )
-
+from src.core.fixtures import Fixture, FixtureRig, build_default_wled_rig
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

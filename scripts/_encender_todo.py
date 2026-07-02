@@ -1,11 +1,13 @@
 """Enciende todas las fixtures del proyecto activo via MCP bridge :9876."""
-import asyncio, json, sys
+import asyncio
+import json
+import sys
+
 sys.path.insert(0, '.')
 
 BRIDGE = "ws://127.0.0.1:9876"
 
 async def rpc(ws, method, params=None):
-    import websockets
     msg = {"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}
     await ws.send(json.dumps(msg))
     raw = await asyncio.wait_for(ws.recv(), timeout=5)

@@ -26,12 +26,10 @@ Uso:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Optional
 
 import pygdtf
 
 from src.core.fixtures import FixtureProfile
-
 
 # ────────────────────────────────────────────────────────────────
 # Mapeo de atributos GDTF (estándar oficial) → nombres canónicos
@@ -42,7 +40,7 @@ from src.core.fixtures import FixtureProfile
 #   Gobo1Pos, Prism1, Prism1Pos, Focus1, Zoom1, Frost1, Function, Control,
 #   ColorMacro1, StrobeFrequency, StrobeDuration, AnimationWheel1, etc.
 
-GDTF_ATTR_TO_CANONICAL: Dict[str, str] = {
+GDTF_ATTR_TO_CANONICAL: dict[str, str] = {
     # Movimiento
     "Pan": "pan",
     "Tilt": "tilt",
@@ -101,7 +99,7 @@ def _canonical_name(gdtf_attr_name: str) -> str:
     return gdtf_attr_name.lower()
 
 
-def _guess_kind(channel_map: Dict[str, int]) -> str:
+def _guess_kind(channel_map: dict[str, int]) -> str:
     """Adivina el kind del fixture según los canales presentes.
 
     Reglas simples:
@@ -134,8 +132,8 @@ def _guess_kind(channel_map: Dict[str, int]) -> str:
 
 def load_gdtf_profile(
     gdtf_path: Path,
-    mode_name: Optional[str] = None,
-    profile_id: Optional[str] = None,
+    mode_name: str | None = None,
+    profile_id: str | None = None,
 ) -> FixtureProfile:
     """Carga un fixture GDTF y devuelve un FixtureProfile.
 
@@ -174,7 +172,7 @@ def load_gdtf_profile(
     if not channels:
         channels = list(getattr(mode, "dmx_channels", None) or [])
 
-    channel_map: Dict[str, int] = {}
+    channel_map: dict[str, int] = {}
     max_offset = 0
 
     for ch in channels:
@@ -213,7 +211,7 @@ def load_gdtf_profile(
     kind = _guess_kind(channel_map)
 
     # Metadata: max pan/tilt si los podemos sacar del fixture
-    metadata: Dict = {
+    metadata: dict = {
         "_source": "gdtf",
         "_gdtf_file": gdtf_path.name,
         "_gdtf_mode": mode.name or "(default)",

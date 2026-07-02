@@ -13,11 +13,9 @@ import json
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
 from uuid import uuid4
 
 import numpy as np
-
 
 # ── Constantes ───────────────────────────────────────────────────────────────
 
@@ -84,7 +82,7 @@ class Rule:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "Rule":
+    def from_dict(cls, d: dict) -> Rule:
         return cls(
             uid=str(d.get("uid") or uuid4().hex[:8]),
             trigger=str(d.get("trigger", "on_beat")),
@@ -98,7 +96,7 @@ class Rule:
 class RuleSet:
     uid: str
     name: str
-    rules: List[Rule]
+    rules: list[Rule]
     enabled: bool = True
 
     def to_dict(self) -> dict:
@@ -110,7 +108,7 @@ class RuleSet:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "RuleSet":
+    def from_dict(cls, d: dict) -> RuleSet:
         return cls(
             uid=str(d.get("uid") or uuid4().hex[:8]),
             name=str(d.get("name", "Custom")),
@@ -152,7 +150,7 @@ PRESET_TECHNO = RuleSet(uid="preset_techno", name="Techno", rules=[
          action="fire_effect:1005:global:80", cooldown_ms=150),
 ])
 
-PRESETS: Dict[str, RuleSet] = {
+PRESETS: dict[str, RuleSet] = {
     p.uid: p for p in [PRESET_FIESTA, PRESET_CHILL, PRESET_TECHNO]
 }
 
@@ -172,11 +170,11 @@ class AutoVJEngine:
     """
 
     def __init__(self) -> None:
-        self.ruleset: Optional[RuleSet] = None
-        self._last_section: Optional[str] = None
+        self.ruleset: RuleSet | None = None
+        self._last_section: str | None = None
         # Patterns efímeros creados por fire_effect (uid → pattern dict).
         # Session los pasa a live_engine.compute_live_frame junto con timeline.patterns.
-        self._ephemeral_patterns: Dict[str, dict] = {}
+        self._ephemeral_patterns: dict[str, dict] = {}
 
     # ── Evaluación principal ─────────────────────────────────────────────────
 
@@ -212,7 +210,7 @@ class AutoVJEngine:
 
     # ── Helpers privados ─────────────────────────────────────────────────────
 
-    def _get_section_name(self, t_ms: float, analysis) -> Optional[str]:
+    def _get_section_name(self, t_ms: float, analysis) -> str | None:
         if analysis is None:
             return None
         try:
@@ -224,7 +222,7 @@ class AutoVJEngine:
         return None
 
     def _check_trigger(self, rule: Rule, t_ms: float, norm: dict,
-                       analysis, current_section: Optional[str]) -> bool:
+                       analysis, current_section: str | None) -> bool:
         t = rule.trigger
 
         if t == "on_beat":

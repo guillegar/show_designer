@@ -24,8 +24,9 @@ import hashlib
 import json
 import logging
 import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 import numpy as np
 
@@ -78,8 +79,8 @@ def _resolve_scope_bars_worker(scope: str, groups: list) -> list:
 
 def _expand_pattern_instances(frozen_tl) -> list:
     """Expande PatternInstances a Clips efímeros (igual que ShowSession._expand_all_pattern_instances)."""
-    from src.core.timeline_model import Pattern, PatternInstance, Clip
     from src.core.effects_engine import NUM_BARS
+    from src.core.timeline_model import Clip, Pattern, PatternInstance
 
     result = []
     for inst_d in frozen_tl.pattern_instances:
@@ -121,7 +122,7 @@ def _render_worker(
     fps: int,
     out_path: Path,
     show_hash: str,
-    progress_fn: Optional[Callable[[float], None]],
+    progress_fn: Callable[[float], None] | None,
 ) -> None:
     """Worker síncrono de render offline. Corre en executor (I4).
 
@@ -139,11 +140,11 @@ def _render_worker(
         show_hash:    Hash del timeline para render_meta.json.
         progress_fn:  Callback(pct: float) thread-safe o None.
     """
-    from src.core.effects_engine import NUM_BARS, LEDS_PER_BAR
-    from src.core.param_pipeline import resolve_params
-    from src.core.modulation import ModulationStage
     from src.core.automation import AutomationLane, AutomationStage
+    from src.core.effects_engine import LEDS_PER_BAR, NUM_BARS
     from src.core.micro_events import MicroEventStage
+    from src.core.modulation import ModulationStage
+    from src.core.param_pipeline import resolve_params
 
     LEDS = LEDS_PER_BAR  # 93
 

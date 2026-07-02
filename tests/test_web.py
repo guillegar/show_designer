@@ -15,6 +15,7 @@ os.environ["LUCES_NO_MCP_COMPAT"] = "1"
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi.testclient import TestClient  # noqa: E402
+
 from server.web import create_app  # noqa: E402
 
 

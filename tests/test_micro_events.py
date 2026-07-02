@@ -8,12 +8,12 @@ Cubre:
   - Handlers del dispatcher (add / delete / update_micro_event)
   - Undo (invariante I1: events van en el snapshot vía clip.to_dict)
 """
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from src.core.micro_events import MicroEvent, MicroEventStage
 from src.core.timeline_model import Clip
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -25,9 +25,12 @@ def make_clip(**kwargs) -> Clip:
 
 def make_session_with_clip(clip: Clip):
     """Session mock mínimo para los handlers del dispatcher."""
-    from server.session import ShowSession
-    import tempfile, json, os
+    import json
+    import os
+    import tempfile
     from pathlib import Path
+
+    from server.session import ShowSession
 
     tmp = tempfile.mkdtemp()
     show_path = Path(tmp) / "show_timeline.json"

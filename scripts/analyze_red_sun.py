@@ -16,9 +16,8 @@ from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
 
-import numpy as np
 import librosa
-import soundfile as sf
+import numpy as np
 
 # Rutas
 PROJECT_DIR = Path(__file__).resolve().parent.parent

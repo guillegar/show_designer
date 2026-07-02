@@ -32,18 +32,16 @@ API pública (resumen):
 from __future__ import annotations
 
 import json
-import math
 import threading
 from bisect import bisect_left, bisect_right
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
-from src._paths import PROJECT_DIR, ANALIZADAS_DIR
-
+from src._paths import ANALIZADAS_DIR
 
 # ───────────────────────────────────────────────────────────────
 # Vocabulario de tipos de sección (vocabulario híbrido + libre)
@@ -89,7 +87,7 @@ class Section:
 class Event:
     time_sec: float
     kind: str
-    end_sec: Optional[float] = None   # los band_events tienen start+end; los onsets no
+    end_sec: float | None = None   # los band_events tienen start+end; los onsets no
     source: str = "auto"              # "auto" | "manual"
     name: str = ""
 
@@ -145,7 +143,7 @@ def migrate_to_v3(payload: dict) -> dict:
     out['schema_version'] = 3
 
     glob_in = dict(payload.get('global', {}))
-    glob_out: Dict[str, Any] = {}
+    glob_out: dict[str, Any] = {}
 
     if v == 1:
         # v1: bpm, beat_count, key, loudness, peak, crest, energy, danceability,
@@ -201,7 +199,7 @@ def migrate_to_v3(payload: dict) -> dict:
     out['song_id'] = sha[:12] if sha else payload.get('file', 'unknown')
 
     # Unificar eventos en `events` dict plano
-    events: Dict[str, list] = {}
+    events: dict[str, list] = {}
     for k, v_list in (payload.get('events_by_band') or {}).items():
         events[k] = list(v_list)
     for k, v_list in (payload.get('events_percussive') or {}).items():
@@ -238,26 +236,26 @@ class Curation:
 
     SCHEMA_VERSION = 1
 
-    def __init__(self, path: Path, song_id: str = "", service: Optional[Any] = None):
+    def __init__(self, path: Path, song_id: str = "", service: Any | None = None):
         self.path = path
         self.song_id = song_id
-        self.section_labels: Dict[int, Dict[str, str]] = {}
+        self.section_labels: dict[int, dict[str, str]] = {}
         # disabled_events: lista de (time_sec, kind, tolerance_ms)
-        self.disabled_events: List[Tuple[float, str, int]] = []
-        self.manual_events: List[Event] = []
-        self.threshold_overrides: Dict[str, float] = {}
-        self.cue_seeds: List[Dict[str, Any]] = []
+        self.disabled_events: list[tuple[float, str, int]] = []
+        self.manual_events: list[Event] = []
+        self.threshold_overrides: dict[str, float] = {}
+        self.cue_seeds: list[dict[str, Any]] = []
         self._dirty = False
         self._service = service  # Optional ref to AnalysisService for cache invalidation
 
     # ── Persistencia ───────────────────────────────────────────
     @classmethod
-    def load(cls, path: Path, song_id: str = "", service: Optional[Any] = None) -> 'Curation':
+    def load(cls, path: Path, song_id: str = "", service: Any | None = None) -> Curation:
         c = cls(path, song_id=song_id, service=service)
         if not path.is_file():
             return c
         try:
-            with open(path, 'r', encoding='utf-8') as f:
+            with open(path, encoding='utf-8') as f:
                 data = json.load(f)
             if data.get('version') != cls.SCHEMA_VERSION:
                 print(f"[curation] versión {data.get('version')} no soportada, ignorando")
@@ -369,7 +367,7 @@ class Curation:
                 return True
         return False
 
-    def section_label_for(self, idx: int) -> Tuple[str, str]:
+    def section_label_for(self, idx: int) -> tuple[str, str]:
         lbl = self.section_labels.get(int(idx))
         if not lbl:
             return ("", "")
@@ -393,13 +391,13 @@ class AnalysisService:
 
     def __init__(self, audio_path_or_dir: Path):
         self._input = Path(audio_path_or_dir)
-        self._analysis_dir: Optional[Path] = None
-        self._analysis_json_path: Optional[Path] = None
-        self._timeseries_path: Optional[Path] = None
-        self._payload: Optional[dict] = None   # v3 normalizado
-        self._timeseries: Optional[dict] = None  # arrays mapeados
-        self._curation: Optional[Curation] = None
-        self._preload_thread: Optional[threading.Thread] = None
+        self._analysis_dir: Path | None = None
+        self._analysis_json_path: Path | None = None
+        self._timeseries_path: Path | None = None
+        self._payload: dict | None = None   # v3 normalizado
+        self._timeseries: dict | None = None  # arrays mapeados
+        self._curation: Curation | None = None
+        self._preload_thread: threading.Thread | None = None
 
         # Resolver paths
         self._resolve_paths()
@@ -485,7 +483,7 @@ class AnalysisService:
             raise FileNotFoundError(
                 f"No existe analysis.json en {self._analysis_json_path}"
             )
-        with open(self._analysis_json_path, 'r', encoding='utf-8') as f:
+        with open(self._analysis_json_path, encoding='utf-8') as f:
             raw = json.load(f)
         v = detect_schema_version(raw)
         if v == 0:
@@ -508,7 +506,7 @@ class AnalysisService:
         self._timeseries = {k: npz[k] for k in npz.files}
         # Pre-cache: los tiempos del grid
         if 'times' not in self._timeseries:
-            print(f"[analyzer_service] timeseries.npz sin 'times', interpolación deshabilitada")
+            print("[analyzer_service] timeseries.npz sin 'times', interpolación deshabilitada")
 
     # ── Summary ───────────────────────────────────────────────
     @property
@@ -539,9 +537,9 @@ class AnalysisService:
         }
 
     # ── Secciones ─────────────────────────────────────────────
-    def list_sections(self, with_curated: bool = True) -> List[Section]:
+    def list_sections(self, with_curated: bool = True) -> list[Section]:
         self._load_payload()
-        out: List[Section] = []
+        out: list[Section] = []
         for s in self._payload.get('sections', []):
             sec = Section(
                 idx=int(s['index']),
@@ -557,23 +555,23 @@ class AnalysisService:
             out.append(sec)
         return out
 
-    def section_at(self, time_sec: float) -> Optional[Section]:
+    def section_at(self, time_sec: float) -> Section | None:
         for s in self.list_sections():
             if s.start <= time_sec < s.end:
                 return s
         return None
 
     # ── Beats / Downbeats ─────────────────────────────────────
-    def list_beats(self, t0: float = 0.0, t1: Optional[float] = None) -> List[float]:
+    def list_beats(self, t0: float = 0.0, t1: float | None = None) -> list[float]:
         self._load_payload()
         return self._slice(self._payload.get('beats', []), t0, t1)
 
-    def list_downbeats(self, t0: float = 0.0, t1: Optional[float] = None) -> List[float]:
+    def list_downbeats(self, t0: float = 0.0, t1: float | None = None) -> list[float]:
         self._load_payload()
         return self._slice(self._payload.get('downbeats', []), t0, t1)
 
     @staticmethod
-    def _slice(times: List[float], t0: float, t1: Optional[float]) -> List[float]:
+    def _slice(times: list[float], t0: float, t1: float | None) -> list[float]:
         if not times:
             return []
         arr = times
@@ -583,7 +581,7 @@ class AnalysisService:
 
     # ── Eventos (kicks, snares, hats, onsets...) ──────────────
     def list_events(self, kind: str, t0: float = 0.0,
-                    t1: Optional[float] = None) -> List[Event]:
+                    t1: float | None = None) -> list[Event]:
         """Lista de eventos de `kind` entre t0 y t1.
 
         Filtra los marcados como disabled e incluye los manuales.
@@ -593,7 +591,7 @@ class AnalysisService:
         self._load_payload()
 
         # 1) Eventos auto del crudo
-        auto: List[Event] = []
+        auto: list[Event] = []
         if kind.startswith('onsets_'):
             sub = kind[len('onsets_'):]
             for t in (self._payload.get('onsets', {}).get(sub, []) or []):
@@ -623,7 +621,7 @@ class AnalysisService:
         return [e for e in all_evs if t0 <= e.time_sec <= t1]
 
     # ── Features puntuales / rangos ───────────────────────────
-    def features_at(self, time_sec: float, names: Optional[List[str]] = None) -> Dict[str, float]:
+    def features_at(self, time_sec: float, names: list[str] | None = None) -> dict[str, float]:
         """Interpola los features escalares 1D al tiempo dado.
 
         Si `names` es None, devuelve todos los disponibles.
@@ -637,7 +635,7 @@ class AnalysisService:
         if names is None:
             names = ['rms', 'rms_db', 'centroid', 'rolloff', 'flux', 'zcr',
                      'bandwidth', 'flatness']
-        out: Dict[str, Any] = {}
+        out: dict[str, Any] = {}
         for n in names:
             if n not in self._timeseries:
                 continue
@@ -653,8 +651,8 @@ class AnalysisService:
         return out
 
     def features_range(self, t0: float, t1: float,
-                       downsample_to: Optional[int] = None,
-                       names: Optional[List[str]] = None) -> Dict[str, Any]:
+                       downsample_to: int | None = None,
+                       names: list[str] | None = None) -> dict[str, Any]:
         """Devuelve series temporales recortadas a [t0, t1].
 
         Si `downsample_to` está dado, hace decimation simple (mean) hasta
@@ -673,7 +671,7 @@ class AnalysisService:
         if names is None:
             names = ['rms', 'centroid', 'flux', 'zcr']
 
-        features: Dict[str, Any] = {}
+        features: dict[str, Any] = {}
         for n in names:
             if n not in self._timeseries:
                 continue
@@ -707,7 +705,7 @@ class AnalysisService:
         return out
 
     # ── Heurísticas ───────────────────────────────────────────
-    def find_drops(self, min_energy_jump: float = 0.4) -> List[dict]:
+    def find_drops(self, min_energy_jump: float = 0.4) -> list[dict]:
         """Detecta drops: secciones cuya energía sube ≥ min_energy_jump
         respecto a la anterior."""
         sections = self.list_sections()
@@ -731,7 +729,7 @@ class AnalysisService:
                 })
         return drops
 
-    def find_breakdowns(self, min_low_energy_sec: float = 4.0) -> List[dict]:
+    def find_breakdowns(self, min_low_energy_sec: float = 4.0) -> list[dict]:
         """Detecta breakdowns: secciones largas con energía < 60% del
         promedio del show."""
         sections = self.list_sections()
@@ -754,7 +752,7 @@ class AnalysisService:
         return out
 
     # ── Stems ─────────────────────────────────────────────────
-    def list_stems_events(self, stem: str) -> Dict[str, Any]:
+    def list_stems_events(self, stem: str) -> dict[str, Any]:
         """Si demucs corrió, devuelve los onsets/active regions del stem."""
         self._load_payload()
         stems = self._payload.get('stems', {})
@@ -778,7 +776,7 @@ class AnalysisService:
 
     # ── Audio context para los efectos (backwards compat) ────
     @lru_cache(maxsize=1)
-    def get_audio_context(self, time_sec: float) -> Dict[str, Any]:
+    def get_audio_context(self, time_sec: float) -> dict[str, Any]:
         """Devuelve el mismo shape que `ShowEngine.get_audio_context()`
         usaba: dict con rms/centroid/flux/zcr/energy escalares + mfcc/
         chroma/tonnetz/contrast/mel_bands vectores.
@@ -865,7 +863,7 @@ class AnalysisService:
         return ctx
 
     @staticmethod
-    def _default_audio_context() -> Dict[str, Any]:
+    def _default_audio_context() -> dict[str, Any]:
         # 'energy' se omite a propósito: se rellena desde timeseries['energy']
         # o, en su defecto, se deriva como rms**2.
         return {
@@ -901,7 +899,7 @@ def default_service() -> AnalysisService:
     return AnalysisService(ANALIZADAS_DIR / 'el_taser_de_mama_remix')
 
 
-def discover_analyzed_songs() -> List[str]:
+def discover_analyzed_songs() -> list[str]:
     """Lista los slugs disponibles en analizadas/."""
     if not ANALIZADAS_DIR.is_dir():
         return []

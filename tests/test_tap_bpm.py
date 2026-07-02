@@ -2,8 +2,11 @@
 test_tap_bpm.py — Tests para la funcionalidad de tap tempo (M1).
 """
 from __future__ import annotations
+
 import time
+
 import pytest
+
 from server.tempo_sync import TempoSyncService
 
 

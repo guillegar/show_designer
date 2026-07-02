@@ -12,12 +12,16 @@ Params:
 
 ID asignado: 1004 (SolidColorEffect)
 """
+from typing import Any
+
 import numpy as np
-from typing import Dict, Any
 
 from src.core.effects_engine import (
-    Effect, EffectScope, EffectGeometry, EffectSymmetry,
     LEDS_PER_BAR,
+    Effect,
+    EffectGeometry,
+    EffectScope,
+    EffectSymmetry,
 )
 
 
@@ -37,7 +41,7 @@ class SolidColorEffect(Effect):
     }
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         r = int(params.get('r', 255))
         g = int(params.get('g', 255))
         b = int(params.get('b', 255))

@@ -3,10 +3,11 @@ rainbow_wave.py — Arcoíris completo que viaja por los LEDs (vectorizado).
 
 ID: 1017 · scope: PER_BAR · shape: (1, 93, 3)
 """
-import numpy as np
-from typing import Dict, Any
+from typing import Any
 
-from src.core.effects_engine import Effect, EffectScope, LEDS_PER_BAR
+import numpy as np
+
+from src.core.effects_engine import LEDS_PER_BAR, Effect, EffectScope
 
 
 class RainbowWaveEffect(Effect):
@@ -24,7 +25,7 @@ class RainbowWaveEffect(Effect):
     }
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         t = elapsed_time / 1000.0
 
         speed      = float(params.get('speed', 1.0))

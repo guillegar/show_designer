@@ -15,9 +15,8 @@ sys.path.insert(0, str(ROOT))
 import numpy as np
 import pytest
 
-from src.core.effects_engine import Effect, EffectScope, LEDS_PER_BAR
+from src.core.effects_engine import LEDS_PER_BAR, Effect, EffectScope
 from tests.plugin_test_harness import assert_valid_plugin_effect
-
 
 # ── Efecto válido: el template debe pasar ────────────────────────────────────
 

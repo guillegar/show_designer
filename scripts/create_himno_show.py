@@ -7,9 +7,9 @@ Script para crear un nuevo proyecto con:
 - Rig: configuración estándar de 10 barras
 """
 
-import sys
-import json
 import io
+import json
+import sys
 from pathlib import Path
 
 # Forzar UTF-8 en Windows
@@ -19,9 +19,10 @@ if sys.platform == 'win32':
 # Agregar src/ al path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.io.project_manager import ProjectManager
-from src.core.timeline_model import Timeline, Clip
 from src.core.fixtures import FixtureRig
+from src.core.timeline_model import Clip, Timeline
+from src.io.project_manager import ProjectManager
+
 
 def create_himno_project():
     """Crea el proyecto Himno de España"""
@@ -62,13 +63,13 @@ def create_himno_project():
         if source_rig.exists():
             import shutil
             shutil.copy(source_rig, rig_path)
-            print(f"✅ Rig copiado desde El Taser")
+            print("✅ Rig copiado desde El Taser")
         else:
             # Crear rig mínimo
             rig = FixtureRig()
             # Las barras ya están por defecto en FixtureRig.__init__
             rig.save(rig_path)
-            print(f"✅ Rig creado con barras estándar")
+            print("✅ Rig creado con barras estándar")
 
     # Crear timeline con clips de bandera ondeante
     show_path = project.show_file
@@ -136,7 +137,7 @@ def create_himno_project():
     print(f"Audio: {audio_path.name}")
     print(f"Directorio: {project.folder}")
     print(f"Duracion: {duration_ms/1000:.1f}s")
-    print(f"Efecto: #1002 (Bandera Espanola Ondeante)")
+    print("Efecto: #1002 (Bandera Espanola Ondeante)")
     print()
     print("[*] Para reproducir el show:")
     print("1. Abre http://localhost:8000")

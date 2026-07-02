@@ -14,11 +14,11 @@ El análisis sigue en analizadas/<slug>/ (no se mueve).
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
 
 from src._paths import PROJECT_DIR
+
 PROJECTS_DIR  = PROJECT_DIR / 'projects'
 
 
@@ -84,13 +84,13 @@ class Project:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
     @classmethod
-    def from_folder(cls, folder: Path) -> Optional['Project']:
+    def from_folder(cls, folder: Path) -> Project | None:
         """Carga un Project desde su carpeta. None si no existe project.json."""
         pf = folder / 'project.json'
         if not pf.is_file():
             return None
         try:
-            with open(pf, 'r', encoding='utf-8') as f:
+            with open(pf, encoding='utf-8') as f:
                 data = json.load(f)
             return cls(
                 slug           = data.get('slug', folder.name),
@@ -122,15 +122,15 @@ class ProjectManager:
 
     def __init__(self):
         PROJECTS_DIR.mkdir(exist_ok=True)
-        self._current: Optional[Project] = None
+        self._current: Project | None = None
 
     # ── Consulta ─────────────────────────────────────────────────────────────
 
     @property
-    def current(self) -> Optional[Project]:
+    def current(self) -> Project | None:
         return self._current
 
-    def list_projects(self) -> List[Project]:
+    def list_projects(self) -> list[Project]:
         """Lista todos los proyectos disponibles, ordenados por nombre."""
         result = []
         if PROJECTS_DIR.is_dir():
@@ -141,13 +141,13 @@ class ProjectManager:
                         result.append(p)
         return result
 
-    def get_project(self, slug: str) -> Optional[Project]:
+    def get_project(self, slug: str) -> Project | None:
         folder = PROJECTS_DIR / slug
         return Project.from_folder(folder)
 
     # ── Apertura / creación ──────────────────────────────────────────────────
 
-    def open_project(self, slug: str) -> Optional[Project]:
+    def open_project(self, slug: str) -> Project | None:
         """Abre un proyecto existente. Devuelve None si no existe."""
         p = self.get_project(slug)
         if p is not None:
@@ -226,7 +226,7 @@ class ProjectManager:
 
     # ── Persistencia del show y rig activos ──────────────────────────────────
 
-    def save_show(self, timeline, project: Optional[Project] = None):
+    def save_show(self, timeline, project: Project | None = None):
         """Guarda el timeline en show.json del proyecto activo."""
         p = project or self._current
         if p is None:
@@ -235,7 +235,7 @@ class ProjectManager:
         timeline.save(p.show_file)
         print(f"[project] Show guardado: {p.show_file}")
 
-    def save_rig(self, rig, project: Optional[Project] = None):
+    def save_rig(self, rig, project: Project | None = None):
         """Guarda el rig en rig.json del proyecto activo."""
         p = project or self._current
         if p is None:
@@ -249,7 +249,7 @@ class ProjectManager:
 # Singleton conveniente para importar desde el server / handlers MCP
 # ─────────────────────────────────────────────────────────────────────────────
 
-_MANAGER: Optional[ProjectManager] = None
+_MANAGER: ProjectManager | None = None
 
 
 def get_manager() -> ProjectManager:
@@ -272,6 +272,6 @@ if __name__ == '__main__':
     print(f"  show:     {proj.show_file}  (existe={proj.show_file.is_file()})")
     print(f"  rig:      {proj.rig_file}   (existe={proj.rig_file.is_file()})")
     print(f"  analysis: {proj.analysis_file}  (existe={proj.analysis_file.is_file()})")
-    print(f"\nProyectos disponibles:")
+    print("\nProyectos disponibles:")
     for p in pm.list_projects():
         print(f"  [{p.slug}] {p.name}")

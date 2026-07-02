@@ -18,8 +18,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.core.postfx import apply_track_chain, apply_master  # noqa: E402
-
+from src.core.postfx import apply_master, apply_track_chain  # noqa: E402
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 

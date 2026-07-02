@@ -12,14 +12,14 @@ Cubre:
 """
 import copy
 import json
-import pytest
-import numpy as np
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import numpy as np
+import pytest
+
 from src.core.timeline_model import Clip, Pattern, PatternInstance, Timeline
 from src.core.undo import UndoManager
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -329,7 +329,7 @@ def test_h_create_pattern_empty_clip_ids(session):
 
 
 def test_h_add_pattern_instance(session):
-    from server.dispatcher import _h_create_pattern_from_clips, _h_add_pattern_instance
+    from server.dispatcher import _h_add_pattern_instance, _h_create_pattern_from_clips
     r = _h_create_pattern_from_clips(session, {"clip_ids": ["c001"]})
     pat_uid = r["pattern"]["uid"]
 
@@ -413,7 +413,7 @@ def test_h_update_pattern(session):
 
 def test_h_delete_pattern_cascades_instances(session):
     """Borrar un pattern elimina todas sus instancias (invariante I2)."""
-    from server.dispatcher import _h_create_pattern_from_clips, _h_add_pattern_instance, _h_delete_pattern
+    from server.dispatcher import _h_add_pattern_instance, _h_create_pattern_from_clips, _h_delete_pattern
     r = _h_create_pattern_from_clips(session, {"clip_ids": ["c001"]})
     pat_uid = r["pattern"]["uid"]
     _h_add_pattern_instance(session, {"pattern_uid": pat_uid, "start_ms": 5000})
@@ -470,7 +470,7 @@ def test_h_dissolve_instance(session):
 
 def test_h_dissolve_instance_absolute_times(session):
     """Los clips disueltos tienen tiempos ABSOLUTOS."""
-    from server.dispatcher import _h_create_pattern_from_clips, _h_add_pattern_instance, _h_dissolve_instance
+    from server.dispatcher import _h_add_pattern_instance, _h_create_pattern_from_clips, _h_dissolve_instance
     r = _h_create_pattern_from_clips(session, {
         "clip_ids": ["c001"],  # c001: track=0, start_ms=0, end_ms=1000
     })
@@ -507,7 +507,7 @@ def test_ephemeral_clips_have_double_colon_uid():
     tl.pattern_instances = [inst.to_dict()]
 
     # Simular la expansión (sin ShowSession completa)
-    from src.core.timeline_model import Pattern, PatternInstance, Clip
+    from src.core.timeline_model import Clip, Pattern, PatternInstance
     expanded = []
     for inst_d in tl.pattern_instances:
         i = PatternInstance.from_dict(inst_d)

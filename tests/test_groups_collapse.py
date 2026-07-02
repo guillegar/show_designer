@@ -8,12 +8,12 @@ Cubre:
   test_get_group_clips_filters_fx — clips de fixtures no se incluyen (scope≠per_bar)
   test_get_group_clips_partial    — solo las barras del grupo, no todas
 """
-import pytest
 from unittest.mock import MagicMock
 
-from src.core.timeline_model import Timeline, Clip, BarGroup
-from server.dispatcher import _h_get_group_clips
+import pytest
 
+from server.dispatcher import _h_get_group_clips
+from src.core.timeline_model import BarGroup, Clip, Timeline
 
 # ── Fake session ──────────────────────────────────────────────────────────────
 

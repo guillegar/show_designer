@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 # Setup MINIMAL de sys.path ANTES de importar src._setup_paths
 # (necesario porque src._setup_paths es lo que configura sys.path correctamente)
@@ -32,13 +32,11 @@ if str(_root) not in sys.path:
     sys.path.insert(0, str(_root))
 
 # Setup centralizado de sys.path (única fuente de verdad)
-from src._setup_paths import *
-
 import src.mcp.mcp_bridge as bridge  # noqa: E402
 from server.exporters import export_to_memory  # noqa: E402
-from server.validators import ValidationError, require_int, require_order, require_key  # noqa: E402
 from server.toggles import toggle_set_membership  # noqa: E402
-
+from server.validators import ValidationError, require_int, require_key, require_order  # noqa: E402
+from src._setup_paths import *
 
 # ── Desacople (B1) ───────────────────────────────────────────────────────────
 # Antes aquí se parcheaba el módulo global `bridge._qt_call`/`_qt_call_dual`.
@@ -158,7 +156,8 @@ def _h_preview_effect_frame(session, params):
         return {"ok": False, "error": f"effect_id {effect_id} no encontrado"}
 
     import numpy as np
-    from src.core.effects_engine import EffectScope, NUM_BARS, LEDS_PER_BAR
+
+    from src.core.effects_engine import LEDS_PER_BAR, NUM_BARS
 
     t_ms = float(params.get("t_ms", 0))
     effect_params = dict(params.get("params") or {})
@@ -182,7 +181,9 @@ def _h_preview_effect_frame(session, params):
         return {"ok": True, "frame_raw": img_arr.tolist()}
 
     try:
-        import base64, io
+        import base64
+        import io
+
         from PIL import Image
         # Escalar 2× para visibilidad mínima
         scale = 2
@@ -487,8 +488,9 @@ def _h_add_automation_lane(session, params):
         target = require_key(params, "target")
     except ValidationError as e:
         return {"ok": False, "error": str(e)}
-    from src.core.automation import AutomationLane
     from uuid import uuid4
+
+    from src.core.automation import AutomationLane
     lane = AutomationLane(uid=uuid4().hex[:12], target=target, points=[], enabled=True)
     session.timeline.automation.append(lane.to_dict())
     session.invalidate_caches()
@@ -625,8 +627,9 @@ def _h_create_pattern_from_clips(session, params):
     if not clips:
         return {"ok": False, "error": "Ningún clip_id encontrado"}
 
-    from src.core.timeline_model import Pattern, PatternInstance
     from uuid import uuid4
+
+    from src.core.timeline_model import Pattern, PatternInstance
 
     session.snapshot()
 
@@ -678,8 +681,9 @@ def _h_add_pattern_instance(session, params):
     if pat_d is None:
         return {"ok": False, "error": "pattern_uid no encontrado"}
 
-    from src.core.timeline_model import PatternInstance
     from uuid import uuid4
+
+    from src.core.timeline_model import PatternInstance
 
     session.snapshot()
 
@@ -836,8 +840,9 @@ def _h_dissolve_instance(session, params):
     if inst_d is None:
         return {"ok": False, "error": "instance_uid no encontrado"}
 
-    from src.core.timeline_model import Pattern, PatternInstance, Clip
     from uuid import uuid4
+
+    from src.core.timeline_model import Clip, Pattern, PatternInstance
 
     session.snapshot()
 
@@ -1231,6 +1236,7 @@ def _h_render_offline(session, params):
     if getattr(session, 'render_in_progress', False):
         return {"ok": False, "error": "Ya hay un render en curso"}
     import asyncio
+
     from server.offline_render import start_render
     try:
         asyncio.ensure_future(start_render(session))
@@ -1496,8 +1502,9 @@ def _h_stop_record(session, params):
 
     session._recording = False
 
-    from src.core.automation import AutomationLane, AutomationPoint
     from uuid import uuid4
+
+    from src.core.automation import AutomationLane
 
     start_ms = session._record_start_ms
     lane_uids = []
@@ -1955,8 +1962,8 @@ def _h_set_output_target(session, params):
     Actualiza output_targets.json para el universo indicado y recarga el router
     en el engine de la sesión. Soporta type: wled, artnet_node, sacn, dmx_usb, sim_only.
     """
-    from pathlib import Path
     import json
+    from pathlib import Path
 
     uni = int(params.get("universe", 1))
     ttype = str(params.get("type", "sim_only"))
@@ -2045,9 +2052,9 @@ def _h_switch_project(session, params):
 # presets/auto-VJ). Estos handlers exponen ese paquete para verlo, cargar piezas
 # sueltas sobre el proyecto activo, y componer/copiar proyectos nuevos.
 
-import json as _json          # noqa: E402
-import re as _re              # noqa: E402
-import shutil as _shutil      # noqa: E402
+import json as _json  # noqa: E402
+import re as _re  # noqa: E402
+import shutil as _shutil  # noqa: E402
 
 
 def _pm_of(session):
@@ -2056,7 +2063,7 @@ def _pm_of(session):
 
 def _read_json_safe(path):
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return _json.load(f)
     except Exception:
         return None
@@ -2070,7 +2077,7 @@ def _song_meta(analysis_slug):
     if not analysis_slug:
         return out
     try:
-        from src.analysis.analyzer_service import AnalysisService, ANALIZADAS_DIR
+        from src.analysis.analyzer_service import ANALIZADAS_DIR, AnalysisService
         d = ANALIZADAS_DIR / analysis_slug
         if not d.is_dir():
             return out
@@ -2277,7 +2284,6 @@ def _h_apply_song(session, params):
     """apply_song(analysis_slug, audio_path) → cambia la canción del proyecto activo
     (actualiza project.json + recarga análisis/audio + reajusta duración).
     AVISO: re-temporiza el show (los beats/duración de la nueva canción difieren)."""
-    from pathlib import Path
     from src._paths import ANALIZADAS_DIR
 
     analysis_slug = str(params.get("analysis_slug", "") or "")
@@ -2343,6 +2349,7 @@ def _h_update_project(session, params):
         # Validar que existe en analizadas/ si no es vacío
         if analysis_slug:
             from pathlib import Path
+
             from src._paths import ANALIZADAS_DIR
             analysis_file = Path(ANALIZADAS_DIR) / analysis_slug / "analysis.json"
             if not analysis_file.exists():
@@ -2372,9 +2379,10 @@ def _h_update_project(session, params):
 
 def _h_list_available_analyses(session, params):
     """list_available_analyses() → enumera todos los análisis disponibles en analizadas/."""
-    from pathlib import Path
-    from src._paths import ANALIZADAS_DIR
     import json
+    from pathlib import Path
+
+    from src._paths import ANALIZADAS_DIR
 
     analyses = []
     analizadas_path = Path(ANALIZADAS_DIR)
@@ -2387,7 +2395,7 @@ def _h_list_available_analyses(session, params):
             if not analysis_file.exists():
                 continue
             try:
-                with open(analysis_file, "r", encoding="utf-8") as f:
+                with open(analysis_file, encoding="utf-8") as f:
                     data = json.load(f)
                     title = data.get("file", analysis_dir.name)
                     bpm = data.get("global", {}).get("bpm_librosa") or data.get("global", {}).get("bpm_madmom")
@@ -2526,7 +2534,6 @@ def _h_get_fixture_pan_tilt(session, params):
     Devuelve pan/tilt de todos los movers (o del fixture_id indicado) en el instante actual.
     Valores 0..1 (normalizado). Útil para el preview 2D en la UI.
     """
-    import time as _time
     t = session.t if hasattr(session, 't') else 0.0
     actx = session._cached_actx if hasattr(session, '_cached_actx') else {}
 
@@ -2603,8 +2610,9 @@ def _h_add_cue(session, params):
     Añade una CueEntry a la CueList. El number se auto-asigna si no se indica.
     La lista queda ordenada por number tras la inserción.
     """
-    from src.core.timeline_model import CueEntry
     from uuid import uuid4
+
+    from src.core.timeline_model import CueEntry
     try:
         t_ms = require_int(params, "t_ms", min_val=0)
     except ValidationError as e:
@@ -2818,6 +2826,7 @@ def _h_get_render_status(session, params):
     """
     import json as _json
     import shutil
+
     from server.offline_render import compute_timeline_hash
 
     has_ffmpeg = shutil.which("ffmpeg") is not None
@@ -3057,9 +3066,10 @@ def _h_add_fixture_from_gdtf(session, params):
     Invariante I3: devuelve el fixture creado.
     """
     from pathlib import Path as _Path
+
     from src._paths import PROFILES_DIR
-    from src.io.loaders.gdtf_profile import load_gdtf_profile
     from src.core.fixtures import Fixture
+    from src.io.loaders.gdtf_profile import load_gdtf_profile
 
     profile_path = params.get("profile_path")
     universe = int(params.get("universe", 1))
@@ -3245,7 +3255,6 @@ def _h_chase_test(session, params):
     chase_id = f"chase_u{universe}"
 
     async def _run_chase():
-        import time
         step = 0
         while True:
             color = _CHASE_SEQUENCE[step % len(_CHASE_SEQUENCE)]
@@ -3337,7 +3346,7 @@ def _h_webhook_set_config(session, params):
     targets_file = PROJECT_DIR / "output_targets.json"
     if targets_file.is_file():
         try:
-            with open(targets_file, "r", encoding="utf-8") as f:
+            with open(targets_file, encoding="utf-8") as f:
                 data = json.load(f)
         except Exception:
             data = {}
@@ -3371,7 +3380,7 @@ def _h_get_rig_layout(session, params):
     if not layout_file.is_file():
         return {"ok": True, "fixtures": []}
     try:
-        with open(layout_file, "r", encoding="utf-8") as f:
+        with open(layout_file, encoding="utf-8") as f:
             data = json.load(f)
         return {"ok": True, "fixtures": data.get("fixtures", [])}
     except Exception as e:
@@ -3412,7 +3421,7 @@ def _h_set_fixture_3d(session, params):
     # Leer existente o empezar vacío
     if layout_file.is_file():
         try:
-            with open(layout_file, "r", encoding="utf-8") as f:
+            with open(layout_file, encoding="utf-8") as f:
                 data = json.load(f)
         except Exception:
             data = {"fixtures": []}
@@ -3684,7 +3693,7 @@ def _h_generate_show(session, params):
     Toma snapshot antes de mutar (deshaciable con Ctrl+Z) — I1.
     Corre en executor si los datos son voluminosos — I6.
     """
-    from server.show_generator import generate_show, STYLES
+    from server.show_generator import STYLES, generate_show
 
     style = params.get("style", "club")
     if style not in STYLES:
@@ -3819,9 +3828,10 @@ async def _h_list_marketplace_plugins(session, params):
 async def _h_install_plugin(session, params):
     """install_plugin(download_url) → {ok, name} or {ok: false, error}.
     FIX 3: async to avoid blocking; FIX 2: URL validated against manifest."""
-    from server.validators import require_key
-    from server.marketplace import install_plugin
     from pathlib import Path as _Path
+
+    from server.marketplace import install_plugin
+    from server.validators import require_key
     download_url = require_key(params, "download_url")
     plugins_dir = _Path("plugins/effects")
     return await install_plugin(download_url, plugins_dir)
@@ -3842,9 +3852,10 @@ def _h_export_show_bundle(session, params):
 
 def _h_import_show_bundle(session, params):
     """import_show_bundle(zip_path) → {ok, slug, warnings} or {ok: false, error}."""
-    from server.validators import require_key
-    from server.show_bundle import import_show_bundle
     from pathlib import Path as _Path
+
+    from server.show_bundle import import_show_bundle
+    from server.validators import require_key
     zip_path = require_key(params, "zip_path")
     try:
         slug, warnings = import_show_bundle(zip_path, _Path("projects"))
@@ -3858,6 +3869,7 @@ def _h_import_show_bundle(session, params):
 def _get_artnet_ip_for_universe(universe: int):
     """Deriva la IP Art-Net de un universo leyendo output_targets.json."""
     import json
+
     from src._paths import PROJECT_DIR
     targets_file = PROJECT_DIR / "output_targets.json"
     if not targets_file.is_file():
@@ -3883,7 +3895,7 @@ def _update_rig_layout_height(session, fixture_id: str, height_m: float):
         return
     if layout_file.is_file():
         try:
-            with open(layout_file, "r", encoding="utf-8") as f:
+            with open(layout_file, encoding="utf-8") as f:
                 data = json.load(f)
         except Exception:
             data = {"fixtures": []}
@@ -4032,7 +4044,7 @@ def _h_get_fixture_detail(session, params):
             if layout_file is not None and layout_file.is_file():
                 try:
                     import json
-                    with open(layout_file, "r", encoding="utf-8") as f:
+                    with open(layout_file, encoding="utf-8") as f:
                         k1_data = json.load(f)
                     for e in k1_data.get("fixtures", []):
                         if e.get("id") == fixture_id:
@@ -4204,8 +4216,8 @@ def _h_get_output_targets(session, params):
 
     Lee output_targets.json y devuelve las entradas numéricas (universos).
     """
-    from pathlib import Path
     import json
+    from pathlib import Path
     _ot = Path(__file__).resolve().parent.parent / "output_targets.json"
     try:
         if _ot.is_file():
@@ -4425,7 +4437,7 @@ class Dispatcher:
         return ([m for m in bridge.HANDLERS if m not in _EXCLUDED]
                 + list(_LOCAL.keys()))
 
-    def handle(self, msg: Dict[str, Any], token: str = "") -> Dict[str, Any]:
+    def handle(self, msg: dict[str, Any], token: str = "") -> dict[str, Any]:
         """Procesa un mensaje JSON-RPC 2.0 completo y devuelve la respuesta."""
         import traceback
         method = msg.get("method")
@@ -4462,7 +4474,8 @@ class Dispatcher:
         params = msg.get("params") or {}
         if method in _LOCAL:
             try:
-                import asyncio, concurrent.futures
+                import asyncio
+                import concurrent.futures
                 result = _LOCAL[method](self.session, params)
                 # FIX 3: support async handlers (e.g. marketplace) without changing
                 # the sync dispatcher contract — run in a thread when already in a loop
@@ -4485,7 +4498,7 @@ class Dispatcher:
         self._record_gesture(method, params)
         return resp
 
-    def _record_gesture(self, method: Optional[str], params: dict) -> None:
+    def _record_gesture(self, method: str | None, params: dict) -> None:
         """M3: graba el gesto en el GestureLog de la sesión."""
         if not method:
             return
@@ -4508,7 +4521,7 @@ class Dispatcher:
             except Exception:
                 pass
 
-    def call(self, method: str, params: Optional[dict] = None) -> Dict[str, Any]:
+    def call(self, method: str, params: dict | None = None) -> dict[str, Any]:
         """Atajo: invoca un método y devuelve el `result` (o lanza en error)."""
         resp = self.handle({"jsonrpc": "2.0", "id": 1,
                              "method": method, "params": params or {}})

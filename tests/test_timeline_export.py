@@ -20,9 +20,8 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from src.core.timeline_model import Timeline, Clip, BarGroup
-from server.timeline_export import export_patch_pdf, export_dmx_csv, _export_pdf_txt
-
+from server.timeline_export import _export_pdf_txt, export_dmx_csv, export_patch_pdf
+from src.core.timeline_model import BarGroup, Clip, Timeline
 
 # ── Fake session ──────────────────────────────────────────────────────────────
 

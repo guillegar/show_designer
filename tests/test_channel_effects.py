@@ -8,19 +8,39 @@ Cubre:
   - Integración con Clip.category y timeline_model
 """
 import math
+
 import pytest
 
 from src.core.channel_effects import (
-    ChannelEffectLibrary, ChannelEffect, CATEGORIES,
-    ChanCircle, ChanFigure8, ChanSway, ChanBeatSnap, ChanPanSweep,
-    ChanRainbow, ChanColorFade, ChanColorFlash, ChanWarmCold, ChanColorStrobe,
-    ChanPulse, ChanBump, ChanFadeIn, ChanBreath, ChanDimFlash,
-    ChanGoboSpin, ChanGoboStep, ChanZoomPulse, ChanFrostPulse,
-    ChanStrobeSimple, ChanStrobeRamp, ChanStrobeBeat, ChanStrobeBurst,
+    CATEGORIES,
+    ChanBeatSnap,
+    ChanBreath,
+    ChanBump,
+    ChanCircle,
+    ChanColorFade,
+    ChanColorFlash,
+    ChanColorStrobe,
+    ChanDimFlash,
+    ChanFadeIn,
+    ChanFigure8,
+    ChanFrostPulse,
+    ChanGoboSpin,
+    ChanGoboStep,
+    ChannelEffect,
+    ChannelEffectLibrary,
+    ChanPanSweep,
+    ChanPulse,
+    ChanRainbow,
+    ChanStrobeBeat,
+    ChanStrobeBurst,
+    ChanStrobeRamp,
     ChanStrobeRandom,
+    ChanStrobeSimple,
+    ChanSway,
+    ChanWarmCold,
+    ChanZoomPulse,
 )
 from src.core.timeline_model import Clip
-
 
 # ════════════════════════════════════════════════════════════════
 # Fixtures de pytest

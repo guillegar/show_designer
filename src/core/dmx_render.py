@@ -8,7 +8,6 @@ Política de mezcla: LAST_WINS — capa más alta sobreescribe capas inferiores.
 Para pixel (led_strip / wled_bar) retorna {} (el pixel render ya los cubre).
 """
 from __future__ import annotations
-from typing import Dict, List, Optional, Any
 
 # Kinds que producen pixel (led_strip) — se omiten en el renderizado DMX canal.
 _PIXEL_KINDS = {"led_strip", "wled_bar"}
@@ -24,7 +23,7 @@ def _effective_kind(fixture, profile) -> str:
     return getattr(fixture, "profile_id", "dimmer")
 
 
-def _param(clip, name: str, default: Optional[float] = None) -> Optional[float]:
+def _param(clip, name: str, default: float | None = None) -> float | None:
     """Extrae un param normalizado (0..1) del clip."""
     p = getattr(clip, "params", None) or {}
     if name not in p:
@@ -40,13 +39,13 @@ def _to_dmx(norm: float) -> int:
     return int(max(0, min(255, round(norm * 255))))
 
 
-def _render_clip_channels(kind: str, channel_map: dict, clip) -> Dict[int, int]:
+def _render_clip_channels(kind: str, channel_map: dict, clip) -> dict[int, int]:
     """Renderiza los canales de un clip según kind y channel_map del profile.
 
     Si el profile tiene channel_map, lo usa directamente (0-based offset → 1-based canal).
     Si no, usa los defaults por kind.
     """
-    result: Dict[int, int] = {}
+    result: dict[int, int] = {}
 
     if channel_map:
         for ch_name, offset in channel_map.items():
@@ -84,8 +83,8 @@ def render_fixture_channels(
     profile,         # FixtureProfile | None
     clips: list,     # clips activos en t_ms para este fixture
     t_ms: int,
-    audio_context: Optional[dict] = None,
-) -> Dict[int, int]:
+    audio_context: dict | None = None,
+) -> dict[int, int]:
     """Renderiza los canales DMX de un fixture no-pixel.
 
     Retorna dict {canal_1based: valor 0..255}.
@@ -98,7 +97,7 @@ def render_fixture_channels(
 
     channel_map: dict = (profile.channel_map if profile is not None else {}) or {}
 
-    result: Dict[int, int] = {}
+    result: dict[int, int] = {}
     sorted_clips = sorted(clips, key=lambda c: getattr(c, "layer", 0))
     for clip in sorted_clips:
         updates = _render_clip_channels(kind, channel_map, clip)

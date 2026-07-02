@@ -25,7 +25,6 @@ import logging
 import socket
 import struct
 from pathlib import Path
-from typing import Dict, Optional
 
 from src.log import get_logger, log_throttled
 
@@ -62,7 +61,7 @@ class OutputTarget:
     def send(self, universe: int, dmx_bytes: bytes) -> None:
         raise NotImplementedError
 
-    def describe(self) -> Dict:
+    def describe(self) -> dict:
         return {"type": self.type_name}
 
 
@@ -70,7 +69,7 @@ class WledTarget(OutputTarget):
     """Art-Net directo a la IP de un WLED (1 universo por IP)."""
     type_name = "wled"
 
-    def __init__(self, ip: str, sock: Optional[socket.socket] = None):
+    def __init__(self, ip: str, sock: socket.socket | None = None):
         self.ip = str(ip)
         self._sock = sock or socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -91,7 +90,7 @@ class WledTarget(OutputTarget):
         except Exception:
             pass
 
-    def describe(self) -> Dict:
+    def describe(self) -> dict:
         return {"type": "wled", "ip": self.ip}
 
 
@@ -105,7 +104,7 @@ class ArtnetNodeTarget(OutputTarget):
     """
     type_name = "artnet_node"
 
-    def __init__(self, ip: str, sock: Optional[socket.socket] = None):
+    def __init__(self, ip: str, sock: socket.socket | None = None):
         self.ip = str(ip)
         self._sock = sock or socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -123,7 +122,7 @@ class ArtnetNodeTarget(OutputTarget):
         except Exception:
             pass
 
-    def describe(self) -> Dict:
+    def describe(self) -> dict:
         return {"type": "artnet_node", "ip": self.ip}
 
 
@@ -189,7 +188,7 @@ class SacnNodeTarget(OutputTarget):
                 pass
             self._sender = None
 
-    def describe(self) -> Dict:
+    def describe(self) -> dict:
         return {"type": "sacn", "ip": self.ip, "port": self.port,
                 "multicast": self.multicast}
 
@@ -257,7 +256,7 @@ class DmxUsbTarget(OutputTarget):
         except Exception:
             return []
 
-    def describe(self) -> Dict:
+    def describe(self) -> dict:
         return {"type": "dmx_usb", "port": self.port}
 
 
@@ -267,12 +266,12 @@ class SimOnlyTarget(OutputTarget):
     type_name = "sim_only"
 
     def __init__(self):
-        self._last: Dict[int, bytes] = {}
+        self._last: dict[int, bytes] = {}
 
     def send(self, universe: int, dmx_bytes: bytes) -> None:
         self._last[int(universe)] = bytes(dmx_bytes)
 
-    def last_for(self, universe: int) -> Optional[bytes]:
+    def last_for(self, universe: int) -> bytes | None:
         return self._last.get(int(universe))
 
 
@@ -284,14 +283,14 @@ class OutputRouter:
     """Tabla universe → OutputTarget. Universos no presentes caen a
     SimOnlyTarget compartido."""
 
-    def __init__(self, targets: Optional[Dict[int, OutputTarget]] = None):
-        self.targets: Dict[int, OutputTarget] = dict(targets or {})
+    def __init__(self, targets: dict[int, OutputTarget] | None = None):
+        self.targets: dict[int, OutputTarget] = dict(targets or {})
         # SimOnly fallback compartido — mantiene historial para todos los
         # universos no enrutados explícitamente.
         self._sim_fallback = SimOnlyTarget()
 
     @classmethod
-    def load(cls, path: Path) -> 'OutputRouter':
+    def load(cls, path: Path) -> OutputRouter:
         """Carga el mapping desde output_targets.json.
 
         Formato:
@@ -306,7 +305,7 @@ class OutputRouter:
             _log.warning("%s no existe, fallback total a sim_only", path)
             return cls()
         try:
-            with open(path, 'r', encoding='utf-8') as f:
+            with open(path, encoding='utf-8') as f:
                 data = json.load(f)
         except Exception as e:
             _log.error("error leyendo %s: %s", path, e)
@@ -315,7 +314,7 @@ class OutputRouter:
         # Compartir socket entre WLED/ArtnetNode targets para evitar saturar
         # el sistema con N sockets UDP.
         shared_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        targets: Dict[int, OutputTarget] = {}
+        targets: dict[int, OutputTarget] = {}
         for uni_str, cfg in data.items():
             try:
                 uni = int(uni_str)
@@ -359,7 +358,7 @@ class OutputRouter:
             if callable(closer):
                 closer()
 
-    def last_sent_for(self, universe: int) -> Optional[bytes]:
+    def last_sent_for(self, universe: int) -> bytes | None:
         """Para tests/viewer3d: devuelve el último bytes(512) enviado a este
         universo, **si el target lo guarda** (SimOnly sí, otros no).
         """
@@ -370,7 +369,7 @@ class OutputRouter:
             return target.last_for(universe)
         return None
 
-    def describe(self) -> Dict:
+    def describe(self) -> dict:
         """Snapshot del routing — útil para debug MCP."""
         return {
             "targets": {

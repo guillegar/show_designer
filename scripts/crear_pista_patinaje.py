@@ -27,10 +27,9 @@ Uso:
   python scripts/crear_pista_patinaje.py
 """
 from __future__ import annotations
+
 import asyncio
 import json
-import os
-import sys
 from pathlib import Path
 
 # ── rutas ────────────────────────────────────────────────────────────────────
@@ -148,7 +147,6 @@ def _write_project_files(fixtures: list[dict]) -> None:
 # ── MCP bridge: set_fixture_channel ──────────────────────────────────────────
 
 async def _rpc(ws, method: str, params: dict) -> dict:
-    import websockets
     msg = {"jsonrpc": "2.0", "id": 1, "method": method, "params": params}
     await ws.send(json.dumps(msg))
     raw = await asyncio.wait_for(ws.recv(), timeout=5)
@@ -198,9 +196,9 @@ def main() -> None:
     asyncio.run(_set_focus_via_bridge(fixtures))
 
     print("\n── SIGUIENTE PASO ───────────────────────────────────────────────")
-    print(f"  Para cargar este proyecto, arranca el servidor con:")
+    print("  Para cargar este proyecto, arranca el servidor con:")
     print(f"    set LUCES_PROJECT={PROJECT_SLUG}")
-    print(f"    python -m server.main")
+    print("    python -m server.main")
     print("─────────────────────────────────────────────────────────────────")
 
 

@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """Render headless de frames del show red_sun a PNG (sin libs de imagen externas)."""
+import struct
 import sys
 import zlib
-import struct
 from pathlib import Path
 
 import numpy as np

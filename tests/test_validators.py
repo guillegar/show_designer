@@ -11,7 +11,10 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from server.validators import (  # noqa: E402
-    ValidationError, require_int, require_order, require_key,
+    ValidationError,
+    require_int,
+    require_key,
+    require_order,
 )
 
 

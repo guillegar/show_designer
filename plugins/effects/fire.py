@@ -7,11 +7,11 @@ Estado por instancia: self._heat persiste entre frames para continuidad visual.
 Trade-off documentado: el calor es causal (no reproducible desde elapsed_time
 aislado), pero produce una llama convincente en tiempo real.
 """
+from typing import Any
+
 import numpy as np
-from typing import Dict, Any
 
-from src.core.effects_engine import Effect, EffectScope, LEDS_PER_BAR
-
+from src.core.effects_engine import LEDS_PER_BAR, Effect, EffectScope
 
 _HEAT_MAX = 255.0
 
@@ -34,7 +34,7 @@ class FireEffect(Effect):
         self._heat = np.zeros(LEDS_PER_BAR, dtype=np.float32)
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         intensity = float(params.get('intensity', 0.6))
         cooling   = float(params.get('cooling', 0.5))
         sparking  = float(params.get('sparking', 0.5))

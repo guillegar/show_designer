@@ -18,11 +18,12 @@ repite, el del proyecto pisa al global.
 """
 from __future__ import annotations
 
+import builtins
 import json
 import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 _ROOT = Path(__file__).parent.parent
 GLOBAL_FILE = _ROOT / "presets.json"
@@ -34,19 +35,19 @@ class EffectPreset:
     name: str
     kind: str = "pixel"                       # 'pixel' | 'channel'
     base_effect_id: int = 0                    # efecto pixel (kind='pixel')
-    channel_effect_id: Optional[str] = None    # efecto de canal (kind='channel')
+    channel_effect_id: str | None = None    # efecto de canal (kind='channel')
     category: str = ""                         # categoría del efecto de canal
     family: str = ""                           # familia (pixel) o = category (channel) para agrupar
-    params: Dict[str, Any] = field(default_factory=dict)
-    param_links: List[Dict[str, Any]] = field(default_factory=list)  # A1 links preconfigured
+    params: dict[str, Any] = field(default_factory=dict)
+    param_links: list[dict[str, Any]] = field(default_factory=list)  # A1 links preconfigured
     color: str = "#3a7acc"
     scope: str = "project"          # 'global' | 'project' (ámbito de almacenamiento)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict) -> "EffectPreset":
+    def from_dict(cls, d: dict) -> EffectPreset:
         return cls(
             preset_id=d.get("preset_id") or uuid.uuid4().hex[:12],
             name=d.get("name", "Preset"),
@@ -64,7 +65,7 @@ class EffectPreset:
 
 # Presets de fábrica (ámbito global) — el banco no nace vacío.
 # (hue 0=rojo, 120=verde, 240=azul, 300=magenta, 60=ámbar)
-def _seed_global(library) -> List[EffectPreset]:
+def _seed_global(library) -> list[EffectPreset]:
     def eid(name: str, default: int) -> int:
         for i, eff in library.effects.items():
             if getattr(eff, "name", "") == name:
@@ -115,7 +116,7 @@ def _seed_global(library) -> List[EffectPreset]:
     return out
 
 
-def _seed_f3_effects(library) -> List[EffectPreset]:
+def _seed_f3_effects(library) -> list[EffectPreset]:
     """30 presets curados para los 10 efectos F1 (IDs 1010-1019). 3 por efecto."""
     fam = {i: getattr(eff, "family", "") for i, eff in library.effects.items()}
 
@@ -215,12 +216,12 @@ def _seed_f3_effects(library) -> List[EffectPreset]:
 
 
 class PresetBank:
-    def __init__(self, library, channel_lib=None, project_file: Optional[Path] = None):
+    def __init__(self, library, channel_lib=None, project_file: Path | None = None):
         self.library = library
         self.channel_lib = channel_lib
         self.project_file = project_file
-        self._global: List[EffectPreset] = []
-        self._project: List[EffectPreset] = []
+        self._global: list[EffectPreset] = []
+        self._project: list[EffectPreset] = []
         self._load()
 
     # ── carga / persistencia ─────────────────────────────────────────────────
@@ -254,14 +255,14 @@ class PresetBank:
             _write(self.project_file, [p.to_dict() for p in self._project])
 
     # ── consulta ─────────────────────────────────────────────────────────────
-    def list(self) -> List[EffectPreset]:
+    def list(self) -> builtins.list[EffectPreset]:
         # proyecto pisa global si coincide id
         by_id = {p.preset_id: p for p in self._global}
         for p in self._project:
             by_id[p.preset_id] = p
         return list(by_id.values())
 
-    def get(self, preset_id: str) -> Optional[EffectPreset]:
+    def get(self, preset_id: str) -> EffectPreset | None:
         for p in self._project:
             if p.preset_id == preset_id:
                 return p
@@ -280,7 +281,7 @@ class PresetBank:
 
     def create(self, name: str, params: dict, color: str = "#3a7acc",
                scope: str = "project", kind: str = "pixel",
-               base_effect_id: int = 0, channel_effect_id: Optional[str] = None) -> EffectPreset:
+               base_effect_id: int = 0, channel_effect_id: str | None = None) -> EffectPreset:
         if kind == "channel":
             cat = self._channel_category(channel_effect_id or "")
             p = EffectPreset(preset_id=uuid.uuid4().hex[:12], name=name, kind="channel",
@@ -300,7 +301,7 @@ class PresetBank:
             self._project.append(p); self._save_project()
         return p
 
-    def update(self, preset_id: str, **fields) -> Optional[EffectPreset]:
+    def update(self, preset_id: str, **fields) -> EffectPreset | None:
         p = self.get(preset_id)
         if p is None:
             return None

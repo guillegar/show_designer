@@ -12,17 +12,17 @@ Cubre:
   test_delete_marker             — delete_marker elimina el marcador
   test_invalid_category_defaults — categoría desconocida → "custom"
 """
-import pytest
 from unittest.mock import MagicMock
 
-from src.core.timeline_model import Timeline, Marker
+import pytest
+
 from server.dispatcher import (
-    _h_list_markers,
     _h_add_marker,
     _h_delete_marker,
+    _h_list_markers,
     _h_update_marker,
 )
-
+from src.core.timeline_model import Marker, Timeline
 
 # ── Fake session ──────────────────────────────────────────────────────────────
 

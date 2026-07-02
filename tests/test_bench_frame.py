@@ -24,7 +24,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.core.timeline_model import Timeline, Clip  # noqa: E402
+from src.core.timeline_model import Clip, Timeline  # noqa: E402
 
 # Windows Python es ~2× más lento que Linux CI en cómputo puro (GIL + scheduler).
 # El guardián REAL es la regresión >20% entre fases, no el absoluto de plataforma.

@@ -2,16 +2,16 @@
 test_webhooks.py — Tests para WebhookDispatcher (L2).
 """
 from __future__ import annotations
+
 import asyncio
 import hashlib
 import hmac
 import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 
 from server.webhooks import WebhookDispatcher
-
 
 # ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -170,7 +170,8 @@ async def test_timeout_no_crash():
 
 def test_webhook_set_config_atomic_write(tmp_path):
     """webhook_set_config guarda en output_targets.json de forma atómica."""
-    import importlib, sys
+    import importlib
+    import sys
     from pathlib import Path
 
     ot_file = tmp_path / "output_targets.json"

@@ -17,8 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.core.channel_effects import PanTiltWaveEffect, ChannelEffectLibrary
-
+from src.core.channel_effects import ChannelEffectLibrary, PanTiltWaveEffect
 
 # ── PanTiltWaveEffect: matemáticas ──────────────────────────────────────────
 
@@ -91,8 +90,8 @@ def test_pantilt_wave_registered_in_library():
 
 def test_mixing_policy_last_wins():
     """Dos clips en el mismo fixture: layer 1 pisa layer 0 (LTP)."""
-    from src.core.timeline_model import Clip
     from src.core.show_engine import ShowEngine
+    from src.core.timeline_model import Clip
 
     # Crear dos clips mover con PanTiltWave en distintos layers
     clip0 = Clip(track=0, start_ms=0, end_ms=4000, effect_id=0,
@@ -152,8 +151,8 @@ def test_clip_channel_effects_empty_by_default():
 
 def test_set_clip_channel_effect_handler():
     """set_clip_channel_effect añade/actualiza entrada en clip.channel_effects."""
-    from server.session import ShowSession
     from server.dispatcher import Dispatcher
+    from server.session import ShowSession
     from src.core.timeline_model import Clip
 
     s = ShowSession()
@@ -175,8 +174,8 @@ def test_set_clip_channel_effect_handler():
 
 def test_list_channel_effects_includes_pantilt_wave():
     """list_channel_effects devuelve pos_pantilt_wave."""
-    from server.session import ShowSession
     from server.dispatcher import Dispatcher
+    from server.session import ShowSession
 
     s = ShowSession()
     disp = Dispatcher(s)
@@ -192,8 +191,8 @@ def test_list_channel_effects_includes_pantilt_wave():
 
 def test_render_clip_channels_uses_channel_effects_list():
     """_render_clip_channels usa clip.channel_effects cuando está poblado."""
-    from src.core.timeline_model import Clip
     from src.core.show_engine import ShowEngine
+    from src.core.timeline_model import Clip
 
     se = ShowEngine.__new__(ShowEngine)
     se.rig = None

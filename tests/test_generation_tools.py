@@ -14,9 +14,8 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from src.core.timeline_model import Clip, Timeline
 from src.mcp import mcp_bridge as mb
-from src.core.timeline_model import Timeline, Clip
-
 
 # ────────────────────────────────────────────────────────────────
 # Fixtures
@@ -41,7 +40,7 @@ def app():
 def app_with_analyzer():
     """App con AnalysisService real si hay análisis disponible."""
     try:
-        from src.analysis.analyzer_service import default_service, Curation
+        from src.analysis.analyzer_service import Curation, default_service
         svc = default_service()
         if not svc.has_analysis:
             return MockApp(svc=None)

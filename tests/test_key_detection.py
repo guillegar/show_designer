@@ -2,13 +2,14 @@
 test_key_detection.py — Tests para detección de tonalidad (M1).
 """
 from __future__ import annotations
+
+import math
 import os
 import struct
-import wave
-import math
 import tempfile
-import pytest
+import wave
 
+import pytest
 
 from server.key_detector import detect_key
 

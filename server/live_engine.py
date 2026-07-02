@@ -10,7 +10,6 @@ Reutiliza la expansión de patrones de A3 (Pattern.from_dict + resolve_params).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
 
 import numpy as np
@@ -21,7 +20,7 @@ NUM_LIVE_SLOTS = 16
 @dataclass
 class LiveSlot:
     uid: str
-    pattern_uid: Optional[str] = None
+    pattern_uid: str | None = None
     key: str = ""
     quantize: str = "bar"    # "bar" | "beat" | "free"
     mode: str = "oneshot"    # "oneshot" | "loop" | "hold"
@@ -36,7 +35,7 @@ class LiveSlot:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "LiveSlot":
+    def from_dict(cls, d: dict) -> LiveSlot:
         return cls(
             uid=d.get("uid") or uuid4().hex[:8],
             pattern_uid=d.get("pattern_uid") or None,
@@ -58,11 +57,11 @@ class LiveEngine:
     """Motor de lanzamiento en vivo: 16 slots con cuantización a beats/downbeats."""
 
     def __init__(self) -> None:
-        self.slots: List[LiveSlot] = [
+        self.slots: list[LiveSlot] = [
             LiveSlot(uid=uuid4().hex[:8]) for _ in range(NUM_LIVE_SLOTS)
         ]
-        self._active: Dict[str, ActiveSlot] = {}   # slot_uid → ActiveSlot
-        self._armed: Dict[str, float] = {}          # slot_uid → t_armed_ms
+        self._active: dict[str, ActiveSlot] = {}   # slot_uid → ActiveSlot
+        self._armed: dict[str, float] = {}          # slot_uid → t_armed_ms
 
     # ── Cuantización ─────────────────────────────────────────────────────────
 
@@ -79,7 +78,7 @@ class LiveEngine:
         if quantize == "free" or analysis is None:
             return t_ms
         try:
-            beats_s: List[float] = (
+            beats_s: list[float] = (
                 analysis.list_downbeats() if quantize == "bar"
                 else analysis.list_beats()
             )
@@ -108,10 +107,10 @@ class LiveEngine:
     # ── API de slots ─────────────────────────────────────────────────────────
 
     def assign_slot(self, slot_idx: int,
-                    pattern_uid: Optional[str] = None,
-                    key: Optional[str] = None,
-                    quantize: Optional[str] = None,
-                    mode: Optional[str] = None) -> LiveSlot:
+                    pattern_uid: str | None = None,
+                    key: str | None = None,
+                    quantize: str | None = None,
+                    mode: str | None = None) -> LiveSlot:
         """Actualiza la configuración de un slot.
 
         Si cambia el pattern_uid, detiene la reproducción del slot.
@@ -134,7 +133,7 @@ class LiveEngine:
         return slot
 
     def trigger(self, slot_idx: int, t_ms: float,
-                analysis=None) -> Tuple[LiveSlot, float]:
+                analysis=None) -> tuple[LiveSlot, float]:
         """Dispara un slot; queda armado hasta el próximo límite de cuantización.
 
         Si el slot ya estaba activo (loop u otro modo), se detiene y se re-arma.
@@ -177,7 +176,7 @@ class LiveEngine:
             Array (NUM_BARS, LEDS_PER_BAR, 3) uint8 — mezclar con np.maximum
             sobre el frame del timeline.
         """
-        from src.core.effects_engine import NUM_BARS, LEDS_PER_BAR
+        from src.core.effects_engine import LEDS_PER_BAR, NUM_BARS
 
         frame = np.zeros((NUM_BARS, LEDS_PER_BAR, 3), dtype=np.uint8)
 
@@ -185,8 +184,8 @@ class LiveEngine:
             return frame   # fast path: cero coste cuando no hay nada activo
 
         # Promover _armed → _active cuando llega su tiempo
-        newly_active: List[Tuple[str, LiveSlot, float]] = []
-        to_disarm: List[str] = []
+        newly_active: list[tuple[str, LiveSlot, float]] = []
+        to_disarm: list[str] = []
         for slot_uid, t_armed in list(self._armed.items()):
             if t_ms >= t_armed:
                 slot = next((s for s in self.slots if s.uid == slot_uid), None)
@@ -204,10 +203,10 @@ class LiveEngine:
             )
 
         # Renderizar slots activos
-        from src.core.timeline_model import Pattern
         from src.core.param_pipeline import resolve_params
+        from src.core.timeline_model import Pattern
 
-        expired: List[str] = []
+        expired: list[str] = []
         for slot_uid, aslot in list(self._active.items()):
             pat_d = next(
                 (p for p in patterns if p.get("uid") == aslot.pattern_uid), None

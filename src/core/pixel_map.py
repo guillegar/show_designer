@@ -7,10 +7,8 @@ Si el archivo no está disponible → array negro, sin excepción (I4).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Tuple
 
 import numpy as np
-
 
 # Cache de imágenes cargadas: {path: np.ndarray uint8 (H, W, 3)}
 _IMG_CACHE: dict = {}
@@ -76,7 +74,7 @@ def sample_image_region(
     y: int,
     width: int,
     height: int,
-    output_shape: Tuple[int, int, int] = (1, 93, 3),
+    output_shape: tuple[int, int, int] = (1, 93, 3),
     fit_mode: str = "stretch",
     frame_idx: int = 0,
 ) -> np.ndarray:

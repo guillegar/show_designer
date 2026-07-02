@@ -22,16 +22,16 @@ con `use_effects=False`; el render real lo hace la EffectLibrary aquí).
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
 
 import numpy as np
 
-from src.core.effects_engine import EffectLibrary, NUM_BARS, LEDS_PER_BAR
-from src.core.timeline_model import Timeline, make_default_groups, NUM_TRACKS
-from src.core.show_engine import ShowEngine
-from src.io.project_manager import get_manager
 from src._paths import PROJECT_DIR, VIEWER3D_DIR
+from src.core.effects_engine import LEDS_PER_BAR, NUM_BARS, EffectLibrary
+from src.core.show_engine import ShowEngine
+from src.core.timeline_model import Timeline, make_default_groups
+from src.io.project_manager import get_manager
 
 LEDS = LEDS_PER_BAR
 _BUCKET_MS = 500
@@ -67,8 +67,8 @@ class _NullProps:
 class ShowSession:
     """Estado vivo de un show, headless. Reloj maestro = audio del PC."""
 
-    def __init__(self, slug: Optional[str] = None,
-                 on_change: Optional[Callable[[str], None]] = None):
+    def __init__(self, slug: str | None = None,
+                 on_change: Callable[[str], None] | None = None):
         self.on_change = on_change
         self._rev = 0   # se incrementa en cada notify_changed → el navegador refetchea
 
@@ -101,7 +101,7 @@ class ShowSession:
         print(f"[session] Presets: {len(self.presets.list())} (banco efectos)")
 
         # ── Análisis (AnalysisService normaliza v1/v2→v3 + curación) ─────────
-        from src.analysis.analyzer_service import AnalysisService, default_service, ANALIZADAS_DIR
+        from src.analysis.analyzer_service import ANALIZADAS_DIR, AnalysisService, default_service
         if analysis_slug:
             try:
                 self.analysis = AnalysisService(ANALIZADAS_DIR / analysis_slug)
@@ -191,7 +191,7 @@ class ShowSession:
         self._live_mode = False  # True = usar live_input en vez de analysis
 
         # ── C2: macros en vivo (estado live, NO se persisten en show.json) ──
-        self.macros: Dict[str, float] = {
+        self.macros: dict[str, float] = {
             "brightness_mul": 1.0,
             "speed_mul": 1.0,
             "hue_shift": 0.0,
@@ -201,8 +201,8 @@ class ShowSession:
         # ── I1: grabación en vivo de macros ─────────────────────────────────
         self._recording: bool = False
         self._record_start_ms: float = 0.0
-        self._recorded_lanes: Dict[str, list] = {}  # macro_name → [{t_ms, value}]
-        self._record_last_ms: Dict[str, float] = {}  # throttle 50ms por macro
+        self._recorded_lanes: dict[str, list] = {}  # macro_name → [{t_ms, value}]
+        self._record_last_ms: dict[str, float] = {}  # throttle 50ms por macro
 
         # ── Estado de transporte / render ────────────────────────────────────
         self.loop = False
@@ -210,12 +210,12 @@ class ShowSession:
         self.muted_tracks: set[int] = set()
         self.solo_tracks: set[int] = set()
         # B3: estado del render offline + playback baked
-        self.baked_frames: Optional[np.ndarray] = None  # None = modo live normal
-        self.baked_hash: Optional[str] = None            # hash del show al bakear
+        self.baked_frames: np.ndarray | None = None  # None = modo live normal
+        self.baked_hash: str | None = None            # hash del show al bakear
         self.render_in_progress: bool = False
         self.render_pct: float = 0.0
         self.hub = None  # StreamHub; asignado por web.py tras construir la sesión
-        self._clip_bucket_index: Dict[int, list] = {}
+        self._clip_bucket_index: dict[int, list] = {}
         self._clip_bucket_index_n = -1
         # A3: cache de clips efímeros expandidos de PatternInstances.
         # _pattern_rev se incrementa al mutar patterns/instances, forzando re-expansión.
@@ -236,11 +236,11 @@ class ShowSession:
 
         # E4: estado runtime de herramientas de test de output (no persiste)
         self.blackout_override: bool = False   # blackout duro de pánico (instantáneo)
-        self._identify: Dict[str, float] = {}  # fixture_id → t_expires (monotonic)
-        self._test_universes: Dict[int, tuple] = {}  # universe → (r, g, b)
+        self._identify: dict[str, float] = {}  # fixture_id → t_expires (monotonic)
+        self._test_universes: dict[int, tuple] = {}  # universe → (r, g, b)
 
         # E1: estado runtime de cues (no se persiste en show.json)
-        self._cue_fade_start_ms: Optional[float] = None    # timeline_ms donde empezó el fade
+        self._cue_fade_start_ms: float | None = None    # timeline_ms donde empezó el fade
         self._cue_fade_duration_ms: float = 0.0
         self._cue_fade_from_master: float = 1.0             # brightness del master al iniciar
         self._cue_auto_follow_task = None                   # asyncio.Task activo
@@ -282,9 +282,9 @@ class ShowSession:
         # F0.1: pipeline de parámetros — punto de extensión único (ROADMAP v2).
         # Orden canónico: modulación (A1) → automatización (A2) → micro-eventos
         # (A4) → macros (C2). Vacío = comportamiento idéntico al anterior.
-        from src.core.modulation import ModulationStage
         from src.core.automation import AutomationStage
         from src.core.micro_events import MicroEventStage
+        from src.core.modulation import ModulationStage
         from src.core.param_pipeline import MacroStage
         self.param_stages: list = [
             ModulationStage(),
@@ -294,13 +294,14 @@ class ShowSession:
         ]
 
         # L2: WebhookDispatcher — fire-and-forget a URLs externas en eventos de show
-        from server.webhooks import WebhookDispatcher
         from pathlib import Path as _Path
+
+        from server.webhooks import WebhookDispatcher
         _ot_path = _Path("output_targets.json")
         self._webhook_dispatcher: WebhookDispatcher = WebhookDispatcher.from_output_targets(_ot_path)
 
         # M1: caché de detección de tonalidad (key_detector.py)
-        self._key_cache: Optional[dict] = None
+        self._key_cache: dict | None = None
 
         # M3: historial de gestos en sesión
         from server.gesture_log import GestureLog
@@ -347,7 +348,7 @@ class ShowSession:
                 layout_file = getattr(proj, "rig_layout_file", None)
                 if layout_file is not None and layout_file.is_file():
                     try:
-                        with open(layout_file, "r", encoding="utf-8") as f:
+                        with open(layout_file, encoding="utf-8") as f:
                             k1_data = json.load(f)
                         for e in k1_data.get("fixtures", []):
                             fid = e.get("id")
@@ -435,7 +436,7 @@ class ShowSession:
         Reutilizado por `switch_project` y por el handler `apply_song`. NO toca
         `self.timeline.duration_ms` (eso lo ajusta el llamante con el valor devuelto).
         """
-        from src.analysis.analyzer_service import AnalysisService, default_service, ANALIZADAS_DIR
+        from src.analysis.analyzer_service import ANALIZADAS_DIR, AnalysisService, default_service
         dur_ms = self.timeline.duration_ms
         try:
             if analysis_slug:
@@ -484,7 +485,7 @@ class ShowSession:
     def duration(self) -> float:
         return self.audio.duration
 
-    def play(self, at: Optional[float] = None):
+    def play(self, at: float | None = None):
         self.audio.play(at=at)
 
     def pause(self):
@@ -535,7 +536,7 @@ class ShowSession:
             return track in self.solo_tracks
         return track not in self.muted_tracks
 
-    def _resolve_scope_bars(self, scope: str) -> List[int]:
+    def _resolve_scope_bars(self, scope: str) -> list[int]:
         """Barras destino de un clip con scope de grupo. Port de timeline_editor."""
         if not isinstance(scope, str):
             return []
@@ -553,7 +554,7 @@ class ShowSession:
             self._pattern_expanded = self._expand_all_pattern_instances()
             self._pattern_expanded_rev = self._pattern_rev
 
-        buckets: Dict[int, list] = {}
+        buckets: dict[int, list] = {}
         for c in self.timeline.clips + self._pattern_expanded:
             b_lo = max(0, c.start_ms // _BUCKET_MS)
             b_hi = max(b_lo, c.end_ms // _BUCKET_MS)
@@ -572,7 +573,7 @@ class ShowSession:
         de los clips reales. NO aparecen en list_clips ni son editables.
         Sólo se usan para el render (bucket index).
         """
-        from src.core.timeline_model import Pattern, PatternInstance, Clip
+        from src.core.timeline_model import Clip, Pattern, PatternInstance
         result = []
         for inst_d in self.timeline.pattern_instances:
             inst = PatternInstance.from_dict(inst_d)
@@ -706,7 +707,7 @@ class ShowSession:
 
     # ── I1: grabación en vivo de macros ─────────────────────────────────────
 
-    _REC_DEFAULTS: Dict[str, float] = {
+    _REC_DEFAULTS: dict[str, float] = {
         "brightness_mul": 1.0,
         "speed_mul": 1.0,
         "hue_shift": 0.0,
@@ -875,6 +876,7 @@ class ShowSession:
                 return self.live_input.get_audio_context(t_s)
             except Exception as e:
                 import logging
+
                 from src.log import get_logger, log_throttled
                 log_throttled(get_logger(__name__), logging.WARNING,
                               'session.actx_live',
@@ -888,7 +890,9 @@ class ShowSession:
                 actx = self._cached_actx
         except Exception as e:
             import logging as _logging
-            from src.log import get_logger as _get_logger, log_throttled as _log_throttled
+
+            from src.log import get_logger as _get_logger
+            from src.log import log_throttled as _log_throttled
             _log_throttled(_get_logger(__name__), _logging.WARNING,
                            'session.actx', f"get_audio_context({t_s:.2f}) error: {e}")
             actx = self._cached_actx
@@ -909,6 +913,7 @@ class ShowSession:
         Si el hash no coincide (render obsoleto), no carga nada y devuelve False.
         """
         import json as _json
+
         from server.offline_render import compute_timeline_hash
 
         out_path = self.project.folder / "render.npz"
@@ -945,7 +950,7 @@ class ShowSession:
             frame = self.baked_frames[frame_idx].copy()
             # Postfx/master (B2) + C2 hue_shift sobre el frame bakeado
             mixer = self.timeline.mixer
-            from src.core.postfx import apply_track_chain, apply_master
+            from src.core.postfx import apply_master, apply_track_chain
             if mixer:
                 track_chains = mixer.get("tracks", {})
                 if track_chains:
@@ -1065,7 +1070,7 @@ class ShowSession:
         # B2 + C2: postfx/master — pista por pista, luego master con hue_shift macro.
         # Orden fijo del pipeline: timeline_render → capa live (C1) → macros (C2) → postfx/master.
         mixer = self.timeline.mixer
-        from src.core.postfx import apply_track_chain, apply_master
+        from src.core.postfx import apply_master, apply_track_chain
         if mixer:
             track_chains = mixer.get("tracks", {})
             if track_chains:
@@ -1145,7 +1150,7 @@ class ShowSession:
         if rig is None:
             return
         try:
-            from src.core.dmx_render import render_fixture_channels, _PIXEL_KINDS, _effective_kind
+            from src.core.dmx_render import _PIXEL_KINDS, _effective_kind, render_fixture_channels
         except ImportError:
             return
 
@@ -1226,7 +1231,7 @@ class ShowSession:
                 except Exception as e:
                     print(f"[autosave] error: {e}")
 
-    def check_autosave_at_startup(self) -> Optional[dict]:
+    def check_autosave_at_startup(self) -> dict | None:
         """Si el autosave más reciente es más nuevo que show.json, devuelve el evento.
 
         El frontend muestra un banner con "Restaurar / Descartar". Solo se emite
@@ -1274,7 +1279,6 @@ class ShowSession:
         switch, la sesión puede quedar en estado parcial (el servidor sigue
         respondiendo pero el show puede ser inconsistente — recargar el server).
         """
-        import asyncio
 
         # Verificar que el slug exista ANTES de empezar a desmontar el proyecto actual
         new_project = self.pm.open_project(new_slug)

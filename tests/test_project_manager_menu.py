@@ -37,7 +37,7 @@ def _clip(i):
 
 def _write_project(projects_dir, slug, *, clips, fixtures, presets=0,
                    autovj=False, name=None, analysis_slug=""):
-    from src.core.fixtures import build_default_wled_rig, FixtureRig
+    from src.core.fixtures import FixtureRig, build_default_wled_rig
     folder = projects_dir / slug
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "project.json").write_text(json.dumps({
@@ -64,10 +64,10 @@ def _write_project(projects_dir, slug, *, clips, fixtures, presets=0,
 
 def _make_session(pm, active):
     from server.session import ShowSession
-    from src.core.timeline_model import Timeline, make_default_groups
-    from src.core.effects_engine import EffectLibrary
     from src.core.autovj import AutoVJEngine
+    from src.core.effects_engine import EffectLibrary
     from src.core.fixtures import FixtureRig
+    from src.core.timeline_model import Timeline, make_default_groups
 
     s = object.__new__(ShowSession)
     s.pm = pm
@@ -102,8 +102,8 @@ def _make_session(pm, active):
 
 @contextmanager
 def _env(tmp_path, active="alpha"):
-    import src.io.project_manager as pmmod
     import src._paths as pathsmod
+    import src.io.project_manager as pmmod
     projects_dir = tmp_path / "projects"
     analizadas_dir = tmp_path / "analizadas"
     projects_dir.mkdir(parents=True, exist_ok=True)

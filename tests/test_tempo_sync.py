@@ -13,8 +13,8 @@ Cubre:
   - mode="off" → session._get_audio_context no modifica bpm del análisis.
   - Link (mock pylinkbpm): bpm=128.5 → tempo_sync.bpm == 128.5.
 """
-import sys
 import asyncio
+import sys
 import threading
 import time
 from pathlib import Path
@@ -23,8 +23,7 @@ from unittest.mock import MagicMock, patch
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from server.tempo_sync import _calc_bpm, TempoSyncService
-
+from server.tempo_sync import TempoSyncService, _calc_bpm
 
 # ── _calc_bpm: función pura ──────────────────────────────────────────────────
 
@@ -100,8 +99,8 @@ def test_tempo_sync_process_pulse():
 
 def _make_stub_session(analysis_bpm: float = 130.0):
     """Sesión mínima con tempo_sync = TempoSyncService() y analysis simulado."""
-    from server.tempo_sync import TempoSyncService
     from server.session import ShowSession
+    from server.tempo_sync import TempoSyncService
 
     class _FakeAnalysis:
         has_timeseries = True

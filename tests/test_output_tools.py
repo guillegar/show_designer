@@ -7,10 +7,10 @@ Tests:
   4. test_identify_invalid_fixture: fixture_id inexistente → {ok: False}
   5. test_test_universe_range: universe=0 o universe=11 → {ok: False}
 """
-import numpy as np
-import pytest
 from unittest.mock import MagicMock, patch
 
+import numpy as np
+import pytest
 
 # ── Fixtures helpers ──────────────────────────────────────────────────────────
 

@@ -10,10 +10,13 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from tests.plugin_test_harness import assert_valid_plugin_effect
 from plugins.effects.color_async import (
-    DirectionalCometEffect, OffCenterRadialEffect, AudioPumpEffect, PLUGIN_EFFECTS,
+    PLUGIN_EFFECTS,
+    AudioPumpEffect,
+    DirectionalCometEffect,
+    OffCenterRadialEffect,
 )
+from tests.plugin_test_harness import assert_valid_plugin_effect
 
 _EMPTY_CTX = {"rms": 0.0, "norm": {"rms": 0.0}}
 _BARS_STATE = np.zeros((10, 93, 3), dtype=np.uint8)

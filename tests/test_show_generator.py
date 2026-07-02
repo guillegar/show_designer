@@ -2,12 +2,14 @@
 test_show_generator.py — Tests para generación automática de show (M2).
 """
 from __future__ import annotations
-import json
-import pytest
-from unittest.mock import MagicMock, patch
-from server.show_generator import generate_show, SOLID_COLOR_ID, STROBE_COLOR_ID
-from src.core.timeline_model import Clip
 
+import json
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from server.show_generator import SOLID_COLOR_ID, STROBE_COLOR_ID, generate_show
+from src.core.timeline_model import Clip
 
 # ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -80,7 +82,8 @@ def test_generate_show_festival_all_beats():
 def test_generate_show_replace_true_clears_timeline():
     """replace=True → handler limpia el timeline antes de añadir clips."""
     from server.dispatcher import Dispatcher
-    from src.core.timeline_model import Timeline, Clip as TClip, make_default_groups
+    from src.core.timeline_model import Clip as TClip
+    from src.core.timeline_model import Timeline, make_default_groups
 
     # Crear sesión mínima con análisis mock
     session = MagicMock()
@@ -117,7 +120,8 @@ def test_generate_show_replace_true_clears_timeline():
 def test_generate_show_replace_false_keeps_existing():
     """replace=False → clips añadidos sobre los existentes, no se borran."""
     from server.dispatcher import Dispatcher
-    from src.core.timeline_model import Timeline, Clip as TClip, make_default_groups
+    from src.core.timeline_model import Clip as TClip
+    from src.core.timeline_model import Timeline, make_default_groups
 
     session = MagicMock()
     session.bpm = 120.0

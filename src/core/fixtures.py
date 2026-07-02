@@ -18,12 +18,13 @@ Lanzar standalone para test:
     python fixtures.py
 """
 from __future__ import annotations
-import json
-from dataclasses import dataclass, field, asdict
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
-from src._paths import PROJECT_DIR, PROFILES_DIR
+import json
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+
+from src._paths import PROFILES_DIR, PROJECT_DIR
+
 DEFAULT_RIG_FILE = PROJECT_DIR / 'fixtures.json'
 
 
@@ -37,14 +38,14 @@ class FixtureProfile:
     name: str
     kind: str                       # 'led_strip' | 'moving_head' | 'dimmer' | 'laser' | 'rgb_par'
     num_channels: int               # canales DMX que ocupa el fixture
-    channel_map: Dict[str, int] = field(default_factory=dict)
+    channel_map: dict[str, int] = field(default_factory=dict)
                                     # 'pan':0, 'tilt':1, 'dim':2, ... (offsets DMX desde dmx_start)
     led_count: int = 0              # solo strips
-    metadata: Dict = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
                                     # max_pan_deg, max_tilt_deg, has_rgb, etc.
 
     @classmethod
-    def from_dict(cls, d: dict) -> 'FixtureProfile':
+    def from_dict(cls, d: dict) -> FixtureProfile:
         return cls(
             profile_id=d['profile_id'],
             name=d.get('name', d['profile_id']),
@@ -100,7 +101,7 @@ class FixtureProfile:
 CATEGORIES = ('pixel', 'position', 'color', 'intensity', 'optical', 'strobe')
 
 
-def load_profile(profile_id: str) -> Optional[FixtureProfile]:
+def load_profile(profile_id: str) -> FixtureProfile | None:
     """Carga un profile desde profiles/<profile_id>.json o .gdtf.
 
     Prioriza el .json (más rápido y específico). Si no existe, intenta
@@ -112,7 +113,7 @@ def load_profile(profile_id: str) -> Optional[FixtureProfile]:
     """
     p_json = PROFILES_DIR / f"{profile_id}.json"
     if p_json.is_file():
-        with open(p_json, 'r', encoding='utf-8') as f:
+        with open(p_json, encoding='utf-8') as f:
             return FixtureProfile.from_dict(json.load(f))
 
     p_gdtf = PROFILES_DIR / f"{profile_id}.gdtf"
@@ -131,7 +132,7 @@ def load_profile(profile_id: str) -> Optional[FixtureProfile]:
     return None
 
 
-def list_available_profiles() -> List[str]:
+def list_available_profiles() -> list[str]:
     """Lista todos los profiles (JSON + GDTF) en profiles/.
     Los dos formatos se exponen sin sufijo (el stem del archivo).
     Si hay colisión (.json y .gdtf con el mismo nombre), el .json gana en
@@ -144,7 +145,7 @@ def list_available_profiles() -> List[str]:
     return sorted(json_ids | gdtf_ids)
 
 
-def get_profile_source(profile_id: str) -> Optional[str]:
+def get_profile_source(profile_id: str) -> str | None:
     """Devuelve 'json', 'gdtf' o None según qué archivo existe."""
     if (PROFILES_DIR / f"{profile_id}.json").is_file():
         return "json"
@@ -164,40 +165,40 @@ class Fixture:
     universe: int                   # universo DMX (1-based, igual que Art-Net)
     dmx_start: int                  # canal DMX inicial (1-512)
     # Posición física (metros, Y=up, X=lateral, Z=profundidad)
-    position: Tuple[float, float, float] = (0.0, 0.0, 0.0)
-    rotation: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+    position: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    rotation: tuple[float, float, float] = (0.0, 0.0, 0.0)
     label: str = ""
     # Para compatibilidad con código viejo que indexa por entero:
-    legacy_bar_idx: Optional[int] = None
+    legacy_bar_idx: int | None = None
     # Para Art-Net WLED: cuando el fixture habla con un WLED, hay una IP.
     # Si es None, se asume que el universo se enruta a un nodo Art-Net
     # configurado externamente.
-    target_ip: Optional[str] = None
+    target_ip: str | None = None
     # v1.7 Fase 4 — Overrides manuales de canales (0..1 normalizado).
     # Si una entrada existe, pisa el valor que generen los clips channel-level.
     # Útil para los sliders del Patch Panel (modo manual) y para
     # `set_fixture_channel` desde MCP. Vacío = sin overrides (modo auto).
-    manual_channels: Dict[str, float] = field(default_factory=dict)
+    manual_channels: dict[str, float] = field(default_factory=dict)
     # J1 — Posición normalizada en el canvas de patch 2D (0.0..1.0).
     # None si el usuario no ha movido el fixture manualmente (usa auto-layout).
-    patch_x: Optional[float] = None
-    patch_y: Optional[float] = None
+    patch_x: float | None = None
+    patch_y: float | None = None
     # J2 — Override del kind del profile ('dimmer', 'rgb', 'moving_head', 'strobe',
     # 'led_strip'). None = usa profile.kind. Permite cambiar el modo de renderizado
     # DMX sin reemplazar el profile completo.
-    kind_override: Optional[str] = None
+    kind_override: str | None = None
     # Editor de fixture (ROADMAP v4): notas libres, mapa de canales personalizado,
     # altura física en metros (persiste como `y` en rig_layout.json).
-    notes: Optional[str] = None
-    channel_map: Optional[List[Dict]] = None   # [{ch: int, role: str}]
-    height_m: Optional[float] = None
+    notes: str | None = None
+    channel_map: list[dict] | None = None   # [{ch: int, role: str}]
+    height_m: float | None = None
 
     def to_dict(self):
         d = asdict(self)
         return d
 
     @classmethod
-    def from_dict(cls, d: dict) -> 'Fixture':
+    def from_dict(cls, d: dict) -> Fixture:
         # tuples vienen como listas en JSON
         px = d.get('patch_x')
         py = d.get('patch_y')
@@ -229,12 +230,12 @@ class Fixture:
 class FixtureRig:
     """Gestor del rig completo: fixtures + profiles cargados + persistencia."""
 
-    def __init__(self, fixtures: Optional[List[Fixture]] = None):
-        self.fixtures: List[Fixture] = fixtures or []
-        self._profile_cache: Dict[str, FixtureProfile] = {}
+    def __init__(self, fixtures: list[Fixture] | None = None):
+        self.fixtures: list[Fixture] = fixtures or []
+        self._profile_cache: dict[str, FixtureProfile] = {}
 
     # ── Profile helpers ────────────────────────────────────────
-    def get_profile(self, profile_id: str) -> Optional[FixtureProfile]:
+    def get_profile(self, profile_id: str) -> FixtureProfile | None:
         if profile_id not in self._profile_cache:
             prof = load_profile(profile_id)
             if prof is None:
@@ -243,16 +244,16 @@ class FixtureRig:
         return self._profile_cache[profile_id]
 
     # ── Lookup ─────────────────────────────────────────────────
-    def by_id(self, fixture_id: str) -> Optional[Fixture]:
+    def by_id(self, fixture_id: str) -> Fixture | None:
         return next((f for f in self.fixtures if f.fixture_id == fixture_id), None)
 
-    def by_legacy_bar(self, bar_idx: int) -> Optional[Fixture]:
+    def by_legacy_bar(self, bar_idx: int) -> Fixture | None:
         return next((f for f in self.fixtures if f.legacy_bar_idx == bar_idx), None)
 
-    def by_universe(self, universe: int) -> List[Fixture]:
+    def by_universe(self, universe: int) -> list[Fixture]:
         return [f for f in self.fixtures if f.universe == universe]
 
-    def universes(self) -> List[int]:
+    def universes(self) -> list[int]:
         return sorted(set(f.universe for f in self.fixtures))
 
     # ── Persistencia ───────────────────────────────────────────
@@ -265,11 +266,11 @@ class FixtureRig:
             json.dump(data, f, indent=2)
 
     @classmethod
-    def load(cls, path=DEFAULT_RIG_FILE) -> 'FixtureRig':
+    def load(cls, path=DEFAULT_RIG_FILE) -> FixtureRig:
         p = Path(path)
         if not p.is_file():
             return cls()
-        with open(p, 'r', encoding='utf-8') as f:
+        with open(p, encoding='utf-8') as f:
             data = json.load(f)
         fixtures = [Fixture.from_dict(d) for d in data.get('fixtures', [])]
         return cls(fixtures)

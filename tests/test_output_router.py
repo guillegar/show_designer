@@ -11,8 +11,8 @@ Cubre:
 Lanzar:
     pytest tests/test_output_router.py -v
 """
-import sys
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -20,11 +20,13 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.io.outputs.router import (    # noqa: E402
-    OutputRouter, WledTarget, ArtnetNodeTarget, SimOnlyTarget,
+from src.io.outputs.router import (  # noqa: E402
+    ArtnetNodeTarget,
+    OutputRouter,
+    SimOnlyTarget,
+    WledTarget,
     build_artnet_packet,
 )
-
 
 # ────────────────────────────────────────────────────────────────
 # build_artnet_packet

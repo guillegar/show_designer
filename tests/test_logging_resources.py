@@ -50,7 +50,7 @@ def test_wled_send_failure_does_not_raise():
 # ── Hallazgo 17: throttling del logger ───────────────────────────────────────
 
 def test_log_throttled_emits_once_per_period():
-    from src.log import get_logger, log_throttled, _last_emit
+    from src.log import _last_emit, get_logger, log_throttled
     log = get_logger("test_throttle")
     seen = []
     h = logging.Handler()

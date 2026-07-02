@@ -10,12 +10,13 @@ Uso:
 """
 
 import json
+import shutil
+import subprocess
 import sys
 from pathlib import Path
-import numpy as np
+
 import librosa
-import subprocess
-import shutil
+import numpy as np
 
 PROJECT_DIR = Path(__file__).parent.parent
 AUDIO_PATH = PROJECT_DIR / "El Taser de Mama Remix.mp3"
@@ -189,7 +190,7 @@ def process_stems():
 
     # Actualizar analysis.json
     print("[*] Actualizando analysis.json...")
-    with open(ANALYSIS_PATH, 'r', encoding='utf-8') as f:
+    with open(ANALYSIS_PATH, encoding='utf-8') as f:
         analysis = json.load(f)
 
     # Añadir stems field
@@ -203,7 +204,7 @@ def process_stems():
     with open(ANALYSIS_PATH, 'w', encoding='utf-8') as f:
         json.dump(analysis, f, indent=2)
 
-    print(f"[+] analysis.json actualizado")
+    print("[+] analysis.json actualizado")
 
     return True
 

@@ -1,4 +1,8 @@
-import json, asyncio, sys, io
+import asyncio
+import io
+import json
+import sys
+
 if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 

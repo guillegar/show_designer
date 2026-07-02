@@ -3,17 +3,18 @@ test_patch_ux.py — Tests Patch UX: next_free_address, duplicate_fixture,
 get_universe_channel_map, get_output_targets.
 """
 import json
-import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from src.core.fixtures import Fixture, FixtureRig, build_default_wled_rig
+import pytest
+
 from server.dispatcher import (
-    _h_next_free_address,
     _h_duplicate_fixture,
-    _h_get_universe_channel_map,
     _h_get_output_targets,
+    _h_get_universe_channel_map,
+    _h_next_free_address,
 )
+from src.core.fixtures import Fixture, FixtureRig, build_default_wled_rig
 
 
 def _make_session(tmp_path: Path) -> MagicMock:
@@ -210,8 +211,9 @@ def test_get_output_targets_reads_file(tmp_path, monkeypatch):
 
 def test_get_output_targets_missing_file():
     """Sin output_targets.json, devuelve targets vacíos sin error."""
+    from unittest.mock import MagicMock, patch
+
     import server.dispatcher as disp
-    from unittest.mock import patch, MagicMock
     fake_path = MagicMock()
     fake_path.is_file.return_value = False
     with patch.object(disp, "_h_get_output_targets", wraps=_h_get_output_targets):

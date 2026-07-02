@@ -11,11 +11,11 @@ Cubre:
   test_undo_covers_lanes              — stop_record → undo → automation vacía
   test_stop_record_idempotent         — stop_record sin start previo → {ok, lanes_created:0}
 """
-import pytest
 from unittest.mock import MagicMock
 
-from server.dispatcher import _h_start_record, _h_stop_record, _h_get_record_state
+import pytest
 
+from server.dispatcher import _h_get_record_state, _h_start_record, _h_stop_record
 
 # ── Fake session ──────────────────────────────────────────────────────────────
 
@@ -182,8 +182,9 @@ def test_values_normalized():
 
 def test_undo_covers_lanes():
     """stop_record → undo → automation vacía (I1)."""
-    from src.core.automation import AutomationLane, AutomationPoint
     from uuid import uuid4
+
+    from src.core.automation import AutomationLane, AutomationPoint
 
     session = _FakeSession()
     session._current_t_ms = 0

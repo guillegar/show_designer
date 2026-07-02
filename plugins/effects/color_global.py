@@ -9,10 +9,10 @@ en el centro real del array (bar 4.5, entre bar_4 y bar_5).
 
 IDs: 1030 chase-comet · 1031 ola 2D · 1032 radial desde centro · 1033 sweep.
 """
-import numpy as np
-from typing import Dict, Any
 
-from src.core.effects_engine import Effect, EffectScope, NUM_BARS, LEDS_PER_BAR
+import numpy as np
+
+from src.core.effects_engine import LEDS_PER_BAR, NUM_BARS, Effect, EffectScope
 
 _TWO_PI = 2.0 * np.pi
 _BARS = np.arange(NUM_BARS, dtype=np.float32).reshape(NUM_BARS, 1)        # (10,1)

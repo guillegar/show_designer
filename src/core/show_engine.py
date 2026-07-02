@@ -6,30 +6,28 @@ desde feedback_app_with_show.py.
 
 v2.0: Integración con EffectLibrary y TimelineScheduler para multi-capa de efectos.
 """
-import json
-import numpy as np
-import socket
-import struct
-import math
 import colorsys
 import logging
+import math
+import socket
+import struct
 from bisect import bisect_left, bisect_right
-from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
-from enum import Enum
+from pathlib import Path
+
+import numpy as np
 
 from src.log import get_logger, log_throttled
 
 _log = get_logger(__name__)
 
 try:
-    from src.core.effects_engine import EffectLibrary, Effect
+    from src.core.effects_engine import Effect, EffectLibrary
     HAS_EFFECTS_ENGINE = True
 except ImportError:
     HAS_EFFECTS_ENGINE = False
 
-from src._paths import PROJECT_DIR, ANALIZADAS_DIR
+from src._paths import PROJECT_DIR
 
 # NUM_BARS/LEDS son del CORE (no específicos de canción). Las IPs del rig (BARS),
 # `render_stub` y el mapa de secciones de "El Taser" se movieron a
@@ -96,8 +94,8 @@ class TemporalEvent:
     time_sec: float
     effect_id: int  # 0-49
     scope: str  # "per_bar" | "global"
-    bar_indices: List[int] = field(default_factory=list)  # Si per_bar, cuáles barras
-    parameters: Dict = field(default_factory=dict)  # Dinámicos por efecto
+    bar_indices: list[int] = field(default_factory=list)  # Si per_bar, cuáles barras
+    parameters: dict = field(default_factory=dict)  # Dinámicos por efecto
 
     def is_active(self, current_time, effect_duration_ms):
         """Verifica si este evento está activo en current_time."""
@@ -113,14 +111,14 @@ class TimelineScheduler:
     """Planificador de eventos temporales para disparo de efectos."""
 
     def __init__(self):
-        self.events: List[TemporalEvent] = []
+        self.events: list[TemporalEvent] = []
         # ANALYSIS hallazgo 12: índice ordenado para get_active_events con bisect.
         # Se reconstruye cuando cambia el nº de eventos (add_* / clear).
         self._sorted_n: int = -1
-        self._times: List[float] = []
+        self._times: list[float] = []
         self._max_dur_sec: float = 2.0
 
-    def add_beat_events(self, beats_times: List[float], effect_id: int,
+    def add_beat_events(self, beats_times: list[float], effect_id: int,
                         scope: str = "global", **parameters):
         """Agrega disparadores en tiempos de beats."""
         for beat_time in beats_times:
@@ -132,7 +130,7 @@ class TimelineScheduler:
             )
             self.events.append(event)
 
-    def add_onset_events(self, onsets_times: List[float], effect_id: int,
+    def add_onset_events(self, onsets_times: list[float], effect_id: int,
                          scope: str = "global", **parameters):
         """Agrega disparadores en tiempos de onsets."""
         for onset_time in onsets_times:
@@ -144,7 +142,7 @@ class TimelineScheduler:
             )
             self.events.append(event)
 
-    def add_spectral_events(self, peaks_times: List[float], effect_id: int,
+    def add_spectral_events(self, peaks_times: list[float], effect_id: int,
                             peak_type: str = "energy", scope: str = "global", **parameters):
         """Agrega disparadores en peaks espectrales (energía, flux, centroide)."""
         for peak_time in peaks_times:
@@ -156,7 +154,7 @@ class TimelineScheduler:
             )
             self.events.append(event)
 
-    def add_section_events(self, section_boundaries: List[float], effect_id: int,
+    def add_section_events(self, section_boundaries: list[float], effect_id: int,
                           scope: str = "global", **parameters):
         """Agrega disparadores en límites de secciones."""
         for section_time in section_boundaries:
@@ -168,7 +166,7 @@ class TimelineScheduler:
             )
             self.events.append(event)
 
-    def add_tonal_change_events(self, change_times: List[float], effect_id: int,
+    def add_tonal_change_events(self, change_times: list[float], effect_id: int,
                                 change_type: str = "chroma", scope: str = "global", **parameters):
         """Agrega disparadores en cambios tonales (chroma, mfcc)."""
         for change_time in change_times:
@@ -181,7 +179,7 @@ class TimelineScheduler:
             self.events.append(event)
 
     def get_active_events(self, current_time: float, effect_library: 'EffectLibrary',
-                         window_ms: float = 100) -> List[TemporalEvent]:
+                         window_ms: float = 100) -> list[TemporalEvent]:
         """Retorna eventos activos en current_time (considerando su duración).
 
         ANALYSIS hallazgo 12: en vez de recorrer TODOS los eventos cada frame
@@ -272,7 +270,7 @@ def layer_full_dim(rgb_buf, color_hsv, intensity):
 
 class ShowEngine:
     def __init__(self, use_effects: bool = True, rig=None, analysis=None,
-                 output_targets_path: Optional[Path] = None):
+                 output_targets_path: Path | None = None):
         """
         rig: FixtureRig opcional (Fase 3).
         analysis: AnalysisService opcional (Fase A v1.6). Si None se usa el
@@ -374,7 +372,7 @@ class ShowEngine:
             traceback.print_exc()
             self.loaded = False
 
-    def get_audio_context(self, elapsed_time: float) -> Dict:
+    def get_audio_context(self, elapsed_time: float) -> dict:
         """Extrae contexto de audio en un tiempo dado para efectos espectrales.
 
         Si hay AnalysisService, delegar (única fuente, incluye dtempo). En
@@ -456,7 +454,7 @@ class ShowEngine:
             traceback.print_exc()
             return self._default_audio_context()
 
-    def _default_audio_context(self) -> Dict:
+    def _default_audio_context(self) -> dict:
         """Retorna contexto de audio por defecto (cuando no hay datos)."""
         return {
             'mfcc': np.zeros(13, dtype=np.float32),
@@ -501,7 +499,7 @@ class ShowEngine:
             print(f"[!] Error en compute_frame({elapsed_time}): {e}")
             return self._compute_frame_legacy(elapsed_time)
 
-    def _compute_frame_with_effects(self, elapsed_time: float) -> List[bytearray]:
+    def _compute_frame_with_effects(self, elapsed_time: float) -> list[bytearray]:
         """Computador de frames usando EffectLibrary y TimelineScheduler."""
         # Inicializar frames RGB para todas las barras
         frame_3d = np.zeros((NUM_BARS, LEDS, 3), dtype=np.uint8)
@@ -593,7 +591,7 @@ class ShowEngine:
 
         return rgb_frames
 
-    def _compute_frame_legacy(self, elapsed_time: float) -> List[bytearray]:
+    def _compute_frame_legacy(self, elapsed_time: float) -> list[bytearray]:
         """Computador de frames legacy usando render_stub."""
         try:
             ts_times = self.timeseries['times']
@@ -639,7 +637,7 @@ class ShowEngine:
             print(f"[!] Error en _compute_frame_legacy({elapsed_time}): {e}")
             return [bytearray(LEDS * 3) for _ in range(NUM_BARS)]
 
-    def auto_schedule_from_analysis(self, audio_path: Optional[str] = None,
+    def auto_schedule_from_analysis(self, audio_path: str | None = None,
                                       beat_effect_id: int = 0,
                                       onset_effect_id: int = 1,
                                       spectral_effect_id: int = 2) -> bool:
@@ -652,7 +650,7 @@ class ShowEngine:
 
         try:
             if self.analysis is None or not self.analysis.has_analysis:
-                print(f"[!] auto_schedule_from_analysis sin AnalysisService disponible")
+                print("[!] auto_schedule_from_analysis sin AnalysisService disponible")
                 return False
             svc = self.analysis
 
@@ -695,7 +693,7 @@ class ShowEngine:
             traceback.print_exc()
             return False
 
-    def get_scheduler(self) -> Optional[TimelineScheduler]:
+    def get_scheduler(self) -> TimelineScheduler | None:
         """Retorna el scheduler para acceso externo."""
         return self.timeline_scheduler
 
@@ -761,7 +759,7 @@ class ShowEngine:
     # ════════════════════════════════════════════════════════════
 
     def render_channels_for_fixture(self, fixture, t: float,
-                                    audio_context: Optional[Dict] = None,
+                                    audio_context: dict | None = None,
                                     timeline=None) -> bytearray:
         """Genera los bytes DMX del fixture aplicando los clips channel-level
         activos en este tiempo, en orden de **layers ascendentes** (LTP).
@@ -856,7 +854,7 @@ class ShowEngine:
         return self._channel_library
 
     def _render_clip_channels(self, clip, fixture, t: float,
-                              audio_context: Optional[Dict]) -> Dict[str, int]:
+                              audio_context: dict | None) -> dict[str, int]:
         """Carga el/los ChannelEffect del clip y llama a su render.
 
         G3: si clip.channel_effects (List[{id,params}]) está poblado, renderiza
@@ -872,7 +870,7 @@ class ShowEngine:
         # G3: lista de channel effects (puede tener múltiples sub-efectos)
         ce_list = getattr(clip, 'channel_effects', None) or []
         if ce_list:
-            merged: Dict[str, int] = {}
+            merged: dict[str, int] = {}
             for cfg in ce_list:
                 eff_id = cfg.get("id") or cfg.get("effect_id")
                 if not eff_id:
@@ -906,8 +904,8 @@ class ShowEngine:
             return {}
 
     def assemble_universe(self, universe_id: int, t: float,
-                          audio_context: Optional[Dict] = None,
-                          rgb_frames_by_bar: Optional[List] = None,
+                          audio_context: dict | None = None,
+                          rgb_frames_by_bar: list | None = None,
                           timeline=None) -> bytes:
         """Ensambla los 512 bytes del universo `universe_id` en el instante `t`.
 
@@ -971,9 +969,9 @@ class ShowEngine:
         # Sin router no hay destino (sim_only): no-op silencioso.
 
     def get_fixture_dmx_states(self, t: float,
-                                audio_context: Optional[Dict] = None,
-                                rgb_frames_by_bar: Optional[List] = None,
-                                timeline=None) -> Dict[str, Dict[str, float]]:
+                                audio_context: dict | None = None,
+                                rgb_frames_by_bar: list | None = None,
+                                timeline=None) -> dict[str, dict[str, float]]:
         """Devuelve el estado DMX normalizado (0..1) de los fixtures NO-LED
         en el instante `t`, listo para que el viewer 3D mueva movers/strobes.
 
@@ -993,7 +991,7 @@ class ShowEngine:
 
         Los fixtures LED strip se omiten (los frames RGB van por canal binario).
         """
-        states: Dict[str, Dict[str, float]] = {}
+        states: dict[str, dict[str, float]] = {}
         if self.rig is None:
             return states
 
@@ -1015,7 +1013,7 @@ class ShowEngine:
             # Aplicar overrides manuales si los hay
             manual = getattr(fx, 'manual_channels', None) or {}
 
-            ch_state: Dict[str, float] = {}
+            ch_state: dict[str, float] = {}
             for ch_name, offset in profile.channel_map.items():
                 # Override manual prevalece
                 if ch_name in manual:
@@ -1035,8 +1033,8 @@ class ShowEngine:
 
         return states
 
-    def send_frame_via_assembler(self, t: float, audio_context: Optional[Dict],
-                                  rgb_frames_by_bar: List, timeline=None) -> None:
+    def send_frame_via_assembler(self, t: float, audio_context: dict | None,
+                                  rgb_frames_by_bar: list, timeline=None) -> None:
         """Versión alternativa de send_frame() que pasa por el assembler y
         el router. Útil para tests + para el siguiente paso (broadcast 3D).
 

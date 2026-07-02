@@ -14,13 +14,16 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-import numpy as np
 from typing import Optional
 
-from src.core.effects_engine import (
-    Effect, EffectScope, NUM_BARS, LEDS_PER_BAR,
-)
+import numpy as np
 
+from src.core.effects_engine import (
+    LEDS_PER_BAR,
+    NUM_BARS,
+    Effect,
+    EffectScope,
+)
 
 _EMPTY_CTX = {
     "rms": 0.0, "energy": 0.0, "bpm": 120.0,
@@ -31,7 +34,7 @@ _BARS_STATE = np.zeros((NUM_BARS, LEDS_PER_BAR, 3), dtype=np.uint8)
 
 def assert_valid_plugin_effect(
     effect: Effect,
-    params: Optional[dict] = None,
+    params: dict | None = None,
     *,
     check_schema: bool = True,
 ) -> None:

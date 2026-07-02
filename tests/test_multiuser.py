@@ -2,10 +2,11 @@
 test_multiuser.py — Tests para control de acceso multiusuario (L3).
 """
 from __future__ import annotations
-import pytest
-from server.auth import check_permission, role_for_token, ASSISTANT_HANDLERS
-from server.dispatcher import Dispatcher
 
+import pytest
+
+from server.auth import ASSISTANT_HANDLERS, check_permission, role_for_token
+from server.dispatcher import Dispatcher
 
 # ─── fixtures de config ─────────────────────────────────────────────────────
 

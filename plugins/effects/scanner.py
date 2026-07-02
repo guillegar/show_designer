@@ -3,10 +3,11 @@ scanner.py — Spot luminoso que oscila de punta a punta (vectorizado).
 
 ID: 1018 · scope: PER_BAR · shape: (1, 93, 3)
 """
-import numpy as np
-from typing import Dict, Any
+from typing import Any
 
-from src.core.effects_engine import Effect, EffectScope, LEDS_PER_BAR
+import numpy as np
+
+from src.core.effects_engine import LEDS_PER_BAR, Effect, EffectScope
 
 _TWO_PI = 2.0 * np.pi
 
@@ -29,7 +30,7 @@ class ScannerEffect(Effect):
     }
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         t = elapsed_time / 1000.0
 
         r    = max(0, min(255, int(params.get('r', 255))))

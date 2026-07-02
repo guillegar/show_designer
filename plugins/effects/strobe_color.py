@@ -3,10 +3,11 @@ strobe_color.py — Estrobo con color configurable y duty cycle.
 
 ID: 1015 · scope: PER_BAR · shape: (1, 93, 3)
 """
-import numpy as np
-from typing import Dict, Any
+from typing import Any
 
-from src.core.effects_engine import Effect, EffectScope, LEDS_PER_BAR
+import numpy as np
+
+from src.core.effects_engine import LEDS_PER_BAR, Effect, EffectScope
 
 
 class StrobeColorEffect(Effect):
@@ -25,7 +26,7 @@ class StrobeColorEffect(Effect):
     }
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         t = elapsed_time / 1000.0
 
         r          = max(0, min(255, int(params.get('r', 255))))

@@ -4,12 +4,11 @@ v2.0: Multi-capa, multi-disparador, 2D/3D, simétrico/asimétrico
 """
 
 import math
-import numpy as np
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import ClassVar, Optional, Tuple, Dict, Any
 from enum import Enum
+from typing import Any, ClassVar
 
+import numpy as np
 
 # ------------------------------------------------------------
 # v2.3: Constantes de geometría de las barras
@@ -91,14 +90,14 @@ class Effect(ABC):
     #    "min": ..., "max": ..., "step": ...,   # float/int
     #    "options": ["a","b"],                  # enum
     #    "default": ..., "label": "...", "unit": "..."}
-    PARAM_SCHEMA: ClassVar[Dict[str, dict]] = {}
+    PARAM_SCHEMA: ClassVar[dict[str, dict]] = {}
 
     def __init__(self):
         pass
 
     @abstractmethod
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         """
         Renderiza el efecto.
 
@@ -118,7 +117,7 @@ class Effect(ABC):
         pass
 
     @property
-    def expected_output_shape(self) -> Tuple[int, int, int]:
+    def expected_output_shape(self) -> tuple[int, int, int]:
         """Forma válida de salida de `render()`, derivada del `scope`.
 
         PER_BAR devuelve una sola fila (1, LEDS_PER_BAR, 3) que el motor pinta
@@ -157,7 +156,7 @@ class Effect(ABC):
         return frame_3d
 
     @staticmethod
-    def hsv_to_rgb(h: float, s: float, v: float) -> Tuple[int, int, int]:
+    def hsv_to_rgb(h: float, s: float, v: float) -> tuple[int, int, int]:
         """Convierte HSV (0-360, 0-1, 0-1) a RGB (0-255)"""
         import colorsys
         r, g, b = colorsys.hsv_to_rgb(h / 360.0, s, v)
@@ -179,7 +178,7 @@ class WhiteFlashEffect(Effect):
     description = "Destello blanco puro en todas las barras"
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         progress = self._normalize_time(elapsed_time)
         brightness = max(0, 1.0 - progress)  # Fade out
         frame = np.full((NUM_BARS, 93, 3), [255, 255, 255], dtype=np.uint8)
@@ -198,7 +197,7 @@ class ColorFlashEffect(Effect):
     description = "Flash de color diferente por barra"
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         progress = self._normalize_time(elapsed_time)
         brightness = max(0, 1.0 - progress)
         hue = params.get('hue', 0)
@@ -218,7 +217,7 @@ class PulseEffect(Effect):
     description = "Pulsación suave (latido)"
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         import math
         progress = self._normalize_time(elapsed_time)
         # Oscilación suave
@@ -240,7 +239,7 @@ class StrobeEffect(Effect):
     description = "Parpadeo rápido tipo estrobo"
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         # 10 Hz strobe
         strobe_freq = 10  # Hz
         phase = (elapsed_time / 1000.0) * strobe_freq * 2 * 3.14159
@@ -262,7 +261,7 @@ class SaturationFlashEffect(Effect):
     description = "Flash de saturación extrema"
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         progress = self._normalize_time(elapsed_time)
         brightness = max(0, 1.0 - progress)
         hue = params.get('hue', 0)
@@ -282,7 +281,7 @@ class BassFlashEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         progress = self._normalize_time(elapsed_time)
         brightness = max(0, 1.0 - progress)
         frame = np.full((NUM_BARS, 93, 3), [255, 0, 0], dtype=np.uint8)
@@ -300,7 +299,7 @@ class MidFlashEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         progress = self._normalize_time(elapsed_time)
         brightness = max(0, 1.0 - progress)
         frame = np.full((NUM_BARS, 93, 3), [0, 255, 0], dtype=np.uint8)
@@ -318,7 +317,7 @@ class TrebleFlashEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         progress = self._normalize_time(elapsed_time)
         brightness = max(0, 1.0 - progress)
         frame = np.full((NUM_BARS, 93, 3), [0, 0, 255], dtype=np.uint8)
@@ -336,7 +335,7 @@ class MultiColorFlashEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         progress = self._normalize_time(elapsed_time)
         brightness = max(0, 1.0 - progress)
         hue = params.get('hue', 280)  # Magenta por defecto
@@ -355,7 +354,7 @@ class RandomFlashEffect(Effect):
     symmetry = EffectSymmetry.ASYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         import random
         progress = self._normalize_time(elapsed_time)
         brightness = max(0, 1.0 - progress)
@@ -380,7 +379,7 @@ class HorizontalWaveEffect(Effect):
     description = "Onda que viaja de izquierda a derecha"
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         progress = self._normalize_time(elapsed_time)
         led_pos = progress * 93  # 0→93
         wave_width = params.get('width', 10)
@@ -406,7 +405,7 @@ class VerticalWaveEffect(Effect):
     description = "Onda que viaja entre barras verticalmente"
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         progress = self._normalize_time(elapsed_time)
         bar_pos = progress * 7  # 0→7
         wave_width = params.get('width', 1.5)
@@ -432,7 +431,7 @@ class SymmetricRadialWaveEffect(Effect):
     description = "Onda que expande desde el centro simétricamente"
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         progress = self._normalize_time(elapsed_time)
         max_dist = progress * 3  # 0→3
         hue = params.get('hue', 120)  # Verde
@@ -458,7 +457,7 @@ class RainbowWaveEffect(Effect):
     description = "Onda de colores arcoíris"
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         progress = self._normalize_time(elapsed_time)
         led_offset = progress * 93
 
@@ -485,7 +484,7 @@ class EnergyWaveEffect(Effect):
     description = "Altura de onda basada en energía actual"
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         energy = audio_context.get('energy', 0.5)  # 0-1
         wave_height = int(energy * 93)
 
@@ -512,7 +511,7 @@ class SpiralWaveEffect(Effect):
     description = "Patrón espiral simétrico"
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         import math
         progress = self._normalize_time(elapsed_time)
         phase = progress * 2 * math.pi
@@ -542,7 +541,7 @@ class MFFCWaveEffect(Effect):
     symmetry = EffectSymmetry.ASYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         mfcc = audio_context.get('mfcc', None)
         if mfcc is None:
             mfcc = np.zeros(13)
@@ -571,7 +570,7 @@ class ChromaWaveEffect(Effect):
     symmetry = EffectSymmetry.ASYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         chroma = audio_context.get('chroma', None)
         if chroma is None:
             chroma = np.zeros(12)
@@ -601,7 +600,7 @@ class CombinedSpectraWaveEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         mfcc = audio_context.get('mfcc', np.zeros(13))
         chroma = audio_context.get('chroma', np.zeros(12))
         progress = self._normalize_time(elapsed_time)
@@ -634,7 +633,7 @@ class DistortionWaveEffect(Effect):
     symmetry = EffectSymmetry.ASYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         import math
         progress = self._normalize_time(elapsed_time)
 
@@ -668,7 +667,7 @@ class LinearGradientEffect(Effect):
     description = "Gradiente lineal de color"
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         hue_start = params.get('hue_start', 0)
         hue_end = params.get('hue_end', 180)
 
@@ -694,7 +693,7 @@ class RadialGradientEffect(Effect):
     description = "Gradiente radial desde el centro"
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         hue_center = params.get('hue_center', 120)
         hue_edge = params.get('hue_edge', 240)
 
@@ -725,7 +724,7 @@ class AsymmetricGradientEffect(Effect):
     description = "Gradiente que cae como cascada"
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         progress = self._normalize_time(elapsed_time)
         hue_start = params.get('hue_start', 0)
         hue_end = params.get('hue_end', 300)
@@ -754,7 +753,7 @@ class MFFCGradientEffect(Effect):
     symmetry = EffectSymmetry.ASYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         mfcc = audio_context.get('mfcc', np.zeros(13))
 
         frame = np.zeros((1, 93, 3), dtype=np.uint8)
@@ -782,7 +781,7 @@ class ChromaGradientEffect(Effect):
     description = "12 notas musicalescíclicas"
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         chroma = audio_context.get('chroma', np.zeros(12))
         progress = self._normalize_time(elapsed_time)
 
@@ -810,7 +809,7 @@ class EnergyGradientEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         energy = audio_context.get('energy', 0.5)
 
         frame = np.zeros((NUM_BARS, 93, 3), dtype=np.uint8)
@@ -837,7 +836,7 @@ class HeatmapGradientEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         progress = self._normalize_time(elapsed_time)
         energy = audio_context.get('energy', 0.5)
 
@@ -870,7 +869,7 @@ class PulseGradientEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         import math
         progress = self._normalize_time(elapsed_time)
         pulse = 0.5 + 0.5 * math.sin(progress * 2 * math.pi)
@@ -896,7 +895,7 @@ class WaveGradientEffect(Effect):
     symmetry = EffectSymmetry.ASYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         import math
         progress = self._normalize_time(elapsed_time)
 
@@ -925,7 +924,7 @@ class StepGradientEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         num_steps = params.get('steps', 7)
         step_size = 93 // num_steps
 
@@ -955,7 +954,7 @@ class StripesPattern2DEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         stripe_width = params.get('width', 5)
         hue = params.get('hue', 0)
 
@@ -980,7 +979,7 @@ class Stripes3DEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         stripe_width = params.get('width', 1)
         hue = params.get('hue', 240)
 
@@ -1006,7 +1005,7 @@ class BreathingEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         import math
         progress = self._normalize_time(elapsed_time)
         brightness = 0.5 + 0.5 * math.sin(progress * 2 * math.pi)
@@ -1030,7 +1029,7 @@ class SpinningEffect(Effect):
     symmetry = EffectSymmetry.ASYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         import math
         progress = self._normalize_time(elapsed_time)
         angle = progress * 2 * math.pi
@@ -1059,7 +1058,7 @@ class SparkleEffect(Effect):
     symmetry = EffectSymmetry.ASYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         import random
         progress = self._normalize_time(elapsed_time)
         density = params.get('density', 0.1)  # % de LEDs que brillan
@@ -1088,7 +1087,7 @@ class ChaseEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         progress = self._normalize_time(elapsed_time)
         chase_pos = progress * 93
         chase_width = params.get('width', 5)
@@ -1116,7 +1115,7 @@ class AlternatingStripesEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         progress = self._normalize_time(elapsed_time)
         phase = int(progress * 10) % 2  # Alterna cada 60ms
 
@@ -1142,7 +1141,7 @@ class DiamondPatternEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         progress = self._normalize_time(elapsed_time)
 
         frame = np.zeros((NUM_BARS, 93, 3), dtype=np.uint8)
@@ -1168,7 +1167,7 @@ class StarbburstEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         import math
         progress = self._normalize_time(elapsed_time)
 
@@ -1198,7 +1197,7 @@ class NeonGlowEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         import math
         progress = self._normalize_time(elapsed_time)
         glow = 0.5 + 0.5 * math.sin(progress * 2 * math.pi)
@@ -1232,7 +1231,7 @@ class MFFCSonogram2DEffect(Effect):
     symmetry = EffectSymmetry.ASYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         mfcc = audio_context.get('mfcc', np.zeros(13))
 
         frame = np.zeros((1, 93, 3), dtype=np.uint8)
@@ -1260,7 +1259,7 @@ class MFFCSonogram3DEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         mfcc = audio_context.get('mfcc', np.zeros(13))
 
         frame = np.zeros((NUM_BARS, 93, 3), dtype=np.uint8)
@@ -1289,7 +1288,7 @@ class ChromaDisplayEffect(Effect):
     symmetry = EffectSymmetry.ASYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         chroma = audio_context.get('chroma', np.zeros(12))
 
         frame = np.zeros((NUM_BARS, 93, 3), dtype=np.uint8)
@@ -1316,7 +1315,7 @@ class CentroidFollowEffect(Effect):
     symmetry = EffectSymmetry.ASYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         centroid = audio_context.get('centroid', 0.5)
 
         frame = np.zeros((NUM_BARS, 93, 3), dtype=np.uint8)
@@ -1345,7 +1344,7 @@ class FluxPeaksEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         flux = audio_context.get('flux', 0.5)
 
         frame = np.zeros((NUM_BARS, 93, 3), dtype=np.uint8)
@@ -1370,7 +1369,7 @@ class EnergyMeterEffect(Effect):
     symmetry = EffectSymmetry.ASYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         energy = audio_context.get('energy', 0.5)
         flame_height = int(energy * 93)
 
@@ -1380,7 +1379,7 @@ class EnergyMeterEffect(Effect):
                 # Gradiente de llama: naranja→amarillo→blanco
                 ratio = led / max(1, flame_height)
                 if ratio < 0.5:
-                    r, g, b = int(255), int(100 * (ratio * 2)), 0  # Naranja
+                    r, g, b = 255, int(100 * (ratio * 2)), 0  # Naranja
                 else:
                     r, g, b = 255, int(100 + 155 * ((ratio - 0.5) * 2)), 0  # Amarillo
                 brightness = ratio
@@ -1401,7 +1400,7 @@ class CombinedMFFCChromaEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         mfcc = audio_context.get('mfcc', np.zeros(13))
         chroma = audio_context.get('chroma', np.zeros(12))
 
@@ -1434,7 +1433,7 @@ class TonnetzEffect(Effect):
     symmetry = EffectSymmetry.ASYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         tonnetz = audio_context.get('tonnetz', np.zeros(6))
 
         frame = np.zeros((NUM_BARS, 93, 3), dtype=np.uint8)
@@ -1462,7 +1461,7 @@ class ContrastVizEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         # contrast es array (7,) — una banda por barra
         contrast = audio_context.get('contrast', np.zeros(7))
         if np.ndim(contrast) == 0:
@@ -1491,7 +1490,7 @@ class AllSpectralEffect(Effect):
     symmetry = EffectSymmetry.ASYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         mfcc = audio_context.get('mfcc', np.zeros(13))
         chroma = audio_context.get('chroma', np.zeros(12))
         energy = audio_context.get('energy', 0.5)
@@ -1549,7 +1548,7 @@ class RingExpandEffect(Effect):
     symmetry = EffectSymmetry.SYMMETRIC
 
     def render(self, elapsed_time: float, bars_state: np.ndarray,
-               audio_context: Dict[str, Any], **params) -> np.ndarray:
+               audio_context: dict[str, Any], **params) -> np.ndarray:
         # Progreso 0→1 sobre la duración total del efecto
         progress = self._normalize_time(elapsed_time)
         # Permite acelerar/ralentizar la onda sin tocar duration_ms
@@ -1686,7 +1685,8 @@ class EffectLibrary:
              consecutivos desde PLUGIN_BASE_ID.
         Los IDs de plugins (>=1000) nunca solapan con los base (0-999).
         """
-        import importlib.util, sys
+        import importlib.util
+        import sys
         from pathlib import Path as _Path
 
         plugins_dir = _Path(__file__).parent.parent.parent / 'plugins' / 'effects'
@@ -1752,11 +1752,11 @@ class EffectLibrary:
                 print(f"[plugin] Error cargando {plugin_file.name}: {e}")
                 import traceback; traceback.print_exc()
 
-    def get_effect(self, effect_id: int) -> Optional[Effect]:
+    def get_effect(self, effect_id: int) -> Effect | None:
         """Obtiene un efecto por ID (0-49)"""
         return self.effects.get(effect_id)
 
-    def list_effects(self) -> Dict[int, Dict[str, Any]]:
+    def list_effects(self) -> dict[int, dict[str, Any]]:
         """Lista metadatos de todos los efectos"""
         result = {}
         for effect_id, effect in self.effects.items():
@@ -1771,7 +1771,7 @@ class EffectLibrary:
             }
         return result
 
-    def list_by_family(self, family: str) -> Dict[int, Effect]:
+    def list_by_family(self, family: str) -> dict[int, Effect]:
         """Lista efectos de una familia específica"""
         return {
             effect_id: effect
@@ -1800,4 +1800,4 @@ if __name__ == "__main__":
     }
     frame = effect.render(25, np.zeros((NUM_BARS, 93, 3)), audio_ctx)
     print(f"[OK] Frame shape: {frame.shape}")
-    print(f"[OK] Effects Engine initialized successfully!")
+    print("[OK] Effects Engine initialized successfully!")

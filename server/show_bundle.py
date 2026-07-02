@@ -11,9 +11,8 @@ import json
 import os
 import re
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 _SD_VERSION = "2.0"
 _MANIFEST_FILE = "MANIFEST.json"
@@ -54,7 +53,7 @@ def export_show_bundle(session, include_audio: bool = False) -> str:
 
     project_dir.mkdir(parents=True, exist_ok=True)
 
-    custom_plugins: List[str] = []
+    custom_plugins: list[str] = []
     plugins_dir = Path("plugins/effects")
     if plugins_dir.exists():
         custom_plugins = [
@@ -86,7 +85,7 @@ def export_show_bundle(session, include_audio: bool = False) -> str:
             zf.write(src, f"plugins/effects/{fname}")
 
         # audio (opcional, < 500 MB)
-        audio_path: Optional[Path] = None
+        audio_path: Path | None = None
         try:
             audio_path = Path(session.project.audio_file)
         except Exception:
@@ -99,7 +98,7 @@ def export_show_bundle(session, include_audio: bool = False) -> str:
         # MANIFEST
         manifest = {
             "version": _BUNDLE_VERSION,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "show_slug": slug,
             "sd_version": _SD_VERSION,
             "plugins": custom_plugins,
@@ -110,10 +109,10 @@ def export_show_bundle(session, include_audio: bool = False) -> str:
     return str(out_path.resolve())
 
 
-def import_show_bundle(zip_path: str, projects_dir: Path) -> Tuple[str, List[str]]:
+def import_show_bundle(zip_path: str, projects_dir: Path) -> tuple[str, list[str]]:
     """Extrae un bundle ZIP y registra como nuevo proyecto.
     Devuelve (slug, warnings)."""
-    warnings: List[str] = []
+    warnings: list[str] = []
 
     # FIX 9: canonical context-manager form; BadZipFile caught around the whole block
     try:
@@ -125,7 +124,7 @@ def import_show_bundle(zip_path: str, projects_dir: Path) -> Tuple[str, List[str
 
             manifest = json.loads(zf.read(_MANIFEST_FILE).decode("utf-8"))
             original_slug = manifest.get("show_slug", "imported_show")
-            plugins_in_bundle: List[str] = manifest.get("plugins", [])
+            plugins_in_bundle: list[str] = manifest.get("plugins", [])
 
             # Slug seguro (sin path traversal)
             slug = re.sub(r"[^a-z0-9_-]", "_", original_slug.lower())

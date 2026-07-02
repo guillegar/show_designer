@@ -14,13 +14,9 @@ export_dmx_csv(session, out_path, fps=1) → path
 from __future__ import annotations
 
 import csv
-import io
 import math
 import os
-import tempfile
 from pathlib import Path
-from typing import Optional
-
 
 _LEDS = 93        # LEDs por barra
 _CH_PER_LED = 3   # R, G, B
@@ -126,7 +122,7 @@ def export_dmx_csv(session, out_path: str, fps: int = 1) -> str:
     n_frames = math.ceil(duration_s * fps)
 
     npz_path = None
-    npz_frames: Optional[np.ndarray] = None
+    npz_frames: np.ndarray | None = None
     if hasattr(session, "project"):
         candidate = session.project.folder / "render.npz"
         if candidate.is_file():

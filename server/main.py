@@ -40,6 +40,7 @@ def main():
     args = ap.parse_args()
 
     import uvicorn
+
     from server.web import create_app
 
     app = create_app()

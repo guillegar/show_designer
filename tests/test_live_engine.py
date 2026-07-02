@@ -14,12 +14,12 @@ Cubre:
   test_undo_covers_slots      — asignar slot → undo → slot vacío
   test_armed_to_active_transition — t_ms >= t_armed → slot pasa de armed a active
 """
-import numpy as np
-import pytest
 from unittest.mock import MagicMock
 
-from server.live_engine import LiveEngine, LiveSlot, NUM_LIVE_SLOTS
+import numpy as np
+import pytest
 
+from server.live_engine import NUM_LIVE_SLOTS, LiveEngine, LiveSlot
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -263,8 +263,8 @@ def test_live_frame_merges_max():
 
 def test_undo_covers_slots():
     """Asignar slot → undo → slot vacío (invariante I1)."""
-    from src.core.undo import UndoManager
     from src.core.timeline_model import Timeline
+    from src.core.undo import UndoManager
 
     tl = Timeline()
     engine = LiveEngine()

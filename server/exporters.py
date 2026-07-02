@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 import tempfile
-from typing import Callable
+from collections.abc import Callable
 
 
 def export_to_memory(

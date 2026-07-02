@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Optional
 
 import pygame
 
@@ -34,7 +33,7 @@ class HeadlessAudioPlayer:
         except Exception as e:
             self.silent = True
             print(f"[audio] Sin dispositivo de audio → modo silencioso (reloj OK): {e}")
-        self.audio_path: Optional[str] = None
+        self.audio_path: str | None = None
         self.duration: float = 0.0
         self._playing = False
         self._paused = False
@@ -43,7 +42,7 @@ class HeadlessAudioPlayer:
 
     # ── carga ────────────────────────────────────────────────────────────────
 
-    def load(self, audio_path, duration: Optional[float] = None) -> bool:
+    def load(self, audio_path, duration: float | None = None) -> bool:
         """Carga el audio. `duration` (s) evita el coste de leerlo con librosa."""
         try:
             self.audio_path = str(audio_path)
@@ -63,7 +62,7 @@ class HeadlessAudioPlayer:
 
     # ── transporte ─────────────────────────────────────────────────────────
 
-    def play(self, at: Optional[float] = None):
+    def play(self, at: float | None = None):
         """Reproduce desde `at` (s), o reanuda desde la posición pausada/seek."""
         if not self.audio_path:
             return
@@ -162,5 +161,5 @@ class HeadlessAudioPlayer:
         return self.duration
 
     @property
-    def _path(self) -> Optional[str]:
+    def _path(self) -> str | None:
         return self.audio_path

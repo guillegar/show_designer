@@ -15,7 +15,7 @@ Fast path: si el clip no tiene eventos, devuelve params sin copiar (cero allocs)
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 from uuid import uuid4
 
 
@@ -25,13 +25,13 @@ class MicroEvent:
     uid: str = field(default_factory=lambda: uuid4().hex[:12])
     t_ms_rel: int = 0          # tiempo relativo a clip.start_ms
     duration_ms: int = 100     # ventana de activación
-    params_override: Dict[str, Any] = field(default_factory=dict)
+    params_override: dict[str, Any] = field(default_factory=dict)
 
     def is_active_at(self, clip_elapsed_ms: int) -> bool:
         """True si el instante clip_elapsed_ms cae dentro de la ventana."""
         return self.t_ms_rel <= clip_elapsed_ms < self.t_ms_rel + self.duration_ms
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "uid": self.uid,
             "t_ms_rel": self.t_ms_rel,
@@ -40,7 +40,7 @@ class MicroEvent:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "MicroEvent":
+    def from_dict(cls, d: dict[str, Any]) -> MicroEvent:
         return cls(
             uid=d.get("uid") or uuid4().hex[:12],
             t_ms_rel=int(d.get("t_ms_rel", 0)),
@@ -56,14 +56,14 @@ class MicroEventStage:
     Los micro-eventos tienen prioridad máxima sobre mod y auto para ese instante.
     """
 
-    def apply(self, params: Dict[str, Any], clip: Any, t_ms: int,
-              audio_context: Dict[str, Any]) -> Dict[str, Any]:
-        events: List[Any] = getattr(clip, "events", [])
+    def apply(self, params: dict[str, Any], clip: Any, t_ms: int,
+              audio_context: dict[str, Any]) -> dict[str, Any]:
+        events: list[Any] = getattr(clip, "events", [])
         if not events:
             return params  # fast path: sin micro-eventos, cero allocs
 
         clip_elapsed = t_ms - clip.start_ms
-        merged: Dict[str, Any] | None = None
+        merged: dict[str, Any] | None = None
 
         for ev_d in events:
             ev = MicroEvent.from_dict(ev_d) if isinstance(ev_d, dict) else ev_d

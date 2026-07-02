@@ -6,10 +6,11 @@ con "# CAMBIAR", implementa render(), y reinicia el server.
 
 Más info: docs/dev/plugin-sdk.md
 """
-import numpy as np
-from typing import ClassVar, Dict, Any
+from typing import Any, ClassVar
 
-from src.core.effects_engine import Effect, EffectScope, LEDS_PER_BAR
+import numpy as np
+
+from src.core.effects_engine import LEDS_PER_BAR, Effect, EffectScope
 
 
 class TemplateEffect(Effect):
@@ -23,7 +24,7 @@ class TemplateEffect(Effect):
     # ── Parámetros de la UI (PARAM_SCHEMA — F2) ──────────────────
     # La UI auto-genera controles para cada entrada.
     # Quita los que no necesites; añade los tuyos siguiendo el mismo formato.
-    PARAM_SCHEMA: ClassVar[Dict[str, dict]] = {
+    PARAM_SCHEMA: ClassVar[dict[str, dict]] = {
         "speed": {
             "type": "float", "min": 0.1, "max": 5.0, "step": 0.1,
             "default": 1.0, "label": "Velocidad", "unit": "ciclos/s",
@@ -44,7 +45,7 @@ class TemplateEffect(Effect):
         self,
         elapsed_time: float,         # ms desde el inicio del clip
         bars_state: np.ndarray,      # (10,93,3) uint8 — frame anterior (solo lectura)
-        audio_context: Dict[str, Any],  # {"rms", "energy", "bpm", "norm": {...}}
+        audio_context: dict[str, Any],  # {"rms", "energy", "bpm", "norm": {...}}
         **params
     ) -> np.ndarray:
         """Devuelve un frame RGB según el scope:

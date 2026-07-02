@@ -16,9 +16,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.core.fixtures import Fixture, FixtureRig, build_default_wled_rig
 from server.dispatcher import _h_move_fixture
-
+from src.core.fixtures import Fixture, FixtureRig, build_default_wled_rig
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

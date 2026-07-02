@@ -18,11 +18,10 @@ Módulo puro: SIN imports de server/, web/, fastapi.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, List, Optional, Tuple
-from uuid import uuid4
-from bisect import bisect_left, bisect_right
 import math
+from bisect import bisect_right
+from dataclasses import asdict, dataclass, field
+from typing import Any
 
 from src.core.param_pipeline import ParamStage
 
@@ -40,11 +39,11 @@ class AutomationPoint:
     value: float
     shape: str = 'linear'
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> AutomationPoint:
+    def from_dict(cls, d: dict[str, Any]) -> AutomationPoint:
         return cls(
             t_ms=int(d['t_ms']),
             value=float(d['value']),
@@ -62,11 +61,11 @@ class Target:
     """
     target_type: str  # 'clip', 'track', 'master'
     param: str
-    uid: Optional[str] = None       # para clip
-    track_id: Optional[int] = None  # para track
+    uid: str | None = None       # para clip
+    track_id: int | None = None  # para track
 
 
-def parse_target(target_str: str) -> Optional[Target]:
+def parse_target(target_str: str) -> Target | None:
     """Parsea un target string a Target struct.
 
     Ej:
@@ -106,10 +105,10 @@ class AutomationLane:
     """
     uid: str
     target: str
-    points: List[Dict[str, Any]] = field(default_factory=list)  # persistidos como dicts
+    points: list[dict[str, Any]] = field(default_factory=list)  # persistidos como dicts
     enabled: bool = True
 
-    def value_at(self, t_ms: int) -> Optional[float]:
+    def value_at(self, t_ms: int) -> float | None:
         """Interpola el valor en t_ms.
 
         Antes del primer punto → primer valor
@@ -163,7 +162,7 @@ class AutomationLane:
 
         return p0.value + (p1.value - p0.value) * w
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             'uid': self.uid,
             'target': self.target,
@@ -173,7 +172,7 @@ class AutomationLane:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> AutomationLane:
+    def from_dict(cls, d: dict[str, Any]) -> AutomationLane:
         points = [AutomationPoint.from_dict(p) if isinstance(p, dict) else p
                  for p in d.get('points', [])]
         return cls(
@@ -201,8 +200,8 @@ class AutomationStage(ParamStage):
         """
         self.get_automation_lanes = get_automation_lanes or (lambda: [])
 
-    def apply(self, params: Dict[str, Any], clip: Any, t_ms: int,
-              audio_context: Dict[str, Any]) -> Dict[str, Any]:
+    def apply(self, params: dict[str, Any], clip: Any, t_ms: int,
+              audio_context: dict[str, Any]) -> dict[str, Any]:
         """Aplica las lanes de automatización que aplican a este clip."""
         lanes = self.get_automation_lanes()
         if not lanes:

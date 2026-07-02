@@ -21,12 +21,12 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from server.session import ShowSession
 from server.dispatcher import Dispatcher
-from server.tick import StreamHub, TickLoop
 from server.json_rpc import parse_json_rpc_message
 from server.osc_bridge import OscBridge
 from server.rest_api import create_rest_router
+from server.session import ShowSession
+from server.tick import StreamHub, TickLoop
 
 _ROOT = Path(__file__).parent.parent
 _DIST = _ROOT / "web" / "dist"

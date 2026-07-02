@@ -2,12 +2,14 @@
 test_gesture_log.py — Tests para historial de gestos y replay (M3).
 """
 from __future__ import annotations
-import pytest
-from unittest.mock import MagicMock, patch
-from server.gesture_log import GestureLog
-from server.dispatcher import Dispatcher
-from src.core.timeline_model import Timeline, make_default_groups
 
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from server.dispatcher import Dispatcher
+from server.gesture_log import GestureLog
+from src.core.timeline_model import Timeline, make_default_groups
 
 # ─── helpers ─────────────────────────────────────────────────────────────────
 

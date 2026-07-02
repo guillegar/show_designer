@@ -11,10 +11,12 @@ Cubre:
   - Coexistencia Art-Net + sACN en el mismo router.
   - Error de init del sender → no lanza, log throttled.
 """
-import pytest
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call as mcall
+from unittest.mock import MagicMock, patch
+from unittest.mock import call as mcall
+
+import pytest
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
@@ -47,9 +49,10 @@ def test_sacn_send_calls_sender_with_correct_data():
     mock_sacn, mock_sender, mock_output = _make_mock_sacn()
 
     with patch.dict("sys.modules", {"sacn": mock_sacn}):
-        from src.io.outputs.router import SacnNodeTarget
         import importlib
+
         import src.io.outputs.router as router_mod
+        from src.io.outputs.router import SacnNodeTarget
         importlib.reload(router_mod)
 
         t = router_mod.SacnNodeTarget(ip="192.168.1.50")
@@ -71,6 +74,7 @@ def test_sacn_send_pads_to_512_bytes():
 
     with patch.dict("sys.modules", {"sacn": mock_sacn}):
         import importlib
+
         import src.io.outputs.router as router_mod
         importlib.reload(router_mod)
 
@@ -89,6 +93,7 @@ def test_sacn_sets_destination_unicast():
 
     with patch.dict("sys.modules", {"sacn": mock_sacn}):
         import importlib
+
         import src.io.outputs.router as router_mod
         importlib.reload(router_mod)
 
@@ -106,6 +111,7 @@ def test_sacn_multicast_no_destination():
 
     with patch.dict("sys.modules", {"sacn": mock_sacn}):
         import importlib
+
         import src.io.outputs.router as router_mod
         importlib.reload(router_mod)
 
@@ -125,6 +131,7 @@ def test_sacn_close_calls_stop():
 
     with patch.dict("sys.modules", {"sacn": mock_sacn}):
         import importlib
+
         import src.io.outputs.router as router_mod
         importlib.reload(router_mod)
 
@@ -140,6 +147,7 @@ def test_sacn_close_idempotent():
 
     with patch.dict("sys.modules", {"sacn": mock_sacn}):
         import importlib
+
         import src.io.outputs.router as router_mod
         importlib.reload(router_mod)
 
@@ -162,6 +170,7 @@ def test_output_router_loads_sacn_from_json(tmp_path):
 
     with patch.dict("sys.modules", {"sacn": mock_sacn}):
         import importlib
+
         import src.io.outputs.router as router_mod
         importlib.reload(router_mod)
 
@@ -185,6 +194,7 @@ def test_output_router_coexistence_artnet_sacn(tmp_path):
 
     with patch.dict("sys.modules", {"sacn": mock_sacn}):
         import importlib
+
         import src.io.outputs.router as router_mod
         importlib.reload(router_mod)
 
@@ -202,6 +212,7 @@ def test_sacn_init_error_no_crash():
 
     with patch.dict("sys.modules", {"sacn": mock_sacn}):
         import importlib
+
         import src.io.outputs.router as router_mod
         importlib.reload(router_mod)
 

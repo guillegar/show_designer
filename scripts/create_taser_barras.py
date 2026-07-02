@@ -22,12 +22,11 @@ Uso:
 """
 from __future__ import annotations
 
-import sys
-import io
-import json
 import bisect
 import copy
-import random
+import io
+import json
+import sys
 from pathlib import Path
 
 if sys.platform == "win32":
@@ -214,6 +213,7 @@ def base_transitions(clips):
 def probe_effect_rows(effect_ids):
     """dim0 (nº de filas) de cada efecto: 10 = cubre las 10 barras, 1 = per-bar."""
     import numpy as np
+
     from src.core.effects_engine import EffectLibrary
     lib = EffectLibrary()
     bars = np.zeros((NUM_BARS, 93, 3), dtype=np.float32)

@@ -15,9 +15,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from server.validators import ValidationError, validate_params_against_schema
 from src.core.effects_engine import Effect, EffectLibrary
-from server.validators import validate_params_against_schema, ValidationError
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -119,8 +118,8 @@ def test_validate_float_out_of_range():
 
 def test_get_effect_schema_handler_returns_schema():
     """get_effect_schema devuelve schema correcto para effect_id conocido."""
-    from server.session import ShowSession
     from server.dispatcher import Dispatcher
+    from server.session import ShowSession
 
     disp = Dispatcher(ShowSession())
     res = disp.call("get_effect_schema", {"effect_id": 1004})
@@ -132,8 +131,8 @@ def test_get_effect_schema_handler_returns_schema():
 
 def test_get_effect_schema_unknown_id():
     """get_effect_schema devuelve error para effect_id desconocido."""
-    from server.session import ShowSession
     from server.dispatcher import Dispatcher
+    from server.session import ShowSession
 
     disp = Dispatcher(ShowSession())
     res = disp.call("get_effect_schema", {"effect_id": 9999})

@@ -14,7 +14,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.core.timeline_model import Clip, Timeline  # noqa: E402
 
-
 # ── El campo uid ─────────────────────────────────────────────────────────────
 
 def test_clip_has_unique_string_uid():

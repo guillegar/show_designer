@@ -12,7 +12,6 @@ import pytest
 
 from server.show_bundle import export_show_bundle, import_show_bundle
 
-
 # ─── helpers ─────────────────────────────────────────────────────────────────
 
 def _make_session(tmp_path: Path, slug: str = "test_show") -> MagicMock:

@@ -1,11 +1,11 @@
 """
 test_modulation.py — Tests de A1 (modulación de parámetros por audio).
 """
-import pytest
 import numpy as np
+import pytest
 
+from src.core.modulation import ModulationStage, ParamLink, _apply_curve, _read_signal_from_context
 from src.core.timeline_model import Clip
-from src.core.modulation import ParamLink, ModulationStage, _read_signal_from_context, _apply_curve
 
 
 class TestParamLink:

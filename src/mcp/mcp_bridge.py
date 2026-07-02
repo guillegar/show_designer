@@ -21,13 +21,13 @@ Lanzar standalone (para testing sin Qt):
     python mcp_bridge.py --mock
 """
 from __future__ import annotations
+
 import asyncio
 import json
 import logging
 import threading
 import traceback
-from dataclasses import asdict
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
 
 # v1.9 F2 — silenciar logs ERROR de la librería websockets cuando llegan
 # conexiones TCP mal formadas (Test-NetConnection, healthchecks, etc.).
@@ -1102,6 +1102,7 @@ _NAMED_PALETTES = {
 def _h_generate_section(app, params):
     """Genera clips pixel en un rango temporal sincronizados con eventos de audio."""
     import re as _re
+
     from src.core.timeline_model import Clip
 
     svc = _get_svc(app)
@@ -1386,7 +1387,7 @@ def _h_apply_palette_to_range(app, params):
 
 # ─── Mapa de métodos ────────────────────────────────────────────
 
-HANDLERS: Dict[str, Callable] = {
+HANDLERS: dict[str, Callable] = {
     # Read / transport
     "ping": _h_ping,
     "get_state": _h_get_state,
@@ -1516,7 +1517,7 @@ async def _handle_client(websocket, app_provider):
     thread del bridge. Las InvalidMessage durante handshake se manejan en
     el exception handler del loop (set_exception_handler en MCPBridge.start).
     """
-    print(f"[mcp_bridge] cliente conectado")
+    print("[mcp_bridge] cliente conectado")
     try:
         async for raw in websocket:
             try:
@@ -1544,7 +1545,7 @@ async def _handle_client(websocket, app_provider):
         print(f"[mcp_bridge] conexión cerrada por error: "
               f"{type(e).__name__}: {e}")
     finally:
-        print(f"[mcp_bridge] cliente desconectado")
+        print("[mcp_bridge] cliente desconectado")
 
 
 async def _server_main(app_provider):
@@ -1567,8 +1568,8 @@ class MCPBridge:
                       (o None si aún no está lista). Se llama en cada request.
         """
         self.app_provider = app_provider
-        self._thread: Optional[threading.Thread] = None
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._thread: threading.Thread | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     def start(self):
         if self._thread is not None:

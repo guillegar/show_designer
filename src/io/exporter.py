@@ -10,21 +10,20 @@ from __future__ import annotations
 
 import csv
 import json
-import math
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Optional, List, Dict, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from timeline_model import Timeline, Clip
     from fixtures import FixtureRig
+    from timeline_model import Clip, Timeline
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. CSV — Lista de clips
 # ─────────────────────────────────────────────────────────────────────────────
 
-def export_clips_csv(timeline: 'Timeline', path) -> int:
+def export_clips_csv(timeline: Timeline, path) -> int:
     """
     Exporta todos los clips del timeline como CSV.
 
@@ -73,10 +72,10 @@ def export_clips_csv(timeline: 'Timeline', path) -> int:
 # 2. CSV — DMX frame-a-frame
 # ─────────────────────────────────────────────────────────────────────────────
 
-def export_dmx_csv(show_engine, timeline: 'Timeline', path,
+def export_dmx_csv(show_engine, timeline: Timeline, path,
                    universe: int = 1,
                    interval_ms: int = 100,
-                   duration_ms: Optional[int] = None) -> int:
+                   duration_ms: int | None = None) -> int:
     """
     Renderiza el show y exporta valores DMX como CSV.
 
@@ -151,7 +150,7 @@ def export_dmx_csv(show_engine, timeline: 'Timeline', path,
 # 3. QLC+ XML Workspace
 # ─────────────────────────────────────────────────────────────────────────────
 
-def export_qlc_workspace(timeline: 'Timeline', rig: Optional['FixtureRig'],
+def export_qlc_workspace(timeline: Timeline, rig: FixtureRig | None,
                          path, song_name: str = "Show") -> dict:
     """
     Genera un workspace QLC+ (.qxw) con:
@@ -193,7 +192,7 @@ def export_qlc_workspace(timeline: 'Timeline', rig: Optional['FixtureRig'],
 
     # ── Fixtures ──────────────────────────────────────────────────────────────
     fixtures_elem = ET.SubElement(engine, 'Fixtures')
-    fixture_map: Dict[str, int] = {}   # fixture_id -> QLC fixture ID
+    fixture_map: dict[str, int] = {}   # fixture_id -> QLC fixture ID
     qlc_fx_id = 0
     universe_offset = 0   # QLC universo 0 = primero
 
@@ -236,7 +235,7 @@ def export_qlc_workspace(timeline: 'Timeline', rig: Optional['FixtureRig'],
     # ── Functions ─────────────────────────────────────────────────────────────
     functions_elem = ET.SubElement(engine, 'Functions')
     func_id = 0
-    scene_ids: List[int] = []
+    scene_ids: list[int] = []
 
     # Una Scene por cue point
     cues = sorted(timeline.cue_points or [], key=lambda c: c.time_ms)
@@ -356,7 +355,8 @@ def _indent_xml(elem, level: int = 0):
 
 if __name__ == '__main__':
     import tempfile
-    from timeline_model import Timeline, Clip, CuePoint
+
+    from timeline_model import Clip, CuePoint, Timeline
 
     # Timeline mini de prueba
     tl = Timeline(duration_ms=120_000)

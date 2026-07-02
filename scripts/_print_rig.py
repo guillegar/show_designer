@@ -1,4 +1,5 @@
 import json
+
 rig = json.load(open('projects/pista_patinaje/rig.json'))
 fixtures = rig['fixtures']
 print(f'Total: {len(fixtures)} fixtures')

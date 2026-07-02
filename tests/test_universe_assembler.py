@@ -21,10 +21,13 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.core.fixtures import (    # noqa: E402
-    FixtureProfile, Fixture, FixtureRig, load_profile, CATEGORIES,
+from src.core.fixtures import (  # noqa: E402
+    CATEGORIES,
+    Fixture,
+    FixtureProfile,
+    FixtureRig,
+    load_profile,
 )
-
 
 # ────────────────────────────────────────────────────────────────
 # supported_categories — deducción automática

@@ -6,10 +6,9 @@ Elimina la duplicación del parse/error-handle en ws_control y _start_mcp_compat
 from __future__ import annotations
 
 import json
-from typing import Optional
 
 
-def parse_json_rpc_message(raw: str) -> tuple[Optional[dict], Optional[dict]]:
+def parse_json_rpc_message(raw: str) -> tuple[dict | None, dict | None]:
     """
     Parsea un mensaje JSON-RPC 2.0. Devuelve (msg_dict, error_response).
 

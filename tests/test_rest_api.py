@@ -10,13 +10,13 @@ Cubre:
   test_auth_valid_key        — Con X-API-Key correcta → 200
   test_auth_wrong_key        — Con X-API-Key incorrecta → 401
 """
-import pytest
 from unittest.mock import MagicMock, patch
-from fastapi.testclient import TestClient
+
+import pytest
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 from server.rest_api import create_rest_router
-
 
 # ── App de prueba ─────────────────────────────────────────────────────────────
 

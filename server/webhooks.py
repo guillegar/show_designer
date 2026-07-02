@@ -18,9 +18,8 @@ import hmac
 import ipaddress
 import json
 import logging
-import time
 import urllib.parse
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -39,7 +38,7 @@ def _validate_webhook_url(url: str) -> None:
 
 
 class WebhookDispatcher:
-    def __init__(self, configs: List[Dict]):
+    def __init__(self, configs: list[dict]):
         """
         Args:
             configs: lista de {url, events: [str], secret?: str}
@@ -47,11 +46,11 @@ class WebhookDispatcher:
         self._configs = configs or []
 
     @classmethod
-    def from_output_targets(cls, path) -> "WebhookDispatcher":
+    def from_output_targets(cls, path) -> WebhookDispatcher:
         """Carga la config desde output_targets.json."""
         from pathlib import Path
         p = Path(path)
-        configs: List[Dict] = []
+        configs: list[dict] = []
         if p.is_file():
             try:
                 data = json.loads(p.read_text("utf-8"))
@@ -97,7 +96,7 @@ class WebhookDispatcher:
 
         log.warning("Webhook %s falló tras %d intentos: %s", url, len(delays), last_err)
 
-    async def emit(self, event: str, data: Dict[str, Any], t_ms: int = 0):
+    async def emit(self, event: str, data: dict[str, Any], t_ms: int = 0):
         """Dispara el evento a todas las URLs suscritas (fire-and-forget)."""
         payload = {"event": event, "t_ms": t_ms, "data": data}
         for cfg in self._configs:
@@ -109,8 +108,8 @@ class WebhookDispatcher:
                 continue
             asyncio.ensure_future(self._post_with_retry(url, payload, secret))
 
-    def get_configs(self) -> List[Dict]:
+    def get_configs(self) -> list[dict]:
         return [dict(c) for c in self._configs]
 
-    def set_configs(self, configs: List[Dict]):
+    def set_configs(self, configs: list[dict]):
         self._configs = configs or []

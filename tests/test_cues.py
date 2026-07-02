@@ -13,22 +13,19 @@ Cubre:
   - reorder_cues ordena por number
 """
 import asyncio
+import json
 import sys
+import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-import json
-import tempfile
-import numpy as np
 
+import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.core.timeline_model import (
-    Timeline, CueEntry, CueList, CuePoint
-)
 from server.undo_manager import UndoManager
-
+from src.core.timeline_model import CueEntry, CueList, CuePoint, Timeline
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 

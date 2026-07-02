@@ -1,14 +1,14 @@
 """
 tests/test_project_manager.py — Tests del ProjectManager (v1.8 F3)
 """
+import datetime
 import json
 import shutil
-import datetime
 from pathlib import Path
+
 import pytest
 
-from src.io.project_manager import Project, ProjectManager, get_manager, PROJECTS_DIR
-
+from src.io.project_manager import PROJECTS_DIR, Project, ProjectManager, get_manager
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -248,8 +248,8 @@ def test_ensure_migrated_creates_default_if_empty(tmp_path):
 
 def test_save_show_uses_project_path(tmp_path):
     """save_show() guarda en project.show_file."""
+    from src.core.timeline_model import Clip, Timeline
     from src.io import project_manager as pm_module
-    from src.core.timeline_model import Timeline, Clip
     old = pm_module.PROJECTS_DIR
     pm_module.PROJECTS_DIR = tmp_path
     try:

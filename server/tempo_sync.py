@@ -14,13 +14,12 @@ Diseño:
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import threading
 import time
 from collections import deque
 from statistics import median
-from typing import Deque, List, Literal, Optional
+from typing import Literal
 
 from src.log import get_logger, log_throttled
 
@@ -34,7 +33,7 @@ _PULSE_WINDOW    = 48   # guardar 2 beats de historia (48 intervalos)
 # Lógica pura (testeable sin hardware)
 # ───────────────────────────────────────────────────────────────
 
-def _calc_bpm(pulse_times_s: List[float]) -> float:
+def _calc_bpm(pulse_times_s: list[float]) -> float:
     """BPM a partir de lista de timestamps de pulsos MIDI Clock (en segundos).
 
     Usa mediana de inter-pulse intervals para robustez ante jitter USB.
@@ -73,11 +72,11 @@ class TempoSyncService:
         self.mode: Literal["off", "link", "midi_clock", "manual"] = "off"
         self.bpm: float = 0.0
         self.beat_phase: float = 0.0
-        self.midi_device: Optional[str] = None
+        self.midi_device: str | None = None
 
         self._stop_event = threading.Event()
-        self._thread: Optional[threading.Thread] = None
-        self._pulse_times: Deque[float] = deque(maxlen=_PULSE_WINDOW)
+        self._thread: threading.Thread | None = None
+        self._pulse_times: deque[float] = deque(maxlen=_PULSE_WINDOW)
 
     # ── MIDI Clock ──────────────────────────────────────────────
 
@@ -88,7 +87,7 @@ class TempoSyncService:
         if bpm > 0:
             self.bpm = bpm
 
-    def _run_midi_clock(self, device: Optional[str]) -> None:
+    def _run_midi_clock(self, device: str | None) -> None:
         try:
             import mido  # type: ignore
         except ImportError:
@@ -144,7 +143,7 @@ class TempoSyncService:
 
     # ── Control async ────────────────────────────────────────────
 
-    async def start(self, mode: str, device: Optional[str] = None) -> None:
+    async def start(self, mode: str, device: str | None = None) -> None:
         """Activa el modo de sync. Para el modo anterior si había uno."""
         await self.stop()
 

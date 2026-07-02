@@ -10,9 +10,10 @@ import numpy as np
 import pytest
 
 from src.core.effects_engine import (
-    EffectLibrary, NUM_BARS, LEDS_PER_BAR,
+    LEDS_PER_BAR,
+    NUM_BARS,
+    EffectLibrary,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

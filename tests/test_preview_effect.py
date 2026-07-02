@@ -8,9 +8,12 @@ Cubre:
   - ALL_BARS scope → imagen de 10 filas.
   - t_ms se pasa correctamente al render.
 """
-import pytest
-import sys, os, base64
+import base64
+import os
+import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
@@ -32,6 +35,7 @@ def dispatcher(session):
 
 def call(dispatcher, method, params):
     import asyncio
+
     from server.dispatcher import _LOCAL
     handler = _LOCAL.get(method)
     assert handler is not None, f"Handler '{method}' no registrado"
@@ -50,8 +54,9 @@ def test_solid_color_red_frame_b64(dispatcher):
     assert res["ok"], f"Error inesperado: {res.get('error')}"
     assert "frame_b64" in res, "Debe devolver frame_b64"
 
-    from PIL import Image
     import io
+
+    from PIL import Image
     img_bytes = base64.b64decode(res["frame_b64"])
     img = Image.open(io.BytesIO(img_bytes))
     pix = img.getpixel((0, 0))
@@ -62,8 +67,9 @@ def test_solid_color_red_frame_b64(dispatcher):
 
 def test_preview_returns_valid_png_dimensions(dispatcher):
     """El PNG devuelto tiene dimensiones ≥ 1×93 (1 fila PER_BAR, 93 LEDs, escala 2×)."""
-    from PIL import Image
     import io
+
+    from PIL import Image
     res = call(dispatcher, "preview_effect_frame", {
         "effect_id": 1004,
         "params": {"r": 128, "g": 64, "b": 200},
@@ -78,8 +84,9 @@ def test_preview_returns_valid_png_dimensions(dispatcher):
 
 def test_per_bar_effect_gives_1_row(dispatcher):
     """rainbow_wave (PER_BAR, id=1017) → imagen de 1 fila × scale."""
-    from PIL import Image
     import io
+
+    from PIL import Image
     res = call(dispatcher, "preview_effect_frame", {
         "effect_id": 1017,
         "params": {"speed": 1.0, "saturation": 1.0, "value": 1.0, "reverse": False},

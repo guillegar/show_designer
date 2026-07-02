@@ -11,17 +11,17 @@ Cubre los 8 casos especificados:
   test_get_fixture_detail_includes_height   — devuelve height_m del fixture
   test_get_fixture_detail_artnet_ip_from_universe — artnet_ip derivada de output_targets.json
 """
-import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from src.core.fixtures import Fixture, FixtureRig, build_default_wled_rig
+import pytest
+
 from server.dispatcher import (
-    _h_update_fixture,
     _h_get_fixture_detail,
     _h_list_fixture_types,
+    _h_update_fixture,
 )
-
+from src.core.fixtures import Fixture, FixtureRig, build_default_wled_rig
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

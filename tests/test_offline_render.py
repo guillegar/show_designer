@@ -18,10 +18,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.core.timeline_model import Timeline, Clip  # noqa: E402
-from src.core.effects_engine import EffectLibrary, NUM_BARS, LEDS_PER_BAR  # noqa: E402
 from server.offline_render import _render_worker, compute_timeline_hash  # noqa: E402
-
+from src.core.effects_engine import LEDS_PER_BAR, NUM_BARS, EffectLibrary  # noqa: E402
+from src.core.timeline_model import Clip, Timeline  # noqa: E402
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -159,6 +158,7 @@ class TestParityBakedVsLive:
 
     def test_parity_n_random_frames(self, tmp_path):
         import random
+
         from server.session import ShowSession
 
         FPS = 30

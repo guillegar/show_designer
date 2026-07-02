@@ -11,15 +11,14 @@ Respuestas: {"ok": true, "data": {...}} | {"ok": false, "error": "..."}
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
-
 import hmac
+from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse
 
 
-def _ok(data: Any) -> Dict:
+def _ok(data: Any) -> dict:
     return {"ok": True, "data": data}
 
 
@@ -27,7 +26,7 @@ def _err(msg: str, status: int = 400) -> JSONResponse:
     return JSONResponse({"ok": False, "error": msg}, status_code=status)
 
 
-def _check_auth(request: Request, x_api_key: Optional[str]) -> Optional[JSONResponse]:
+def _check_auth(request: Request, x_api_key: str | None) -> JSONResponse | None:
     """Valida X-API-Key contra la configuración. None = OK."""
     api_key: str = getattr(request.app.state, "_rest_api_key", "") or ""
     if not api_key:
@@ -46,7 +45,7 @@ def create_rest_router() -> APIRouter:
     @router.get("/status")
     async def get_status(
         request: Request,
-        x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     ):
         err = _check_auth(request, x_api_key)
         if err:
@@ -63,7 +62,7 @@ def create_rest_router() -> APIRouter:
         request: Request,
         offset: int = 0,
         limit: int = 100,
-        x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     ):
         err = _check_auth(request, x_api_key)
         if err:
@@ -79,7 +78,7 @@ def create_rest_router() -> APIRouter:
     @router.post("/clips", status_code=201)
     async def add_clip(
         request: Request,
-        x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     ):
         err = _check_auth(request, x_api_key)
         if err:
@@ -100,7 +99,7 @@ def create_rest_router() -> APIRouter:
     @router.get("/cues")
     async def get_cues(
         request: Request,
-        x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     ):
         err = _check_auth(request, x_api_key)
         if err:
@@ -115,7 +114,7 @@ def create_rest_router() -> APIRouter:
     @router.post("/cues/go")
     async def go_next_cue(
         request: Request,
-        x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     ):
         err = _check_auth(request, x_api_key)
         if err:
@@ -131,7 +130,7 @@ def create_rest_router() -> APIRouter:
     async def set_macro(
         name: str,
         request: Request,
-        x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     ):
         err = _check_auth(request, x_api_key)
         if err:
@@ -154,7 +153,7 @@ def create_rest_router() -> APIRouter:
     @router.get("/fixtures")
     async def list_fixtures(
         request: Request,
-        x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     ):
         err = _check_auth(request, x_api_key)
         if err:

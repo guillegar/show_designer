@@ -1,14 +1,12 @@
 """
 test_automation.py — Tests de A2 (automatización de parámetros).
 """
-import pytest
 import math
 
+import pytest
+
+from src.core.automation import AutomationLane, AutomationPoint, AutomationStage, Target, parse_target
 from src.core.timeline_model import Clip
-from src.core.automation import (
-    AutomationPoint, AutomationLane, Target,
-    parse_target, AutomationStage
-)
 
 
 class TestAutomationPoint:

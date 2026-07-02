@@ -9,7 +9,6 @@ Sin librosa o audio inexistente → {error: "..."} sin crash (I4/I6).
 from __future__ import annotations
 
 import os
-from typing import Dict
 
 # Perfiles de Krumhansl-Schmuckler para mayor y menor
 _MAJOR_PROFILE = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
@@ -37,7 +36,7 @@ def _ks_score(chroma: list, profile: list) -> list:
     return scores
 
 
-def detect_key(audio_path: str) -> Dict:
+def detect_key(audio_path: str) -> dict:
     """
     Detecta la tonalidad del archivo de audio.
 

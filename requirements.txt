@@ -15,3 +15,4 @@ sacn>=1.6
 pyserial>=3.5
 pytest==7.4.3
 pytest-cov==4.1.0
+pytest-asyncio>=0.23

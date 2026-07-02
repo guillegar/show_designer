@@ -2,17 +2,18 @@
 tests/test_plugin_system.py — Tests del sistema de plugins de efectos (v1.8 F4)
 """
 import sys
-import types
 import tempfile
 import textwrap
+import types
 from pathlib import Path
+
 import numpy as np
 import pytest
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 def _make_bars():
-    from src.core.effects_engine import NUM_BARS, LEDS_PER_BAR
+    from src.core.effects_engine import LEDS_PER_BAR, NUM_BARS
     return np.zeros((NUM_BARS, LEDS_PER_BAR, 3), dtype=np.float32)
 
 
@@ -20,7 +21,7 @@ def _make_bars():
 
 def test_library_loads_with_plugins():
     """EffectLibrary carga sin errores y tiene >51 efectos (con plugins)."""
-    from src.core.effects_engine import EffectLibrary, PLUGIN_BASE_ID
+    from src.core.effects_engine import PLUGIN_BASE_ID, EffectLibrary
     lib = EffectLibrary()
     assert len(lib.effects) > 51, "Deben haber efectos base + al menos un plugin"
     # Los efectos base no deben haberse corrompido
@@ -30,7 +31,7 @@ def test_library_loads_with_plugins():
 
 def test_plugin_effects_have_correct_ids():
     """Los efectos de plugins tienen IDs >= 1000."""
-    from src.core.effects_engine import EffectLibrary, PLUGIN_BASE_ID
+    from src.core.effects_engine import PLUGIN_BASE_ID, EffectLibrary
     lib = EffectLibrary()
     plugin_effects = {k: v for k, v in lib.effects.items() if k >= PLUGIN_BASE_ID}
     assert len(plugin_effects) >= 2, "example_plugin debe cargar al menos 2 efectos"
@@ -129,8 +130,10 @@ def test_plugin_with_explicit_dict(tmp_path):
     (pdir / "test_explicit_plugin.py").write_text(plugin_code)
 
     # Simular _load_plugins manualmente con el directorio temporal
-    import importlib.util, sys
-    from src.core.effects_engine import Effect, PLUGIN_BASE_ID
+    import importlib.util
+    import sys
+
+    from src.core.effects_engine import PLUGIN_BASE_ID, Effect
 
     effects_found = {}
     for plugin_file in sorted(pdir.glob('*.py')):
@@ -175,7 +178,8 @@ def test_plugin_autodiscovery(tmp_path):
     (pdir / "test_auto_plugin.py").write_text(plugin_code)
 
     import importlib.util
-    from src.core.effects_engine import Effect, PLUGIN_BASE_ID
+
+    from src.core.effects_engine import PLUGIN_BASE_ID, Effect
 
     effects_found = {}
     next_id = PLUGIN_BASE_ID

@@ -23,11 +23,14 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.analysis.analyzer_service import (   # noqa: E402
-    AnalysisService, default_service, detect_schema_version, migrate_to_v3,
-    ANALIZADAS_DIR, SECTION_TYPES,
+from src.analysis.analyzer_service import (  # noqa: E402
+    ANALIZADAS_DIR,
+    SECTION_TYPES,
+    AnalysisService,
+    default_service,
+    detect_schema_version,
+    migrate_to_v3,
 )
-
 
 # ────────────────────────────────────────────────────────────────
 # Detección de schema_version

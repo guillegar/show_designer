@@ -1,0 +1,21 @@
+# pre-commit — calidad antes de cada commit.  Instalar:  pre-commit install
+# (formateo con `ruff format` NO se fuerza aquí para no reformatear el estilo
+#  existente; se puede adoptar de forma gradual más adelante.)
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.20
+    hooks:
+      - id: ruff
+        args: [--fix]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-json
+        exclude: ^(projects/|analizadas/|profiles/)
+      - id: check-added-large-files
+        args: [--maxkb=2048]

@@ -9,6 +9,7 @@ Cubre:
   test_set_clip_pixel_map_updates_clip — handler actualiza params del clip y devuelve clip (I3)
 """
 import io
+
 import numpy as np
 import pytest
 
@@ -79,6 +80,7 @@ def test_sample_image_missing_path():
 def test_set_clip_pixel_map_updates_clip():
     """set_clip_pixel_map actualiza params del clip y devuelve clip actualizado (I3)."""
     from unittest.mock import MagicMock
+
     from server.dispatcher import _h_set_clip_pixel_map
 
     clip = MagicMock()

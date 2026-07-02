@@ -4,7 +4,7 @@ test_build.py — Tests de infraestructura de build (H2).
 No ejecuta PyInstaller (demasiado pesado para CI normal). Verifica que
 los artefactos de build existan y tengan la forma correcta.
 
-Para correr el build real: .\scripts\build_installer.ps1
+Para correr el build real: .\\scripts\build_installer.ps1
 """
 import ast
 import sys

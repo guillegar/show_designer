@@ -7,9 +7,9 @@ Buffer circular de MAX_ENTRIES entradas.
 """
 from __future__ import annotations
 
+import builtins
 import time
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 _SKIP_PREFIXES = ("list_", "get_", "preview_", "auth_", "clear_gesture", "list_gesture", "replay_gesture")
 
@@ -18,7 +18,7 @@ class GestureLog:
     MAX_ENTRIES = 500
 
     def __init__(self):
-        self._log: List[Dict[str, Any]] = []
+        self._log: list[dict[str, Any]] = []
         self._idx_counter: int = 0
 
     def should_record(self, handler: str) -> bool:
@@ -28,7 +28,7 @@ class GestureLog:
                 return False
         return True
 
-    def record(self, handler: str, params: Dict, t_ms: int) -> None:
+    def record(self, handler: str, params: dict, t_ms: int) -> None:
         """Registra un gesto. Descarta el más antiguo si se supera MAX_ENTRIES."""
         if not self.should_record(handler):
             return
@@ -44,11 +44,11 @@ class GestureLog:
         if len(self._log) > self.MAX_ENTRIES:
             self._log.pop(0)
 
-    def list(self, last: int = 200) -> List[Dict]:
+    def list(self, last: int = 200) -> builtins.list[dict]:
         """Devuelve los últimos `last` gestos (más reciente al final)."""
         return list(self._log[-last:])
 
-    def get(self, idx: int) -> Optional[Dict]:
+    def get(self, idx: int) -> dict | None:
         """Busca un gesto por su idx global (no por posición en el buffer)."""
         for entry in self._log:
             if entry["idx"] == idx:

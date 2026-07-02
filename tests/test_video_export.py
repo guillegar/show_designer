@@ -16,7 +16,6 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 def _make_npz(path: str, n_frames: int = 5) -> None:
@@ -89,8 +88,9 @@ def test_atomic_write(tmp_path):
 
 def test_no_npz_returns_error():
     """Handler export_video sin render.npz → {ok: False}."""
-    from unittest.mock import MagicMock
     from pathlib import Path
+    from unittest.mock import MagicMock
+
     import server.dispatcher as disp
 
     handler = disp._LOCAL.get("export_video")
