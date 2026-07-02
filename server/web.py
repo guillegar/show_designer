@@ -112,7 +112,7 @@ def create_app() -> FastAPI:
         # ~2-5 s): así el primer ≋ WF no congela el tick (ver _h_get_waveform).
         async def _prewarm_waveform():
             try:
-                from server.dispatcher import _ensure_waveform_cached
+                from server.handlers.waveform import _ensure_waveform_cached
                 loop = asyncio.get_running_loop()
                 await loop.run_in_executor(None, _ensure_waveform_cached, session)
             except Exception:

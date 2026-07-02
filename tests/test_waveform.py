@@ -69,7 +69,7 @@ def test_get_waveform_async_does_not_block(tmp_path, monkeypatch):
     calcula inline: devuelve {status:'computing'} al instante y emite
     'waveform_ready' por el hub cuando el job del executor termina. Se conduce
     el loop a mano para no depender de pytest-asyncio (no está en el venv)."""
-    from server import dispatcher as D
+    from server.handlers import waveform as W
 
     sess = ShowSession()
     # analysis_dir limpio → sin cache → fuerza la rama asíncrona "computing".
@@ -83,7 +83,7 @@ def test_get_waveform_async_does_not_block(tmp_path, monkeypatch):
     def _fake_ensure(session):
         (tmp_path / "waveform.json").write_text("{}", encoding="utf-8")
         return fake
-    monkeypatch.setattr(D, "_ensure_waveform_cached", _fake_ensure)
+    monkeypatch.setattr(W, "_ensure_waveform_cached", _fake_ensure)
 
     events = []
 

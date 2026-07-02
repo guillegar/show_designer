@@ -112,7 +112,6 @@ _TIMELINE_MUTATORS = {
     "delete_range",  # I4 — Arranger
     "set_clip_preset",
     "generate_section", "mirror_clips_lr", "apply_palette_to_range", "load_show",
-    "load_sequence",  # intercambiar la secuencia por la de otro proyecto
     # A3 — mutadores de patterns/instances (el snapshot se hace dentro del handler,
     # no en el dispatcher, porque necesitan snapshotear ANTES de resolver lookup)
     # create_pattern_from_clips y los demás llaman session.snapshot() internamente.
@@ -124,8 +123,7 @@ _TIMELINE_MUTATORS = {
 # (si no, el visor muestra posiciones obsoletas tras mover/editar fixtures en Patch).
 _RIG_MUTATORS = {
     "move_fixture", "set_fixture_property", "add_fixture", "delete_fixture",
-    "save_rig", "load_show", "update_fixture", "duplicate_fixture",
-    "apply_rig",  # intercambiar el rig por el de otro proyecto
+    "save_rig", "load_show",
 }
 
 
@@ -1095,138 +1093,6 @@ def _h_get_mixer(session, params):
     }
 
 
-# ── B1 — Waveform en el timeline ─────────────────────────────────────────────
-
-_WAVEFORM_N_BUCKETS = 8000
-
-
-def _compute_waveform(audio_path, n=_WAVEFORM_N_BUCKETS, bpm=120.0):
-    """Cálculo puro y pesado de la forma de onda (librosa.load + min/max/rms por
-    cubo). BLOQUEANTE (~2-5 s) → debe correr en un executor, NUNCA en el event
-    loop. Devuelve el dict de datos, o None si librosa no está disponible."""
-    try:
-        import librosa as _librosa
-        import numpy as _np
-    except ImportError:
-        return None
-
-    y, sr = _librosa.load(str(audio_path), sr=None, mono=True)
-    total = len(y)
-    chunk = max(1, total // n)
-
-    peaks_max, peaks_min, rms_vals = [], [], []
-    for i in range(n):
-        s = i * chunk
-        e = s + chunk if i < n - 1 else total
-        block = y[s:e]
-        if len(block) == 0:
-            peaks_max.append(0.0)
-            peaks_min.append(0.0)
-            rms_vals.append(0.0)
-        else:
-            peaks_max.append(round(float(_np.max(block)), 5))
-            peaks_min.append(round(float(_np.min(block)), 5))
-            rms_vals.append(round(float(_np.sqrt(_np.mean(block ** 2))), 5))
-
-    return {
-        "peaks_max": peaks_max,
-        "peaks_min": peaks_min,
-        "rms": rms_vals,
-        "n_buckets": n,
-        "duration_sec": round(float(total / sr), 3),
-        "bpm": float(bpm),
-    }
-
-
-def _ensure_waveform_cached(session):
-    """Garantiza que <analysis_dir>/waveform.json existe y devuelve sus datos.
-
-    Es la parte BLOQUEANTE (pensada para correr en un executor). Idempotente: si
-    el cache ya está, lo lee; si no, calcula y lo escribe atómicamente
-    (.tmp → replace). Devuelve el dict de datos, o None (sin librosa o sin audio).
-    """
-    import json as _json
-    from pathlib import Path as _Path
-
-    analysis_dir = session.analysis.analysis_dir
-    cache_path = analysis_dir / "waveform.json"
-    if cache_path.is_file():
-        try:
-            return _json.loads(cache_path.read_text(encoding="utf-8"))
-        except Exception:
-            pass  # cache corrupto → recomputar
-
-    audio_path = _Path(session.project.audio_path)
-    if not audio_path.is_file():
-        return None
-
-    data = _compute_waveform(audio_path, _WAVEFORM_N_BUCKETS,
-                             float(getattr(session, "bpm", 120)))
-    if data is None:
-        return None
-
-    analysis_dir.mkdir(parents=True, exist_ok=True)
-    tmp = cache_path.with_suffix(".tmp")
-    tmp.write_text(_json.dumps(data, separators=(",", ":")), encoding="utf-8")
-    tmp.replace(cache_path)
-    return data
-
-
-def _h_get_waveform(session, params):
-    """Forma de onda del audio en _WAVEFORM_N_BUCKETS cubos.
-
-    El cálculo (librosa.load) tarda ~2-5 s y `dispatcher.handle` corre en el hilo
-    del event loop (el MISMO del tick): bloquearlo congela el show en vivo. Por
-    eso: si el cache existe se devuelve al instante; si no, se lanza el cálculo en
-    un executor y se devuelve {status:'computing'} — el frontend recibe el evento
-    'waveform_ready' por el stream y vuelve a pedirlo (ya cache hit). En contextos
-    SIN event loop (tests / compat MCP síncrona) se calcula inline.
-    """
-    import asyncio
-    import json as _json
-
-    analysis_dir = session.analysis.analysis_dir
-    cache_path = analysis_dir / "waveform.json"
-    if cache_path.is_file():
-        try:
-            return {"ok": True, **_json.loads(cache_path.read_text(encoding="utf-8"))}
-        except Exception:
-            pass  # cache corrupto → recomputar abajo
-
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-
-    if loop is None:
-        # Sin event loop (tests / compat MCP síncrona): calcular inline.
-        data = _ensure_waveform_cached(session)
-        if data is None:
-            return {"ok": False, "error": "librosa no disponible o audio no encontrado"}
-        return {"ok": True, **data}
-
-    # Contexto web: NO bloquear el loop. Calcular en background y avisar por stream.
-    if getattr(session, "_waveform_computing", False):
-        return {"ok": True, "status": "computing"}
-    session._waveform_computing = True
-    hub = getattr(session, "hub", None)
-
-    def _job():
-        try:
-            data = _ensure_waveform_cached(session)
-        finally:
-            session._waveform_computing = False
-        if data is not None and hub is not None:
-            try:
-                asyncio.run_coroutine_threadsafe(
-                    hub.broadcast_json({"type": "waveform_ready"}), loop)
-            except Exception:
-                pass
-
-    loop.run_in_executor(None, _job)
-    return {"ok": True, "status": "computing"}
-
-
 # ── B3 — Render offline + playback baked ────────────────────────────────────
 
 def _h_render_offline(session, params):
@@ -2010,6 +1876,38 @@ def _h_set_output_target(session, params):
     return {"ok": True, "universe": uni, "target": cfg}
 
 
+def _h_get_fixture_pan_tilt(session, params):
+    """get_fixture_pan_tilt(fixture_id?) → {ok, fixtures: [{fixture_id, pan, tilt}]}
+
+    Devuelve pan/tilt de todos los movers (o del fixture_id indicado) en el instante actual.
+    Valores 0..1 (normalizado). Útil para el preview 2D en la UI.
+    """
+    t = session.t if hasattr(session, 't') else 0.0
+    actx = session._cached_actx if hasattr(session, '_cached_actx') else {}
+
+    se = getattr(session, 'show_engine', None)
+    tl = getattr(session, 'timeline', None)
+    if se is None or tl is None or se.rig is None:
+        return {"ok": True, "fixtures": []}
+
+    fid_filter = params.get("fixture_id")
+    result = []
+    for fx in se.rig.all_fixtures():
+        if fid_filter is not None and str(fx.fixture_id) != str(fid_filter):
+            continue
+        profile = se.rig.get_profile(fx.profile_id)
+        if profile is None or 'pan' not in profile.channel_map:
+            continue
+        buf = se.render_channels_for_fixture(fx, t, actx, timeline=tl)
+        ch_pan  = profile.channel_map.get('pan', -1)
+        ch_tilt = profile.channel_map.get('tilt', -1)
+        pan_v  = buf[ch_pan]  / 255.0 if 0 <= ch_pan  < len(buf) else 0.5
+        tilt_v = buf[ch_tilt] / 255.0 if 0 <= ch_tilt < len(buf) else 0.5
+        result.append({"fixture_id": fx.fixture_id, "pan": round(pan_v, 4), "tilt": round(tilt_v, 4)})
+
+    return {"ok": True, "fixtures": result}
+
+
 # ── H3 — Multi-show quick-switch ────────────────────────────────────────────
 
 def _h_list_projects(session, params):
@@ -2048,519 +1946,6 @@ def _h_switch_project(session, params):
         return {"ok": False, "error": f"Proyecto no encontrado: {slug!r}"}
     asyncio.create_task(session.switch_project(slug))
     return {"ok": True, "slug": slug}
-
-
-# ── Menú de gestión de proyectos: galería + componentes + crear/copiar ───────
-# Un proyecto = paquete de archivos intercambiables (canción/rig/secuencia/
-# presets/auto-VJ). Estos handlers exponen ese paquete para verlo, cargar piezas
-# sueltas sobre el proyecto activo, y componer/copiar proyectos nuevos.
-
-import json as _json  # noqa: E402
-import re as _re  # noqa: E402
-import shutil as _shutil  # noqa: E402
-
-
-def _pm_of(session):
-    return getattr(session, "pm", None) or getattr(session, "_pm", None)
-
-
-def _read_json_safe(path):
-    try:
-        with open(path, encoding="utf-8") as f:
-            return _json.load(f)
-    except Exception:
-        return None
-
-
-def _song_meta(analysis_slug):
-    """{title, bpm, duration_s} de un análisis. Lazy: AnalysisService.summary solo
-    lee analysis.json (no el .npz), así que es barato para listar varias canciones."""
-    out = {"analysis_slug": analysis_slug, "title": analysis_slug or "—",
-           "bpm": None, "duration_s": None}
-    if not analysis_slug:
-        return out
-    try:
-        from src.analysis.analyzer_service import ANALIZADAS_DIR, AnalysisService
-        d = ANALIZADAS_DIR / analysis_slug
-        if not d.is_dir():
-            return out
-        s = AnalysisService(d).summary or {}
-        out["bpm"] = s.get("bpm")
-        out["duration_s"] = s.get("duration_s")
-        f = s.get("file")
-        if f:
-            out["title"] = str(f).rsplit(".", 1)[0]
-    except Exception:
-        pass
-    return out
-
-
-def _safe_project_slug(raw, projects_dir):
-    """Slug seguro (sin path traversal) + sin colisiones. Mismo criterio que el
-    import de bundles en server/show_bundle.py."""
-    base = _re.sub(r"[^a-z0-9_-]", "_", str(raw or "").strip().lower())
-    base = _re.sub(r"_+", "_", base).strip("_") or "proyecto"
-    slug, suffix = base, 1
-    while (projects_dir / slug).exists():
-        slug = f"{base}_{suffix}"
-        suffix += 1
-    return slug
-
-
-def _h_list_projects_detailed(session, params):
-    """list_projects_detailed() → galería: cada proyecto con su canción, rig y
-    secuencia resumidos. Lecturas JSON ligeras; NO sustituye a list_projects."""
-    pm = _pm_of(session)
-    if pm is None:
-        return {"ok": True, "projects": [], "current": None}
-    current_slug = session.project.slug if getattr(session, "project", None) else None
-    out = []
-    for p in pm.list_projects():
-        rig = _read_json_safe(p.rig_file) or {}
-        show = _read_json_safe(p.show_file) or {}
-        song = _song_meta(p.analysis_slug)
-        out.append({
-            "slug": p.slug,
-            "name": p.name,
-            "is_current": p.slug == current_slug,
-            "notes": p.notes,
-            "created": p.created,
-            "song": {"title": song["title"], "bpm": song["bpm"],
-                     "duration_s": song["duration_s"],
-                     "analysis_slug": p.analysis_slug, "audio_path": str(p.audio_path)},
-            "rig": {"fixture_count": len(rig.get("fixtures") or [])},
-            "sequence": {"clip_count": len(show.get("clips") or [])},
-            "has_presets": (p.folder / "presets.json").is_file(),
-            "has_autovj": (p.folder / "autovj.json").is_file(),
-        })
-    return {"ok": True, "projects": out, "current": current_slug}
-
-
-def _h_list_components(session, params):
-    """list_components() → {rigs, songs, sequences, presets, autovj} agregados de
-    todos los proyectos (+ canciones de analizadas/ aún sin usar)."""
-    pm = _pm_of(session)
-    empty = {"ok": True, "current": None, "rigs": [], "songs": [],
-             "sequences": [], "presets": [], "autovj": []}
-    if pm is None:
-        return empty
-    current_slug = session.project.slug if getattr(session, "project", None) else None
-    rigs, sequences, presets, autovj = [], [], [], []
-    song_used = {}    # analysis_slug -> [project slugs]
-    song_audio = {}   # analysis_slug -> audio_path (de algún proyecto que la use)
-    for p in pm.list_projects():
-        rig = _read_json_safe(p.rig_file) or {}
-        show = _read_json_safe(p.show_file) or {}
-        rigs.append({"source_slug": p.slug, "source_name": p.name,
-                     "fixture_count": len(rig.get("fixtures") or []),
-                     "is_current": p.slug == current_slug})
-        sequences.append({"source_slug": p.slug, "source_name": p.name,
-                          "clip_count": len(show.get("clips") or []),
-                          "pattern_count": len(show.get("patterns") or []),
-                          "duration_ms": show.get("duration_ms"),
-                          "is_current": p.slug == current_slug})
-        pf = p.folder / "presets.json"
-        if pf.is_file():
-            presets.append({"source_slug": p.slug, "source_name": p.name,
-                            "count": len(_read_json_safe(pf) or []),
-                            "is_current": p.slug == current_slug})
-        af = p.folder / "autovj.json"
-        if af.is_file():
-            data = _read_json_safe(af) or {}
-            rules = data.get("rules") if isinstance(data, dict) else None
-            autovj.append({"source_slug": p.slug, "source_name": p.name,
-                           "rule_count": len(rules) if rules else 0,
-                           "is_current": p.slug == current_slug})
-        if p.analysis_slug:
-            song_used.setdefault(p.analysis_slug, []).append(p.slug)
-            song_audio.setdefault(p.analysis_slug, str(p.audio_path))
-    songs = []
-    try:
-        from src.analysis.analyzer_service import ANALIZADAS_DIR
-        if ANALIZADAS_DIR.is_dir():
-            for d in sorted(ANALIZADAS_DIR.iterdir()):
-                if not d.is_dir() or not (d / "analysis.json").is_file():
-                    continue
-                meta = _song_meta(d.name)
-                # Si no hay audio_path de un proyecto que use esta canción,
-                # intenta leerlo desde analysis.json
-                audio_path = song_audio.get(d.name, "")
-                if not audio_path:
-                    analysis_data = _read_json_safe(d / "analysis.json") or {}
-                    # Si analysis.json tiene el campo "file", úsalo como audio_path
-                    if "file" in analysis_data:
-                        audio_path = str(analysis_data["file"])
-                songs.append({"analysis_slug": d.name, "title": meta["title"],
-                              "bpm": meta["bpm"], "duration_s": meta["duration_s"],
-                              "audio_path": audio_path,
-                              "used_by": song_used.get(d.name, [])})
-    except Exception:
-        pass
-    return {"ok": True, "current": current_slug, "rigs": rigs, "songs": songs,
-            "sequences": sequences, "presets": presets, "autovj": autovj}
-
-
-def _h_apply_rig(session, params):
-    """apply_rig(from_slug) → carga el rig de otro proyecto en el activo y lo
-    persiste en su rig.json. Mutador de rig (regenera rig_layout para el visor 3D)."""
-    pm = _pm_of(session)
-    from_slug = str(params.get("from_slug", "") or "")
-    src = pm.get_project(from_slug) if pm else None
-    if src is None or not src.rig_file.is_file():
-        return {"ok": False, "error": f"rig no encontrado: {from_slug!r}"}
-    try:
-        n = session.load_rig(src.rig_file)
-    except Exception as e:
-        return {"ok": False, "error": f"no se pudo cargar el rig: {e}"}
-    try:
-        session.fixture_rig.save(session.project.rig_file)
-    except Exception as e:
-        _log.warning(f"[apply_rig] no se pudo persistir rig.json: {e}")
-    session.notify_changed("rig")
-    return {"ok": True, "from_slug": from_slug, "fixtures": n}
-
-
-def _h_load_sequence(session, params):
-    """load_sequence(from_slug) → intercambia la secuencia (clips/grupos/cues) por
-    la de otro proyecto. En memoria (undo lo cubre); se persiste al guardar/autosave,
-    como cualquier edición del timeline. Reutiliza _h_load_show del bridge."""
-    pm = _pm_of(session)
-    from_slug = str(params.get("from_slug", "") or "")
-    src = pm.get_project(from_slug) if pm else None
-    if src is None or not src.show_file.is_file():
-        return {"ok": False, "error": f"secuencia no encontrada: {from_slug!r}"}
-    res = bridge._h_load_show(session, {"path": str(src.show_file)})
-    if res.get("ok"):
-        session.notify_changed("model")
-        res["from_slug"] = from_slug
-    return res
-
-
-def _h_apply_presets(session, params):
-    """apply_presets(from_slug) → copia el banco de presets de otro proyecto al
-    presets.json del activo y recrea el PresetBank."""
-    pm = _pm_of(session)
-    from_slug = str(params.get("from_slug", "") or "")
-    src = pm.get_project(from_slug) if pm else None
-    if src is None:
-        return {"ok": False, "error": f"proyecto no encontrado: {from_slug!r}"}
-    src_file = src.folder / "presets.json"
-    if not src_file.is_file():
-        return {"ok": False, "error": f"{from_slug!r} no tiene presets"}
-    dst_file = session.project.folder / "presets.json"
-    try:
-        dst_file.parent.mkdir(parents=True, exist_ok=True)
-        _shutil.copy2(src_file, dst_file)
-        from server.presets import PresetBank
-        session.presets = PresetBank(session.library, session.channel_lib,
-                                     project_file=dst_file)
-        n = len(session.presets.list())
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-    session.notify_changed("model")
-    return {"ok": True, "from_slug": from_slug, "presets": n}
-
-
-def _h_apply_autovj(session, params):
-    """apply_autovj(from_slug) → copia las reglas Auto-VJ de otro proyecto al
-    autovj.json del activo y las carga en el motor."""
-    pm = _pm_of(session)
-    from_slug = str(params.get("from_slug", "") or "")
-    src = pm.get_project(from_slug) if pm else None
-    if src is None:
-        return {"ok": False, "error": f"proyecto no encontrado: {from_slug!r}"}
-    src_file = src.folder / "autovj.json"
-    if not src_file.is_file():
-        return {"ok": False, "error": f"{from_slug!r} no tiene auto-VJ"}
-    dst_file = session.project.folder / "autovj.json"
-    try:
-        dst_file.parent.mkdir(parents=True, exist_ok=True)
-        _shutil.copy2(src_file, dst_file)
-        session.autovj_engine.load(dst_file)
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-    session.notify_changed("model")
-    return {"ok": True, "from_slug": from_slug}
-
-
-def _h_apply_song(session, params):
-    """apply_song(analysis_slug, audio_path) → cambia la canción del proyecto activo
-    (actualiza project.json + recarga análisis/audio + reajusta duración).
-    AVISO: re-temporiza el show (los beats/duración de la nueva canción difieren)."""
-    from src._paths import ANALIZADAS_DIR
-
-    analysis_slug = str(params.get("analysis_slug", "") or "")
-    audio_path = str(params.get("audio_path", "") or "")
-    if not analysis_slug and not audio_path:
-        return {"ok": False, "error": "analysis_slug o audio_path requerido"}
-    proj = getattr(session, "project", None)
-    if proj is None:
-        return {"ok": False, "error": "sin proyecto activo"}
-
-    # Si audio_path es solo un nombre de archivo (sin rutas), intenta buscarlo en ANALIZADAS_DIR
-    if audio_path and "/" not in audio_path and "\\" not in audio_path:
-        candidate = ANALIZADAS_DIR / analysis_slug / audio_path if analysis_slug else None
-        if candidate and candidate.is_file():
-            audio_path = str(candidate)
-
-    try:
-        if analysis_slug:
-            proj.analysis_slug = analysis_slug
-        if audio_path:
-            proj.audio_path = audio_path
-        proj.save_meta()
-    except Exception as e:
-        return {"ok": False, "error": f"no se pudo actualizar project.json: {e}"}
-    dur_ms = session.load_song(proj.audio_path, proj.analysis_slug)
-    try:
-        session.timeline.duration_ms = dur_ms
-    except Exception:
-        pass
-    session.notify_changed("model")
-    return {"ok": True, "analysis_slug": proj.analysis_slug,
-            "audio_path": str(proj.audio_path), "duration_ms": dur_ms}
-
-
-def _h_update_project(session, params):
-    """update_project(slug, name?, notes?, analysis_slug?) → actualiza metadatos de un
-    proyecto (incluso si no es activo). Solo campos no-vacíos se actualizan."""
-    pm = _pm_of(session)
-    if pm is None:
-        return {"ok": False, "error": "sin project manager"}
-    slug = str(params.get("slug", "") or "").strip()
-    if not slug:
-        return {"ok": False, "error": "slug requerido"}
-    proj = pm.get_project(slug)
-    if proj is None:
-        return {"ok": False, "error": f"proyecto {slug} no existe"}
-
-    # Actualizar campos si están presentes
-    name = params.get("name")
-    if name is not None:
-        name = str(name).strip()
-        if not name:
-            return {"ok": False, "error": "nombre no puede estar vacío"}
-        proj.name = name
-
-    notes = params.get("notes")
-    if notes is not None:
-        proj.notes = str(notes).strip()
-
-    analysis_slug = params.get("analysis_slug")
-    if analysis_slug is not None:
-        analysis_slug = str(analysis_slug).strip()
-        # Validar que existe en analizadas/ si no es vacío
-        if analysis_slug:
-            from pathlib import Path
-
-            from src._paths import ANALIZADAS_DIR
-            analysis_file = Path(ANALIZADAS_DIR) / analysis_slug / "analysis.json"
-            if not analysis_file.exists():
-                return {"ok": False, "error": f"análisis {analysis_slug} no encontrado en analizadas/"}
-        proj.analysis_slug = analysis_slug
-
-    # Persistir
-    try:
-        proj.save_meta()
-    except Exception as e:
-        return {"ok": False, "error": f"error al guardar project.json: {e}"}
-
-    # Notificar si es proyecto activo
-    current = getattr(session, "project", None)
-    if current and current.slug == slug:
-        session.notify_changed("model")
-
-    return {
-        "ok": True,
-        "slug": proj.slug,
-        "name": proj.name,
-        "notes": proj.notes,
-        "audio_path": str(proj.audio_path),
-        "analysis_slug": proj.analysis_slug,
-    }
-
-
-def _h_list_available_analyses(session, params):
-    """list_available_analyses() → enumera todos los análisis disponibles en analizadas/."""
-    import json
-    from pathlib import Path
-
-    from src._paths import ANALIZADAS_DIR
-
-    analyses = []
-    analizadas_path = Path(ANALIZADAS_DIR)
-
-    if analizadas_path.exists():
-        for analysis_dir in sorted(analizadas_path.iterdir()):
-            if not analysis_dir.is_dir():
-                continue
-            analysis_file = analysis_dir / "analysis.json"
-            if not analysis_file.exists():
-                continue
-            try:
-                with open(analysis_file, encoding="utf-8") as f:
-                    data = json.load(f)
-                    title = data.get("file", analysis_dir.name)
-                    bpm = data.get("global", {}).get("bpm_librosa") or data.get("global", {}).get("bpm_madmom")
-                    duration_s = data.get("duration_s")
-                    analyses.append({
-                        "analysis_slug": analysis_dir.name,
-                        "title": title,
-                        "bpm": bpm,
-                        "duration_s": duration_s,
-                    })
-            except Exception:
-                # ignorar análisis corruptos
-                pass
-
-    return {"ok": True, "analyses": analyses}
-
-
-# Componentes copiables y sus archivos (para crear/duplicar)
-_COMPONENT_FILES = {
-    "rig": ["rig.json", "rig_layout.json"],
-    "sequence": ["show.json"],
-    "presets": ["presets.json"],
-    "autovj": ["autovj.json"],
-    # "song" no es un archivo: vive en project.json (audio_path + analysis_slug)
-}
-
-
-def _h_create_project_from_components(session, params):
-    """create_project_from_components(name, slug?, song_from?, rig_from?,
-    sequence_from?, presets_from?, autovj_from?) → crea un proyecto nuevo copiando
-    cada componente elegido del proyecto origen indicado. NO carga el proyecto
-    (el frontend puede llamar a switch_project después si el usuario lo pide)."""
-    pm = _pm_of(session)
-    if pm is None:
-        return {"ok": False, "error": "sin project manager"}
-    name = str(params.get("name", "") or "").strip()
-    if not name:
-        return {"ok": False, "error": "name requerido"}
-    from src.io.project_manager import PROJECTS_DIR
-    slug = _safe_project_slug(params.get("slug") or name, PROJECTS_DIR)
-
-    # Canción: del proyecto origen (audio_path + analysis_slug)
-    audio_path, analysis_slug = "", ""
-    song_from = str(params.get("song_from", "") or "")
-    if song_from:
-        sp = pm.get_project(song_from)
-        if sp is not None:
-            audio_path, analysis_slug = str(sp.audio_path), sp.analysis_slug
-
-    try:
-        proj = pm.create_project(slug=slug, name=name, audio_path=audio_path,
-                                 analysis_slug=analysis_slug,
-                                 notes=str(params.get("notes", "") or ""))
-    except Exception as e:
-        return {"ok": False, "error": f"no se pudo crear: {e}"}
-    # create_project pone pm._current = proj; restaurar el proyecto realmente activo
-    try:
-        pm._current = session.project
-    except Exception:
-        pass
-
-    def _copy_component(comp_from, files):
-        if not comp_from:
-            return
-        sp = pm.get_project(comp_from)
-        if sp is None:
-            return
-        for fname in files:
-            srcf = sp.folder / fname
-            if srcf.is_file():
-                _shutil.copy2(srcf, proj.folder / fname)
-
-    _copy_component(str(params.get("rig_from", "") or ""), _COMPONENT_FILES["rig"])
-    _copy_component(str(params.get("sequence_from", "") or ""), _COMPONENT_FILES["sequence"])
-    _copy_component(str(params.get("presets_from", "") or ""), _COMPONENT_FILES["presets"])
-    _copy_component(str(params.get("autovj_from", "") or ""), _COMPONENT_FILES["autovj"])
-    return {"ok": True, "slug": slug, "name": name}
-
-
-def _h_duplicate_project(session, params):
-    """duplicate_project(from_slug, new_name?, new_slug?, swap?) → copia un proyecto
-    a un slug nuevo (solo archivos de contenido) y, opcionalmente, sustituye UN
-    componente por el de otro proyecto. swap = {component, source_slug}."""
-    pm = _pm_of(session)
-    if pm is None:
-        return {"ok": False, "error": "sin project manager"}
-    from_slug = str(params.get("from_slug", "") or "")
-    src = pm.get_project(from_slug) if from_slug else None
-    if src is None:
-        return {"ok": False, "error": f"proyecto no encontrado: {from_slug!r}"}
-    from src.io.project_manager import PROJECTS_DIR, Project
-    new_name = str(params.get("new_name", "") or "").strip() or f"{src.name} (copia)"
-    slug = _safe_project_slug(params.get("new_slug") or new_name, PROJECTS_DIR)
-    dst = PROJECTS_DIR / slug
-    # Copia limpia: solo contenido (sin autosave/render/exports)
-    ignore = _shutil.ignore_patterns("autosave", "render.npz", "render_meta.json",
-                                     "preview.gif", "preview.mp4", "patch.pdf",
-                                     "dmx_export.csv", "feedback.json")
-    try:
-        _shutil.copytree(src.folder, dst, ignore=ignore)
-    except Exception as e:
-        return {"ok": False, "error": f"no se pudo copiar: {e}"}
-
-    def _set_meta(name, audio=None, analysis=None):
-        p = Project.from_folder(dst)
-        if p is None:
-            return
-        p.slug, p.name = slug, name
-        if audio is not None:
-            p.audio_path = audio
-        if analysis is not None:
-            p.analysis_slug = analysis
-        p.save_meta()
-
-    _set_meta(new_name)
-
-    swap = params.get("swap") or {}
-    comp = str(swap.get("component", "") or "")
-    source_slug = str(swap.get("source_slug", "") or "")
-    if comp and source_slug:
-        sp = pm.get_project(source_slug)
-        if sp is not None:
-            if comp == "song":
-                _set_meta(new_name, audio=str(sp.audio_path), analysis=sp.analysis_slug)
-            else:
-                for fname in _COMPONENT_FILES.get(comp, []):
-                    srcf = sp.folder / fname
-                    if srcf.is_file():
-                        _shutil.copy2(srcf, dst / fname)
-    return {"ok": True, "slug": slug, "name": new_name}
-
-
-def _h_get_fixture_pan_tilt(session, params):
-    """get_fixture_pan_tilt(fixture_id?) → {ok, fixtures: [{fixture_id, pan, tilt}]}
-
-    Devuelve pan/tilt de todos los movers (o del fixture_id indicado) en el instante actual.
-    Valores 0..1 (normalizado). Útil para el preview 2D en la UI.
-    """
-    t = session.t if hasattr(session, 't') else 0.0
-    actx = session._cached_actx if hasattr(session, '_cached_actx') else {}
-
-    se = getattr(session, 'show_engine', None)
-    tl = getattr(session, 'timeline', None)
-    if se is None or tl is None or se.rig is None:
-        return {"ok": True, "fixtures": []}
-
-    fid_filter = params.get("fixture_id")
-    result = []
-    for fx in se.rig.all_fixtures():
-        if fid_filter is not None and str(fx.fixture_id) != str(fid_filter):
-            continue
-        profile = se.rig.get_profile(fx.profile_id)
-        if profile is None or 'pan' not in profile.channel_map:
-            continue
-        buf = se.render_channels_for_fixture(fx, t, actx, timeline=tl)
-        ch_pan  = profile.channel_map.get('pan', -1)
-        ch_tilt = profile.channel_map.get('tilt', -1)
-        pan_v  = buf[ch_pan]  / 255.0 if 0 <= ch_pan  < len(buf) else 0.5
-        tilt_v = buf[ch_tilt] / 255.0 if 0 <= ch_tilt < len(buf) else 0.5
-        result.append({"fixture_id": fx.fixture_id, "pan": round(pan_v, 4), "tilt": round(tilt_v, 4)})
-
-    return {"ok": True, "fixtures": result}
 
 
 # ── G2 — Sync de tempo (Ableton Link / MIDI Clock) ──────────────────────────
@@ -3867,371 +3252,6 @@ def _h_import_show_bundle(session, params):
         return {"ok": False, "error": str(exc)}
 
 
-# ── ROADMAP v4 — Editor completo de fixture ──────────────────────────────────
-
-def _get_artnet_ip_for_universe(universe: int):
-    """Deriva la IP Art-Net de un universo leyendo output_targets.json."""
-    import json
-
-    from src._paths import PROJECT_DIR
-    targets_file = PROJECT_DIR / "output_targets.json"
-    if not targets_file.is_file():
-        return None
-    try:
-        data = json.loads(targets_file.read_text("utf-8"))
-        entry = data.get(str(universe))
-        if isinstance(entry, dict):
-            return entry.get("ip")
-    except Exception:
-        pass
-    return None
-
-
-def _update_rig_layout_height(session, fixture_id: str, height_m: float):
-    """Persiste height_m como `y` en rig_layout.json, sin perder x/z existentes."""
-    import json
-    proj = getattr(session, "project", None)
-    if proj is None:
-        return
-    layout_file = getattr(proj, "rig_layout_file", None)
-    if layout_file is None:
-        return
-    if layout_file.is_file():
-        try:
-            with open(layout_file, encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:
-            data = {"fixtures": []}
-    else:
-        data = {"fixtures": []}
-    fixtures_list = data.get("fixtures", [])
-    idx = next((i for i, e in enumerate(fixtures_list) if e.get("id") == fixture_id), None)
-    if idx is not None:
-        fixtures_list[idx]["y"] = height_m
-    else:
-        fixtures_list.append({
-            "id": fixture_id, "x": 0.0, "y": height_m, "z": 0.0,
-            "rx": 0.0, "ry": 0.0, "rz": 0.0,
-        })
-    data["fixtures"] = fixtures_list
-    tmp = layout_file.with_suffix(".tmp")
-    try:
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-        tmp.replace(layout_file)
-    except Exception:
-        pass
-
-
-def _h_update_fixture(session, params):
-    """update_fixture(fixture_id, **fields, dry_run=False) → {ok, fixture?, conflicts}.
-
-    Acepta: name, start_address, universe, mode, kind_override, channel_map,
-    notes, patch_x, patch_y, height_m, dry_run.
-    dry_run=True: valida conflictos y devuelve {ok, conflicts} SIN persistir.
-    dry_run=False con conflicto: devuelve {ok: False, error, conflicts}.
-    dry_run=False sin conflicto: persiste, sync_rig_layout si cambia pos/altura,
-    snapshot(), devuelve {ok, fixture, conflicts: []}.
-    """
-    fixture_id = params.get("fixture_id")
-    if not fixture_id:
-        return {"ok": False, "error": "fixture_id requerido"}
-    rig = getattr(session, "fixture_rig", None)
-    if rig is None:
-        return {"ok": False, "error": "No hay rig cargado"}
-    fx = rig.by_id(fixture_id)
-    if fx is None:
-        return {"ok": False, "error": f"Fixture no encontrado: {fixture_id}"}
-
-    dry_run = bool(params.get("dry_run", False))
-
-    # Compute new universe/address for conflict check
-    new_universe = int(params["universe"]) if "universe" in params else fx.universe
-    new_start = int(params["start_address"]) if "start_address" in params else fx.dmx_start
-    prof = rig.get_profile(fx.profile_id)
-    num_channels = prof.num_channels if prof else 1
-
-    conflicts = []
-    for other in rig.fixtures:
-        if other.fixture_id == fixture_id:
-            continue
-        if other.universe != new_universe:
-            continue
-        other_prof = rig.get_profile(other.profile_id)
-        other_channels = other_prof.num_channels if other_prof else 1
-        if (new_start <= other.dmx_start + other_channels - 1
-                and other.dmx_start <= new_start + num_channels - 1):
-            conflicts.append({
-                "fixture_id": other.fixture_id,
-                "name": other.label or other.fixture_id,
-                "address_range": f"ch {other.dmx_start}-{other.dmx_start + other_channels - 1}",
-            })
-
-    if dry_run:
-        return {"ok": True, "conflicts": conflicts}
-
-    if conflicts:
-        return {"ok": False, "error": "Conflicto DMX detectado", "conflicts": conflicts}
-
-    # I1 — snapshot antes de mutar
-    try:
-        session.snapshot()
-    except Exception:
-        pass
-
-    pos_height_changed = False
-    if "name" in params:
-        fx.label = str(params["name"])
-    if "start_address" in params:
-        fx.dmx_start = int(params["start_address"])
-    if "universe" in params:
-        fx.universe = int(params["universe"])
-    if "kind_override" in params:
-        fx.kind_override = params["kind_override"] or None
-    if "mode" in params:
-        fx.kind_override = params["mode"] or None
-    if "channel_map" in params:
-        fx.channel_map = params["channel_map"]
-    if "notes" in params:
-        fx.notes = params["notes"]
-    if "patch_x" in params and params["patch_x"] is not None:
-        fx.patch_x = float(params["patch_x"])
-        pos_height_changed = True
-    if "patch_y" in params and params["patch_y"] is not None:
-        fx.patch_y = float(params["patch_y"])
-        pos_height_changed = True
-    if "height_m" in params and params["height_m"] is not None:
-        fx.height_m = float(params["height_m"])
-        _update_rig_layout_height(session, fixture_id, fx.height_m)
-        pos_height_changed = True
-
-    rig.save(session.project.rig_file)
-
-    if pos_height_changed:
-        try:
-            session.sync_rig_layout()
-        except Exception:
-            pass
-
-    try:
-        session.notify_changed("rig")
-    except Exception:
-        pass
-
-    return {"ok": True, "fixture": fx.to_dict(), "conflicts": []}
-
-
-def _h_get_fixture_detail(session, params):
-    """get_fixture_detail(fixture_id) → {ok, fixture: {…, num_channels, artnet_ip, height_m}}."""
-    fixture_id = params.get("fixture_id")
-    if not fixture_id:
-        return {"ok": False, "error": "fixture_id requerido"}
-    rig = getattr(session, "fixture_rig", None)
-    if rig is None:
-        return {"ok": False, "error": "No hay rig cargado"}
-    fx = rig.by_id(fixture_id)
-    if fx is None:
-        return {"ok": False, "error": f"Fixture no encontrado: {fixture_id}"}
-
-    prof = rig.get_profile(fx.profile_id)
-    num_channels = prof.num_channels if prof else 0
-
-    artnet_ip = _get_artnet_ip_for_universe(fx.universe)
-
-    # height_m: preferir campo del fixture; fallback a rig_layout.json[y]
-    height_m = fx.height_m
-    if height_m is None:
-        proj = getattr(session, "project", None)
-        if proj is not None:
-            layout_file = getattr(proj, "rig_layout_file", None)
-            if layout_file is not None and layout_file.is_file():
-                try:
-                    import json
-                    with open(layout_file, encoding="utf-8") as f:
-                        k1_data = json.load(f)
-                    for e in k1_data.get("fixtures", []):
-                        if e.get("id") == fixture_id:
-                            height_m = float(e.get("y", 0))
-                            break
-                except Exception:
-                    pass
-
-    d = fx.to_dict()
-    d["height_m"] = height_m
-    d["artnet_ip"] = artnet_ip
-    d["num_channels"] = num_channels
-
-    return {"ok": True, "fixture": d}
-
-
-def _h_list_fixture_types(session, params):
-    """list_fixture_types() → {ok, types: [{id, name, modes: [{name, channels}]}]}.
-
-    Combina tipos built-in (dimmer/rgb/moving_head/led_bar) + perfiles GDTF/JSON
-    cargados en profiles/.
-    """
-    from src.core.fixtures import list_available_profiles, load_profile
-
-    types = [
-        {"id": "dimmer", "name": "Dimmer",
-         "modes": [{"name": "1ch", "channels": 1}]},
-        {"id": "rgb", "name": "RGB Par",
-         "modes": [{"name": "RGB", "channels": 3}, {"name": "RGBA", "channels": 4}]},
-        {"id": "moving_head", "name": "Moving Head",
-         "modes": [{"name": "Basic", "channels": 7}, {"name": "Extended", "channels": 15}]},
-        {"id": "led_bar", "name": "LED Bar",
-         "modes": [{"name": "pixel", "channels": 279}, {"name": "RGB", "channels": 3}]},
-    ]
-    seen_ids = {t["id"] for t in types}
-    for profile_id in list_available_profiles():
-        if profile_id in seen_ids:
-            continue
-        try:
-            prof = load_profile(profile_id)
-        except Exception:
-            prof = None
-        if prof:
-            types.append({
-                "id": profile_id,
-                "name": prof.name,
-                "modes": [{"name": prof.kind, "channels": prof.num_channels}],
-            })
-            seen_ids.add(profile_id)
-    return {"ok": True, "types": types}
-
-
-# ── Patch UX: dirección libre, duplicar, mapa de canales, output targets ─────
-
-def _h_next_free_address(session, params):
-    """next_free_address(universe, num_channels) → {ok, address: int}.
-
-    Devuelve la primera dirección DMX libre en el universo dado que tenga
-    espacio para num_channels canales consecutivos.
-    """
-    universe = int(params.get("universe", 1))
-    num_channels = max(1, int(params.get("num_channels", 1)))
-    rig = getattr(session, "fixture_rig", None)
-    if rig is None:
-        return {"ok": True, "address": 1}
-
-    used: list[tuple[int, int]] = []
-    for f in rig.fixtures:
-        if f.universe != universe:
-            continue
-        prof = rig.get_profile(f.profile_id)
-        nch = prof.num_channels if prof else 1
-        used.append((f.dmx_start, f.dmx_start + nch - 1))
-    used.sort()
-
-    addr = 1
-    for start, end in used:
-        if addr + num_channels - 1 < start:
-            break
-        if addr <= end:
-            addr = end + 1
-
-    if addr + num_channels - 1 > 512:
-        return {"ok": False, "error": "Sin espacio libre en el universo"}
-    return {"ok": True, "address": addr}
-
-
-def _h_duplicate_fixture(session, params):
-    """duplicate_fixture(fixture_id) → {ok, fixture}.
-
-    Clona el fixture dado con un nuevo ID y la primera dirección libre
-    en el mismo universo. patch_x/patch_y se dejan a None para que
-    aparezca en posición por defecto en el canvas.
-    """
-    fixture_id = params.get("fixture_id")
-    rig = getattr(session, "fixture_rig", None)
-    if rig is None:
-        return {"ok": False, "error": "No hay rig cargado"}
-    fx = rig.by_id(fixture_id)
-    if fx is None:
-        return {"ok": False, "error": f"Fixture no encontrado: {fixture_id}"}
-
-    prof = rig.get_profile(fx.profile_id)
-    num_channels = prof.num_channels if prof else 1
-
-    res = _h_next_free_address(session, {"universe": fx.universe, "num_channels": num_channels})
-    if not res.get("ok"):
-        return res
-
-    import time
-    from dataclasses import replace
-    base = fx.fixture_id.rstrip("0123456789").rstrip("_")
-    new_id = f"{base}_{int(time.time() * 1000) % 100000}"
-    while rig.by_id(new_id):
-        new_id = f"{base}_{int(time.time() * 1000 + 1) % 100000}"
-
-    new_fx = replace(
-        fx,
-        fixture_id=new_id,
-        dmx_start=res["address"],
-        label=f"{fx.label or fx.fixture_id} (copia)",
-        patch_x=None,
-        patch_y=None,
-    )
-
-    try:
-        session.snapshot()
-    except Exception:
-        pass
-    rig.fixtures.append(new_fx)
-    rig.save(session.project.rig_file)
-    try:
-        session.notify_changed("rig")
-    except Exception:
-        pass
-    return {"ok": True, "fixture": new_fx.to_dict()}
-
-
-def _h_get_universe_channel_map(session, params):
-    """get_universe_channel_map() → {ok, universes: {str(u): [{fixture_id, label, start, end, num_channels}]}}.
-
-    Devuelve los rangos de canales usados por universo, ordenados por start.
-    """
-    rig = getattr(session, "fixture_rig", None)
-    if rig is None:
-        return {"ok": True, "universes": {}}
-
-    by_universe: dict[int, list] = {}
-    for fx in rig.fixtures:
-        u = fx.universe
-        prof = rig.get_profile(fx.profile_id)
-        nch = prof.num_channels if prof else 1
-        by_universe.setdefault(u, []).append({
-            "fixture_id": fx.fixture_id,
-            "label": fx.label or fx.fixture_id,
-            "start": fx.dmx_start,
-            "end": fx.dmx_start + nch - 1,
-            "num_channels": nch,
-        })
-
-    for u in by_universe:
-        by_universe[u].sort(key=lambda x: x["start"])
-
-    return {"ok": True, "universes": {str(u): v for u, v in by_universe.items()}}
-
-
-def _h_get_output_targets(session, params):
-    """get_output_targets() → {ok, targets: {str(universe): {type, ip?}}}.
-
-    Lee output_targets.json y devuelve las entradas numéricas (universos).
-    """
-    import json
-    from pathlib import Path
-    _ot = Path(__file__).resolve().parent.parent / "output_targets.json"
-    try:
-        if _ot.is_file():
-            raw = json.loads(_ot.read_text(encoding="utf-8"))
-            targets = {k: v for k, v in raw.items() if k.isdigit() and isinstance(v, dict)}
-            return {"ok": True, "targets": targets}
-    except Exception:
-        pass
-    return {"ok": True, "targets": {}}
-
-
 _LOCAL = {
     # H4 — list_clips con paginación (offset/limit)
     "list_clips": _h_list_clips,
@@ -4283,8 +3303,6 @@ _LOCAL = {
     # Heartbeat — keep-alive ligero (el frontend lo usa para detectar
     # conexiones medio-abiertas y forzar la reconexión).
     "ping": lambda session, params: {"ok": True},
-    # B1 — Waveform
-    "get_waveform": _h_get_waveform,
     # B2 — Mixer
     "set_track_chain": _h_set_track_chain,
     "set_master": _h_set_master,
@@ -4341,18 +3359,6 @@ _LOCAL = {
     # H3 — Multi-show quick-switch
     "list_projects": _h_list_projects,
     "switch_project": _h_switch_project,
-    # Menú de gestión de proyectos: galería + componentes + crear/copiar
-    "list_projects_detailed": _h_list_projects_detailed,
-    "list_components": _h_list_components,
-    "apply_rig": _h_apply_rig,
-    "load_sequence": _h_load_sequence,
-    "apply_presets": _h_apply_presets,
-    "apply_autovj": _h_apply_autovj,
-    "apply_song": _h_apply_song,
-    "update_project": _h_update_project,
-    "list_available_analyses": _h_list_available_analyses,
-    "create_project_from_components": _h_create_project_from_components,
-    "duplicate_project": _h_duplicate_project,
     # G2 — Sync de tempo (Ableton Link / MIDI Clock)
     "tempo_sync_get_state": _h_tempo_sync_get_state,
     "tempo_sync_set_mode": _h_tempo_sync_set_mode,
@@ -4417,16 +3423,48 @@ _LOCAL = {
     # N2 — Backup y restauración de show
     "export_show_bundle": _h_export_show_bundle,
     "import_show_bundle": _h_import_show_bundle,
-    # ROADMAP v4 — Editor completo de fixture
-    "update_fixture": _h_update_fixture,
-    "get_fixture_detail": _h_get_fixture_detail,
-    "list_fixture_types": _h_list_fixture_types,
-    # Patch UX — dirección libre, duplicar, mapa de canales, output targets
-    "next_free_address": _h_next_free_address,
-    "duplicate_fixture": _h_duplicate_fixture,
-    "get_universe_channel_map": _h_get_universe_channel_map,
-    "get_output_targets": _h_get_output_targets,
 }
+
+# ── ADR-005: dominios extraídos a server/handlers/ ────────────────────────────
+# Cada módulo de dominio define HANDLERS (+ mutadores propios); aquí se mergean.
+from server import handlers as _handlers_pkg  # noqa: E402
+
+_handlers_pkg.load_all()
+_LOCAL.update(_handlers_pkg.LOCAL)
+_TIMELINE_MUTATORS |= _handlers_pkg.TIMELINE_MUTATORS
+_RIG_MUTATORS |= _handlers_pkg.RIG_MUTATORS
+
+# Compat: tests y server/web.py importan estos nombres desde server.dispatcher.
+from server.handlers.patch import (  # noqa: E402,F401
+    _get_artnet_ip_for_universe,
+    _h_duplicate_fixture,
+    _h_get_fixture_detail,
+    _h_get_output_targets,
+    _h_get_universe_channel_map,
+    _h_list_fixture_types,
+    _h_next_free_address,
+    _h_update_fixture,
+    _update_rig_layout_height,
+)
+from server.handlers.projects import (  # noqa: E402,F401
+    _h_apply_autovj,
+    _h_apply_presets,
+    _h_apply_rig,
+    _h_apply_song,
+    _h_create_project_from_components,
+    _h_duplicate_project,
+    _h_list_available_analyses,
+    _h_list_components,
+    _h_list_projects_detailed,
+    _h_load_sequence,
+    _h_update_project,
+    _safe_project_slug,
+)
+from server.handlers.waveform import (  # noqa: E402,F401
+    _compute_waveform,
+    _ensure_waveform_cached,
+    _h_get_waveform,
+)
 
 
 class Dispatcher:

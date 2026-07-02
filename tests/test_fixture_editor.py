@@ -133,7 +133,8 @@ def test_get_fixture_detail_artnet_ip_from_universe(tmp_path):
     """get_fixture_detail deriva artnet_ip vía _get_artnet_ip_for_universe."""
     session = _make_session(tmp_path)
     # bar_0 → universe=1; mockear la función de derivación de IP
-    with patch("server.dispatcher._get_artnet_ip_for_universe", return_value="192.168.1.201") as mock_ip:
+    # (ADR-005: el handler vive en server.handlers.patch — parchear SU módulo)
+    with patch("server.handlers.patch._get_artnet_ip_for_universe", return_value="192.168.1.201") as mock_ip:
         res = _h_get_fixture_detail(session, {"fixture_id": "bar_0"})
     assert res["ok"] is True
     assert res["fixture"]["artnet_ip"] == "192.168.1.201"
