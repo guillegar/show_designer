@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { Suspense, lazy, useEffect, useState, useRef } from "react";
 import { useStore, Tab } from "./store";
 import { control } from "./api/control";
 import { stream } from "./api/stream";
@@ -6,13 +6,24 @@ import type { ProjectChangedEvent } from "./api/stream";
 import { Ico } from "./icons";
 import { Transport } from "./components/Transport";
 import { CueBar } from "./components/CueBar";
+// Timeline es la pestaña por defecto → carga eager (lazy retrasaría el primer render).
 import { TimelineView } from "./views/Timeline";
-import { LiveView } from "./views/Live";
-import { AnalyzerView } from "./views/Analyzer";
-import { PatchView } from "./views/Patch";
-import { Viewer3DView } from "./views/Viewer3D";
-import { PreviewView } from "./views/Preview";
-import { ProjectManagerView } from "./views/ProjectManager";
+
+// Code-splitting: el resto de vistas se cargan bajo demanda (chunks separados).
+const LiveView = lazy(() => import("./views/Live").then((m) => ({ default: m.LiveView })));
+const AnalyzerView = lazy(() => import("./views/Analyzer").then((m) => ({ default: m.AnalyzerView })));
+const PatchView = lazy(() => import("./views/Patch").then((m) => ({ default: m.PatchView })));
+const Viewer3DView = lazy(() => import("./views/Viewer3D").then((m) => ({ default: m.Viewer3DView })));
+const PreviewView = lazy(() => import("./views/Preview").then((m) => ({ default: m.PreviewView })));
+const ProjectManagerView = lazy(() => import("./views/ProjectManager").then((m) => ({ default: m.ProjectManagerView })));
+
+function ViewFallback() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--txt-3)", fontSize: 13 }}>
+      Cargando vista…
+    </div>
+  );
+}
 
 type ProjectInfo = { slug: string; name: string; audio_path: string };
 
@@ -211,13 +222,15 @@ export function App() {
 
       {/* STAGE */}
       <div className="stage">
-        {tab === "projects" && <ProjectManagerView />}
-        {tab === "timeline" && <TimelineView />}
-        {tab === "live" && <LiveView />}
-        {tab === "analyzer" && <AnalyzerView />}
-        {tab === "patch" && <PatchView />}
-        {tab === "viewer3d" && <Viewer3DView />}
-        {tab === "preview" && <PreviewView />}
+        <Suspense fallback={<ViewFallback />}>
+          {tab === "projects" && <ProjectManagerView />}
+          {tab === "timeline" && <TimelineView />}
+          {tab === "live" && <LiveView />}
+          {tab === "analyzer" && <AnalyzerView />}
+          {tab === "patch" && <PatchView />}
+          {tab === "viewer3d" && <Viewer3DView />}
+          {tab === "preview" && <PreviewView />}
+        </Suspense>
       </div>
 
       {/* CUES (modo directo) */}

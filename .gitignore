@@ -95,3 +95,8 @@ _test_out.txt
 
 # Legacy retirado (migración a projects/<slug>/ completada) — no recrear en git
 /fixtures.json
+
+# Generado por el backend en CADA arranque (ShowSession.__init__ → sync_rig_layout)
+# y tras cada mutación del rig. No versionar: churn puro de runtime.
+web/public/v3d/rig_layout.json
+web/dist/v3d/rig_layout.json
