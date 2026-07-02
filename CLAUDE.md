@@ -15,11 +15,14 @@ Estado a **2026-06-30** · **v2.0 · 1043 tests Python + 36 Vitest · ROADMAP v2
     `docs/dev/professionalization.md`. (a) **Tooling**: `pyproject.toml` (deps/extras/entry point
     + config), **ruff verde** (1054 autofixes), mypy gradual, CI Python + pre-commit; **17 tests
     pre-existentes en rojo → verde** (pytest-asyncio, Pillow, fix bench) → **suite 1063/0**.
-    (b) **ADR-005 — despiece del dispatcher**: paquete **`server/handlers/`** (registro `LOCAL` +
-    mutadores por módulo + `load_all()`); dominios extraídos: `waveform.py`, `projects.py`,
-    `patch.py` → `dispatcher.py` **4517 → 2963 líneas**, queda como fachada (auth/undo/gesture/
-    dispatch) con re-exports de compat (los tests importan `_h_*` desde `server.dispatcher`;
-    los `mock.patch` de símbolos movidos deben apuntar a `server.handlers.<mod>`). (c) **Logging**:
+    (b) **ADR-005 — despiece del dispatcher COMPLETO (5 tandas)**: paquete **`server/handlers/`**
+    con **27 módulos de dominio** (registro `LOCAL` + mutadores declarados por módulo +
+    `load_all()` con **autodescubrimiento** pkgutil); `dispatcher.py` **4517 → 508 líneas no
+    vacías (−89%)**, fachada pura (auth/undo-snapshot/gesture-log/dispatch/merge) con re-exports
+    de compat (los tests importan `_h_*` desde `server.dispatcher`; los `mock.patch` de símbolos
+    movidos deben apuntar a `server.handlers.<mod>`; código nuevo importa SIEMPRE del dominio).
+    Bugfix por el camino: 3 paths `Path(__file__).parent.parent` rotos al mover → `PROJECT_DIR`.
+    Lecciones completas en `docs/adr/005-dispatcher-handlers-split.md`. (c) **Logging**:
     `server/` sin `print()` (31 migrados a `src/log`; el banner de `main.py` es deliberado).
     (d) **Web**: code-splitting `React.lazy` (bundle 624→524 kB; Timeline eager) y despiece de
     Timeline.tsx iniciado en **`views/timeline/`** (`WaveformCanvas`, `GenerateShowModal`;

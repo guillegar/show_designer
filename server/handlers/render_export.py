@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 
+from server.exporters import export_to_memory
 from src.log import get_logger
 
 _log = get_logger(__name__)
@@ -214,7 +215,30 @@ def _h_export_dmx_csv(session, params):
         return {"ok": False, "error": str(e)}
 
 
+def _h_export_csv(session, params):
+    from src.io.exporter import export_clips_csv
+
+    def _exporter(sess, path):
+        export_clips_csv(sess.timeline, path)
+
+    return export_to_memory(session, _exporter, ".csv", "{slug}_clips.csv")
+
+
+def _h_export_qlc(session, params):
+    from src.io.exporter import export_qlc_workspace
+
+    def _exporter(sess, path):
+        export_qlc_workspace(sess.timeline, sess.fixture_rig, path)
+
+    return export_to_memory(session, _exporter, ".qxw", "{slug}.qxw")
+
+
+# A2 — Automatización: curvas de parámetro sobre timeline
+
+
 HANDLERS = {
+    "export_csv": _h_export_csv,
+    "export_qlc": _h_export_qlc,
     "render_offline": _h_render_offline,
     "toggle_baked": _h_toggle_baked,
     "export_video": _h_export_video,

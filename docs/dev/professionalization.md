@@ -18,9 +18,11 @@ Leyenda: ✅ hecho · 🟡 parcial (patrón establecido + resto documentado) · 
 - [x] **#6 print → logger** — **COMPLETO (server/ + src/)**: 31 + 106 migrados. Quedan solo 3 prints
   deliberados y comentados (banner CLI de `main.py`; 2 chequeos de deps a stderr en
   `mcp_show_server.py` — proceso stdio MCP, el logger no existe aún en ese punto).
-- [🟡] **#5 Despiece de `dispatcher.py`** — **EN MARCHA (ADR-005)**: `server/handlers/` con **7
-  dominios** (`waveform`, `projects`, `patch`, `live`, `markers`, `autovj`, `cues`) →
-  **4517 → 2459 líneas (-46%)**. Resto de dominios: incremental.
+- [x] **#5 Despiece de `dispatcher.py`** — **COMPLETO (ADR-005, 5 tandas)**: `server/handlers/`
+  con **27 módulos de dominio**; `dispatcher.py` = **508 líneas no vacías (−89% desde 4517)**,
+  fachada pura (auth + undo-snapshot + gesture-log + dispatch + merge). Re-exports de compat se
+  quedan como superficie estable de los tests (decisión en el ADR). Bonus: fix de 3 paths
+  `__file__`-relativos rotos y `load_all()` con autodescubrimiento.
 
 ## P2 — Pulido y operabilidad
 - [🟡] **#9 Despiece de `Timeline.tsx`** — **EN MARCHA**: `views/timeline/` con `WaveformCanvas`,
@@ -52,6 +54,21 @@ Leyenda: ✅ hecho · 🟡 parcial (patrón establecido + resto documentado) · 
   `test_bench_compute_frame_…` (faltaba `session._recording` al construir la sesión con
   `object.__new__`) arregla 1. **Suite completa: 1063 tests, 0 fallos.**
 - **mypy baseline:** 95 errores en 17 ficheros (gradual, no bloqueante) — deuda a reducir.
+
+### 2026-07-01 · sesión 5 — ADR-005 COMPLETO (tandas 3-5)
+- **Tanda 3** (7 módulos): mixer, render_export, autosave, osc, movers, switch, tempo.
+  **BUGFIX** revelado por la migración: 3 handlers localizaban `output_targets.json` con
+  `Path(__file__).parent.parent` — correcto en `server/` pero roto un nivel más adentro
+  (¡el de `patch.py` llevaba roto desde la tanda 1!). Anclados a `PROJECT_DIR`.
+- **Tanda 4** (8 módulos): patch_visual, gdtf, output_test (con los 3 strays del rango K2),
+  webhooks_config, viewer3d, pixelmap, showgen, bundle_market. **FIX estructural**: `load_all()`
+  autodescubre módulos con pkgutil — la lista hardcodeada quedó obsoleta en silencio cuando ruff
+  la reformateó (14 tests en rojo lo delataron). Dependencias cruzadas: viewer3d importa
+  STAGE_W/D de patch_visual; replay_gesture usa `dispatcher._LOCAL` vía import perezoso.
+- **Tanda 5** (5 módulos + anexo): clips_edit, feedback, presets, automation, patterns;
+  export_csv/qlc anexados a render_export. **dispatcher.py = 508 líneas no vacías (−89%)**.
+- Verificación por tanda: ruff verde + suite completa **1063/0**; al final, smoke de arranque
+  real (:8000, ping + waveform + 1358 clips).
 
 ### 2026-07-01 · sesión 4 — frente frontend (en paralelo al worktree del dispatcher)
 - Reparto de trabajo: la tarea en background (worktree aislado) continúa los dominios del

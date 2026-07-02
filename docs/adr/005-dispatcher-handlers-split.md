@@ -55,7 +55,31 @@ puras `f(session, params)` — también las consume el bridge); más churn sin b
 3. [x] Mover dominio **proyectos** (galería/componentes/crear/copiar) → `handlers/projects.py`.
 4. [x] Mover dominio **patch/fixture editor** (v4 + Patch UX) → `handlers/patch.py`.
 5. [x] Tanda 2 (2026-07-01): **live** (C1+C2+I1), **markers** (I2+I3), **autovj** (D1+D2),
-   **cues** (E1) → `dispatcher.py` en 2459 líneas (-46% desde 4517).
-6. [ ] Resto de dominios (mixer, export/render, output-test E4, GDTF, K1/K2, M/N…) — incremental,
-   un commit por tanda, suite verde tras cada una.
-7. [ ] Al terminar: retirar re-exports de compat y actualizar imports de tests.
+   **cues** (E1).
+6. [x] Tanda 3 (2026-07-01): **mixer**, **render_export** (B3+E3+I5+export csv/qlc), **autosave**,
+   **osc**, **movers** (G3+G4), **switch** (H3), **tempo** (G2+M1). Incluye el FIX de los paths
+   `Path(__file__).parent.parent` rotos por el movimiento (anclados a `PROJECT_DIR`).
+7. [x] Tanda 4 (2026-07-01): **patch_visual** (J1+J2), **gdtf** (J3), **output_test** (E4+J4 +
+   strays del rango K2), **webhooks_config** (L2), **viewer3d** (K1), **pixelmap** (K2),
+   **showgen** (M2+M3), **bundle_market** (N1+N2). `load_all()` pasa a **autodescubrimiento**
+   (pkgutil) — la lista hardcodeada se quedó obsoleta en silencio y costó 14 tests.
+8. [x] Tanda 5 (2026-07-01): **clips_edit** (efecto/preset/duplicar/partir + A5 rangos + A4
+   micro-eventos), **feedback**, **presets**, **automation** (A2+A1), **patterns** (A3).
+   **SPLIT COMPLETO**: `dispatcher.py` = **508 líneas no vacías (−89% desde 4517)** — fachada
+   pura: transporte/undo/list_clips/schema/preview + auth + gesture-log + dispatch + merge.
+9. [x] **Decisión sobre los re-exports de compat (item 7 original): SE QUEDAN.** Son la superficie
+   estable que importan ~15 ficheros de tests (`from server.dispatcher import _h_*`); retirarlos
+   sería churn puro en tests sin ganancia de comportamiento. Regla para código nuevo: importar
+   SIEMPRE de `server.handlers.<dominio>`; los re-exports son solo compat de tests legacy.
+
+## Lecciones del proceso (para futuros splits)
+- La **posición física** manda sobre el comentario de sección: aparecieron 5 handlers "strays"
+  (pan_tilt, toggle_baked, test_universe, blackout, get_output_status, list_clips) fuera de su
+  sección lógica.
+- `Path(__file__).parent.parent` se rompe al mover código a otra profundidad → anclar SIEMPRE a
+  `src._paths.PROJECT_DIR`.
+- Cortes por marcador de texto: **top-down** (el marcador final de un corte es el inicial del
+  siguiente).
+- Los `mock.patch("server.dispatcher.X")` de los tests deben apuntar al módulo NUEVO donde se usa
+  el símbolo (pasó con `Path` de OSC, `_get_artnet_ip_for_universe`, `_ensure_waveform_cached`).
+- Registro por **autodescubrimiento** > lista mantenida a mano.
