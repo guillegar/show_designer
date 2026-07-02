@@ -37,6 +37,9 @@ from server.exporters import export_to_memory  # noqa: E402
 from server.toggles import toggle_set_membership  # noqa: E402
 from server.validators import ValidationError, require_int, require_key, require_order  # noqa: E402
 from src._setup_paths import *
+from src.log import get_logger
+
+_log = get_logger(__name__)
 
 # ── Desacople (B1) ───────────────────────────────────────────────────────────
 # Antes aquí se parcheaba el módulo global `bridge._qt_call`/`_qt_call_dual`.
@@ -2212,7 +2215,7 @@ def _h_apply_rig(session, params):
     try:
         session.fixture_rig.save(session.project.rig_file)
     except Exception as e:
-        print(f"[apply_rig] no se pudo persistir rig.json: {e}")
+        _log.warning(f"[apply_rig] no se pudo persistir rig.json: {e}")
     session.notify_changed("rig")
     return {"ok": True, "from_slug": from_slug, "fixtures": n}
 
@@ -2800,7 +2803,7 @@ def _h_export_video(session, params):
         try:
             await loop.run_in_executor(None, _worker)
         except Exception as e:
-            print(f"[export_video] error: {e}")
+            _log.error(f"[export_video] error: {e}")
         finally:
             session.export_in_progress = False
             hub = getattr(session, "hub", None)

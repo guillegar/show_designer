@@ -17,6 +17,10 @@ from pathlib import Path
 
 import pygame
 
+from src.log import get_logger
+
+_log = get_logger(__name__)
+
 
 class HeadlessAudioPlayer:
     """Reproduce un MP3/WAV con pygame.mixer.music y expone un reloj de tiempo."""
@@ -32,7 +36,7 @@ class HeadlessAudioPlayer:
                 pygame.mixer.init(44100, -16, 2, 2048)
         except Exception as e:
             self.silent = True
-            print(f"[audio] Sin dispositivo de audio → modo silencioso (reloj OK): {e}")
+            _log.warning(f"[audio] Sin dispositivo de audio → modo silencioso (reloj OK): {e}")
         self.audio_path: str | None = None
         self.duration: float = 0.0
         self._playing = False
@@ -54,10 +58,10 @@ class HeadlessAudioPlayer:
                 import librosa
                 y, sr = librosa.load(self.audio_path, sr=44100)
                 self.duration = len(y) / sr
-            print(f"[audio] Cargado: {Path(self.audio_path).name} ({self.duration:.1f}s)")
+            _log.info(f"[audio] Cargado: {Path(self.audio_path).name} ({self.duration:.1f}s)")
             return True
         except Exception as e:
-            print(f"[audio] Error cargando audio: {e}")
+            _log.error(f"[audio] Error cargando audio: {e}")
             return False
 
     # ── transporte ─────────────────────────────────────────────────────────
@@ -88,7 +92,7 @@ class HeadlessAudioPlayer:
                         pass
                 pygame.mixer.music.set_volume(1.0)
             except Exception as e:
-                print(f"[audio] Error reproduciendo: {e}")
+                _log.error(f"[audio] Error reproduciendo: {e}")
                 return
 
         self._start_mono = time.monotonic() - target

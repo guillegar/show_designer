@@ -32,6 +32,9 @@ from src.core.effects_engine import LEDS_PER_BAR, NUM_BARS, EffectLibrary
 from src.core.show_engine import ShowEngine
 from src.core.timeline_model import Timeline, make_default_groups
 from src.io.project_manager import get_manager
+from src.log import get_logger
+
+_log = get_logger(__name__)
 
 LEDS = LEDS_PER_BAR
 _BUCKET_MS = 500
@@ -78,7 +81,7 @@ class ShowSession:
         self.project = self.pm.open_project(slug) if slug else self.pm.current
         if self.project is None:
             self.project = self.pm.current
-        print(f"[session] Proyecto: {self.project.name!r} ({self.project.slug})")
+        _log.info(f"[session] Proyecto: {self.project.name!r} ({self.project.slug})")
 
         audio_file = Path(self.project.audio_path)
         show_file = self.project.show_file
@@ -91,14 +94,14 @@ class ShowSession:
             from src.core.channel_effects import ChannelEffectLibrary
             self.channel_lib = ChannelEffectLibrary()
         except Exception as e:
-            print(f"[session] ChannelEffectLibrary no disponible: {e}")
+            _log.warning(f"[session] ChannelEffectLibrary no disponible: {e}")
             self.channel_lib = None
 
         # Banco de presets (global + por proyecto)
         from server.presets import PresetBank
         self.presets = PresetBank(self.library, self.channel_lib,
                                   project_file=self.project.folder / "presets.json")
-        print(f"[session] Presets: {len(self.presets.list())} (banco efectos)")
+        _log.info(f"[session] Presets: {len(self.presets.list())} (banco efectos)")
 
         # ── Análisis (AnalysisService normaliza v1/v2→v3 + curación) ─────────
         from src.analysis.analyzer_service import ANALIZADAS_DIR, AnalysisService, default_service
@@ -112,7 +115,7 @@ class ShowSession:
         summary = self.analysis.summary
         self.bpm = float(summary.get('bpm') or 128.0)
         dur_s = float(summary.get('duration_s') or 165.0)
-        print(f"[session] BPM {self.bpm} ({summary.get('bpm_source','?')}), "
+        _log.info(f"[session] BPM {self.bpm} ({summary.get('bpm_source','?')}), "
               f"dur {dur_s:.1f}s, downbeats={summary.get('downbeats_source','?')}")
 
         # ── Timeline ─────────────────────────────────────────────────────────
@@ -126,7 +129,7 @@ class ShowSession:
             self.timeline.duration_ms = dur_ms
         if not getattr(self.timeline, 'groups', None):
             self.timeline.groups = make_default_groups()
-        print(f"[session] Timeline: {len(self.timeline.clips)} clips, "
+        _log.info(f"[session] Timeline: {len(self.timeline.clips)} clips, "
               f"{len(self.timeline.groups)} grupos")
 
         # ── FixtureRig ───────────────────────────────────────────────────────
@@ -136,9 +139,9 @@ class ShowSession:
                 self.fixture_rig = FixtureRig.load(rig_file)
             else:
                 self.fixture_rig = build_default_wled_rig()
-            print(f"[session] Rig: {len(self.fixture_rig.fixtures)} fixtures")
+            _log.info(f"[session] Rig: {len(self.fixture_rig.fixtures)} fixtures")
         except Exception as e:
-            print(f"[session] No se pudo cargar rig: {e}")
+            _log.warning(f"[session] No se pudo cargar rig: {e}")
             self.fixture_rig = None
 
         # Regenerar rig_layout.json del visor 3D desde el rig real (en la web
@@ -153,7 +156,7 @@ class ShowSession:
                                           analysis=self.analysis)
             self.send_artnet = True
         except Exception as e:
-            print(f"[session] ShowEngine no disponible: {e}")
+            _log.warning(f"[session] ShowEngine no disponible: {e}")
             self.show_engine = None
             self.send_artnet = False
 
@@ -163,7 +166,7 @@ class ShowSession:
         if audio_file.is_file():
             self.audio.load(audio_file, duration=dur_s)
         else:
-            print(f"[session] Audio no encontrado: {audio_file}")
+            _log.warning(f"[session] Audio no encontrado: {audio_file}")
             self.audio.duration = dur_s
 
         # ── Shims para que los handlers del bridge vean la interfaz `app` ────
@@ -401,9 +404,9 @@ class ShowSession:
                 if target.parent.is_dir():
                     with open(target, "w", encoding="utf-8") as f:
                         json.dump(layout, f, indent=2)
-            print(f"[session] rig_layout.json regenerado: {len(fixtures_json)} fixtures")
+            _log.info(f"[session] rig_layout.json regenerado: {len(fixtures_json)} fixtures")
         except Exception as e:
-            print(f"[session] sync_rig_layout error: {e}")
+            _log.warning(f"[session] sync_rig_layout error: {e}")
 
     # ── Carga de componentes en caliente (reusada por __init__/switch/apply) ──
 
@@ -447,7 +450,7 @@ class ShowSession:
             self.bpm = float(summary.get('bpm') or 128.0)
             dur_ms = int(float(summary.get('duration_s') or 165.0) * 1000)
         except Exception as e:
-            print(f"[load_song] analysis fallido: {e}")
+            _log.warning(f"[load_song] analysis fallido: {e}")
         if getattr(self, "show_engine", None) is not None:
             try:
                 self.show_engine.analysis = self.analysis
@@ -460,7 +463,7 @@ class ShowSession:
             else:
                 self.audio.duration = dur_ms / 1000.0
         except Exception as e:
-            print(f"[load_song] audio fallido: {e}")
+            _log.warning(f"[load_song] audio fallido: {e}")
         return dur_ms
 
     # ── Notificación de cambios (hacia el stream → el navegador re-fetchea) ──
@@ -662,7 +665,7 @@ class ShowSession:
         try:
             fn()
         except Exception as e:
-            print(f"[session] qt_call inline error: {e}")
+            _log.error(f"[session] qt_call inline error: {e}")
         try:
             self.notify_changed('model')
         except Exception:
@@ -931,7 +934,7 @@ class ShowSession:
             self.baked_hash = meta.get("show_hash")
             return True
         except Exception as e:
-            print(f"[session] load_baked_frames error: {e}")
+            _log.warning(f"[session] load_baked_frames error: {e}")
             return False
 
     # ── compute_frame: port Qt-free de TimelineEditorWindow._compute_frame ───
@@ -1227,9 +1230,9 @@ class ShowSession:
             if self._rev != self._last_saved_rev:
                 try:
                     path = self.autosave_now()
-                    print(f"[autosave] {path.name}")
+                    _log.info(f"[autosave] {path.name}")
                 except Exception as e:
-                    print(f"[autosave] error: {e}")
+                    _log.warning(f"[autosave] error: {e}")
 
     def check_autosave_at_startup(self) -> dict | None:
         """Si el autosave más reciente es más nuevo que show.json, devuelve el evento.
@@ -1300,7 +1303,7 @@ class ShowSession:
             try:
                 self.autosave_now()
             except Exception as e:
-                print(f"[switch_project] autosave fallido: {e}")
+                _log.warning(f"[switch_project] autosave fallido: {e}")
 
         # 3. Cargar nuevo proyecto
         self.project = new_project
@@ -1311,7 +1314,7 @@ class ShowSession:
         try:
             self.load_rig(new_project.rig_file)
         except Exception as e:
-            print(f"[switch_project] rig fallido: {e}")
+            _log.warning(f"[switch_project] rig fallido: {e}")
 
         # Canción del nuevo proyecto (análisis + audio); devuelve la duración
         dur_ms = self.load_song(new_project.audio_path, new_project.analysis_slug)
@@ -1373,9 +1376,9 @@ class ShowSession:
                     "duration_ms": self.timeline.duration_ms,
                 })
             except Exception as e:
-                print(f"[switch_project] broadcast fallido: {e}")
+                _log.warning(f"[switch_project] broadcast fallido: {e}")
 
-        print(f"[switch_project] -> {new_project.name!r} ({new_slug}), "
+        _log.info(f"[switch_project] -> {new_project.name!r} ({new_slug}), "
               f"{len(self.timeline.clips)} clips")
 
 

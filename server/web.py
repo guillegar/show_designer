@@ -27,6 +27,9 @@ from server.osc_bridge import OscBridge
 from server.rest_api import create_rest_router
 from server.session import ShowSession
 from server.tick import StreamHub, TickLoop
+from src.log import get_logger
+
+_log = get_logger(__name__)
 
 _ROOT = Path(__file__).parent.parent
 _DIST = _ROOT / "web" / "dist"
@@ -131,7 +134,7 @@ def create_app() -> FastAPI:
         # (se puede desactivar en tests con LUCES_NO_MCP_COMPAT=1)
         if not os.environ.get("LUCES_NO_MCP_COMPAT"):
             asyncio.create_task(_start_mcp_compat(dispatcher))
-        print(f"[web] backend listo · stream + control en :8000 · MCP compat en :{MCP_COMPAT_PORT}")
+        _log.info(f"[web] backend listo · stream + control en :8000 · MCP compat en :{MCP_COMPAT_PORT}")
 
     @app.on_event("shutdown")
     async def _shutdown():
@@ -169,7 +172,7 @@ def create_app() -> FastAPI:
         except WebSocketDisconnect:
             pass
         except Exception as e:
-            print(f"[web] /ws/control cerrado: {type(e).__name__}: {e}")
+            _log.warning(f"[web] /ws/control cerrado: {type(e).__name__}: {e}")
 
     # ── WS stream (frames + estado) ──────────────────────────────────────────
     @app.websocket("/ws/stream")
@@ -220,6 +223,6 @@ async def _start_mcp_compat(dispatcher: Dispatcher):
 
     try:
         await websockets.serve(_handle, MCP_COMPAT_HOST, MCP_COMPAT_PORT, ping_interval=20)
-        print(f"[web] MCP compat escuchando en ws://{MCP_COMPAT_HOST}:{MCP_COMPAT_PORT}")
+        _log.info(f"[web] MCP compat escuchando en ws://{MCP_COMPAT_HOST}:{MCP_COMPAT_PORT}")
     except Exception as e:
-        print(f"[web] No se pudo abrir MCP compat :{MCP_COMPAT_PORT}: {e}")
+        _log.error(f"[web] No se pudo abrir MCP compat :{MCP_COMPAT_PORT}: {e}")
