@@ -12,6 +12,10 @@ El detalle profundo (por fases del roadmap) está en [`CLAUDE.md`](CLAUDE.md) y
 - **Tooling de ingeniería:** `pyproject.toml` (metadata, extras `dev`/`audio`, entry point
   `show-designer`), **Ruff** (lint), **mypy** (gradual), **CI de Python** (`python-ci.yml`) y
   **pre-commit**. Log en [`docs/dev/professionalization.md`](docs/dev/professionalization.md).
+- **ADR-005:** despiece de `dispatcher.py` en `server/handlers/` por dominio (waveform, projects,
+  patch) — 4517 → 2963 líneas, sin cambios de API JSON-RPC.
+- **Code-splitting** del frontend (`React.lazy`): bundle inicial 624 → 524 kB; inicio del despiece
+  de `Timeline.tsx` (`views/timeline/`).
 - CI de frontend (`frontend-ci.yml`): tsc + Vitest en cada push de `web/`.
 - Documentación de configuración ([`docs/dev/configuration.md`](docs/dev/configuration.md)).
 

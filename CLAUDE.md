@@ -11,6 +11,20 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 
 Estado a **2026-06-30** · **v2.0 · 1043 tests Python + 36 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1+N2 APLICADAS · BLOQUE N COMPLETO · HARDENING SEGURIDAD APLICADO · PERF PREVIEW/VIEWER3D APLICADO · EDITOR FIXTURE PATCH APLICADO · PATCH UX PRO APLICADO · FASE 2 EDICIÓN DE PROYECTOS APLICADA** — backend headless + frontend React + REST API + webhooks + multiusuario + tap BPM + show generator + historial de gestos + marketplace de plugins + bundle backup/restore + hardening de seguridad (zip slip, marketplace SSRF/RCE, timing-safe tokens, webhook SSRF) + editor completo de fixture desde Patch + Patch UX profesional (mapa DMX, siguiente libre, duplicar, búsqueda, destinos Art-Net).
 **A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1+N2 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger + exportación PDF/CSV + editor de patch visual. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+  - ✅ **PROFESIONALIZACIÓN — ARQUITECTURA (2026-07-01)**: log completo en
+    `docs/dev/professionalization.md`. (a) **Tooling**: `pyproject.toml` (deps/extras/entry point
+    + config), **ruff verde** (1054 autofixes), mypy gradual, CI Python + pre-commit; **17 tests
+    pre-existentes en rojo → verde** (pytest-asyncio, Pillow, fix bench) → **suite 1063/0**.
+    (b) **ADR-005 — despiece del dispatcher**: paquete **`server/handlers/`** (registro `LOCAL` +
+    mutadores por módulo + `load_all()`); dominios extraídos: `waveform.py`, `projects.py`,
+    `patch.py` → `dispatcher.py` **4517 → 2963 líneas**, queda como fachada (auth/undo/gesture/
+    dispatch) con re-exports de compat (los tests importan `_h_*` desde `server.dispatcher`;
+    los `mock.patch` de símbolos movidos deben apuntar a `server.handlers.<mod>`). (c) **Logging**:
+    `server/` sin `print()` (31 migrados a `src/log`; el banner de `main.py` es deliberado).
+    (d) **Web**: code-splitting `React.lazy` (bundle 624→524 kB; Timeline eager) y despiece de
+    Timeline.tsx iniciado en **`views/timeline/`** (`WaveformCanvas`, `GenerateShowModal`;
+    1791→1600 líneas, gesto/optimista INTACTOS). (e) `rig_layout.json` fuera de git (se regenera
+    en cada arranque). Decisión: dispatch async global DESCARTADO (invariante mono-hilo del loop).
   - ✅ **LIMPIEZA + MIGRACIÓN LEGACY CERRADA (2026-07-01)**: retirado el andamiaje pre-`projects/`.
     `_h_save_rig` (`mcp_bridge.py`) ahora guarda en el `rig.json` del **proyecto activo** (antes, sin
     `path`, escribía en el `fixtures.json` raíz — bug). `ProjectManager.ensure_migrated` ya NO copia

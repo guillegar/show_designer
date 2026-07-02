@@ -13,18 +13,22 @@ Leyenda: ✅ hecho · 🟡 parcial (patrón establecido + resto documentado) · 
 
 ## P1 — Salud del código
 - [x] **#8 mypy gradual** — config lenient en `pyproject.toml` + CI informativo (baseline 95 errores).
-- [🟡] **#7 Dispatch async** — DOCUMENTADO. El global `run_in_executor` se **descarta** (rompería la
-  invariante mono-hilo). Patrón correcto = offload por handler (ya en waveform/render/key).
-- [🟡] **#6 print → logger** — hot-path/errores ya migrados (tick, offline_render, red); ~143
-  informativos restantes (mecánico, por módulo).
-- [🟡] **#5 Despiece de `dispatcher.py`** — DOCUMENTADO (plan `server/handlers/` + registro por decorador).
+- [🟡] **#7 Dispatch async** — decisión tomada: el global `run_in_executor` se **descarta** (rompería
+  la invariante mono-hilo). Patrón correcto = offload por handler (ya en waveform/render/key).
+- [🟡] **#6 print → logger** — **`server/` COMPLETO** (31 migrados; banner CLI de `main.py` se queda
+  como print deliberado). Quedan ~111 en `src/` (mecánico, por módulo).
+- [🟡] **#5 Despiece de `dispatcher.py`** — **EN MARCHA (ADR-005)**: `server/handlers/` creado con 3
+  dominios (`waveform`, `projects`, `patch`) → **4517 → 2963 líneas**. Resto de dominios: incremental.
 
 ## P2 — Pulido y operabilidad
-- [🟡] **#9 Despiece de `Timeline.tsx`** — DOCUMENTADO (subcomponentes; extraer UI antes que el gesto).
-- [🟡] **#10 Code-splitting frontend** — DOCUMENTADO (`React.lazy` de vistas pesadas).
+- [🟡] **#9 Despiece de `Timeline.tsx`** — **EN MARCHA**: `views/timeline/` con `WaveformCanvas` +
+  `GenerateShowModal` → **1791 → 1600 líneas** (gesto/optimista intactos). Resto: incremental.
+- [x] **#10 Code-splitting frontend** — `React.lazy` en todas las vistas menos Timeline: bundle
+  inicial **624 → 524 kB** (gzip 192 → 166); 6 chunks bajo demanda. Verificado servido (HTTP 200).
 - [x] **#11 Higiene de config/secretos** — `docs/dev/configuration.md` (`LUCES_*` + secretos de output_targets).
 - [x] **#12 Releases** — `CHANGELOG.md` + `docs.yml` (deploy MkDocs a GitHub Pages).
-- [🟡] **#13** — gitignore de `rig_layout.json` con CAVEAT (regeneración en arranque; ver abajo).
+- [x] **#13** — `rig_layout.json` gitignoreado/destrackeado (verificado: `ShowSession.__init__` →
+  `sync_rig_layout` lo regenera en cada arranque → sin 404 en clon nuevo).
 
 ---
 
@@ -45,6 +49,25 @@ Leyenda: ✅ hecho · 🟡 parcial (patrón establecido + resto documentado) · 
   `test_bench_compute_frame_…` (faltaba `session._recording` al construir la sesión con
   `object.__new__`) arregla 1. **Suite completa: 1063 tests, 0 fallos.**
 - **mypy baseline:** 95 errores en 17 ficheros (gradual, no bloqueante) — deuda a reducir.
+
+### 2026-07-01 · sesión 2 — logging, ADR-005, splitting
+- **#6 (server/)**: 31 `print()` → `_log.info/warning/error` en `session.py`, `web.py`,
+  `audio_headless.py`, `dispatcher.py`. `main.py` conserva su banner CLI como print (UX de
+  arranque visible con cualquier `LUCES_LOG_LEVEL`).
+- **#5 (ADR-005)**: `server/handlers/` — registro (`LOCAL`/mutadores/`load_all()` + decorador para
+  nuevos) y 3 dominios extraídos verbatim: `waveform.py` (117), `projects.py` (450), `patch.py`
+  (324). `dispatcher.py` **4517 → 2963 líneas**; fachada con merge + re-exports de compat.
+  Gotcha real: `_h_get_fixture_pan_tilt` estaba FÍSICAMENTE dentro de la sección de proyectos
+  (pertenece a movers) → devuelto al dispatcher. 2 mocks de tests actualizados al módulo nuevo
+  (regla: `mock.patch` apunta al módulo DONDE SE USA el símbolo). **Suite 1063/0.**
+- **#10**: `React.lazy`+`Suspense` (Timeline eager por ser la pestaña default). Bundle
+  624→524 kB; chunks Live/Patch/Analyzer/ProjectManager/Preview/Viewer3D. Smoke real: chunk
+  servido HTTP 200 desde :8000.
+- **#9**: `views/timeline/` — `WaveformCanvas.tsx` (fetch+draw autónomos) y
+  `GenerateShowModal.tsx` (estado propio). Timeline.tsx **1791 → 1600**; CERO cambios en la
+  lógica de drag/drop/optimista (Fase 9 intacta).
+- **#13**: `rig_layout.json` fuera de git (regeneración en arranque verificada en código:
+  `session.py:150`).
 
 ### 2026-07-01 · P2 — operabilidad (parcial)
 - **#11** `docs/dev/configuration.md`: tabla de `LUCES_*` + campos sensibles de `output_targets.json`

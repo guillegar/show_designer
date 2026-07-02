@@ -13,6 +13,8 @@ import { ClipDetailModal } from "../components/ClipDetailModal";
 import { ToastContainer, useToast } from "../components/Toast";
 import { HelpOverlay } from "../components/HelpOverlay";
 import { xToMs, msToX } from "./timelineGeometry";
+import { WaveformCanvas } from "./timeline/WaveformCanvas";
+import { GenerateShowModal } from "./timeline/GenerateShowModal";
 
 const NUM_BARS = 10;
 const LANE_H = 22;
@@ -77,10 +79,6 @@ export function TimelineView() {
   const [genAll, setGenAll] = useState(true);
   // M2: generación automática de show completo
   const [genShowOpen, setGenShowOpen] = useState(false);
-  const [genShowStyle, setGenShowStyle] = useState("club");
-  const [genShowDensity, setGenShowDensity] = useState(0.5);
-  const [genShowReplace, setGenShowReplace] = useState(false);
-  const [genShowStatus, setGenShowStatus] = useState<string | null>(null);
   const [lastEffectDuration, setLastEffectDuration] = useState(() => {
     const saved = localStorage.getItem("sd_lastEffectDuration");
     return saved ? parseInt(saved, 10) : 500;
@@ -139,16 +137,9 @@ export function TimelineView() {
     refreshClips();
     refreshMarkers();
   };
-  const [waveformData, setWaveformData] = useState<{
-    peaks_max: number[];
-    peaks_min: number[];
-    n_buckets: number;
-    duration_sec: number;
-  } | null>(null);
   const lanesRef = useRef<HTMLDivElement>(null);
   const tlScrollRef = useRef<HTMLDivElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
-  const wfCanvasRef = useRef<HTMLCanvasElement>(null);
   const zoomRef = useRef(DEFAULT_ZOOM);
 
   useEffect(() => {
@@ -220,50 +211,6 @@ export function TimelineView() {
     window.addEventListener("keyup", up);
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
   }, []);
-
-  // B1 — fetch waveform on demand. El backend puede devolver {status:"computing"}
-  // (librosa corre en un executor para no congelar el tick) y avisar luego con el
-  // evento 'waveform_ready' por el stream → reintentamos (ya cache hit).
-  useEffect(() => {
-    if (!showWaveform || waveformData) return;
-    let cancelled = false;
-    const fetchWf = () => {
-      control.call("get_waveform", {}).then((r: any) => {
-        if (!cancelled && r?.ok && Array.isArray(r.peaks_max)) setWaveformData(r);
-      }).catch(() => {});
-    };
-    fetchWf();
-    const off = stream.onWaveformReady(fetchWf);
-    return () => { cancelled = true; off(); };
-  }, [showWaveform, waveformData]);
-
-  // B1 — redraw canvas when zoom or data changes
-  useEffect(() => {
-    const canvas = wfCanvasRef.current;
-    if (!canvas || !waveformData || !showWaveform) return;
-    const { peaks_max, peaks_min, n_buckets } = waveformData;
-    const cw = Math.round(duration * zoom);
-    const ch = 38;
-    canvas.width = cw;
-    canvas.height = ch;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const mid = ch / 2;
-    const scale = mid * 0.88;
-    ctx.fillStyle = "rgba(80,210,130,0.4)";
-    for (let x = 0; x < cw; x++) {
-      const b0 = Math.floor((x / cw) * n_buckets);
-      const b1 = Math.min(Math.ceil(((x + 1) / cw) * n_buckets), n_buckets);
-      let pmax = 0, pmin = 0;
-      for (let b = b0; b < b1; b++) {
-        if (peaks_max[b] > pmax) pmax = peaks_max[b];
-        if (peaks_min[b] < pmin) pmin = peaks_min[b];
-      }
-      const yTop = Math.floor(mid - pmax * scale);
-      const yBot = Math.ceil(mid - pmin * scale);
-      ctx.fillRect(x, yTop, 1, Math.max(1, yBot - yTop));
-    }
-  }, [showWaveform, waveformData, zoom, duration]);
 
   const beatSec = 60 / bpm;
   const barSec = beatSec * 4;
@@ -1179,9 +1126,7 @@ export function TimelineView() {
                 const name = window.prompt("Nombre del marcador:", fmtTime(ms / 1000));
                 if (name != null) control.call("add_marker", { time_ms: ms, name }).then(refreshMarkers);
               }}>
-              {showWaveform && (
-                <canvas ref={wfCanvasRef} style={{ position: "absolute", top: 0, left: 0, width: W, height: "100%", pointerEvents: "none", zIndex: 0 }} />
-              )}
+              <WaveformCanvas show={showWaveform} zoom={zoom} duration={duration} width={W} />
               {sections.map((s, i) => {
                 const next = sections[i + 1]?.start ?? duration;
                 return (
@@ -1727,54 +1672,7 @@ export function TimelineView() {
       )}
 
       {genShowOpen && (
-        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) { setGenShowOpen(false); setGenShowStatus(null); } }}>
-          <div className="preset-editor">
-            <div className="ci-head"><h4>Generar show automático</h4><button className="x" onClick={() => { setGenShowOpen(false); setGenShowStatus(null); }}>×</button></div>
-            <div className="ci-body">
-              <div className="ci-row"><label>Estilo</label>
-                <select value={genShowStyle} onChange={(e) => setGenShowStyle(e.target.value)}>
-                  {["minimal", "club", "festival", "chill"].map((s) => <option key={s} value={s}>{s}</option>)}
-                </select></div>
-              <div className="ci-row"><label>Densidad</label>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
-                  <input type="range" min={0} max={100} value={Math.round(genShowDensity * 100)}
-                    onChange={(e) => setGenShowDensity(+e.target.value / 100)} style={{ flex: 1 }} />
-                  <span style={{ minWidth: 30, fontSize: 11 }}>{Math.round(genShowDensity * 100)}%</span>
-                </div></div>
-              <div className="ci-row"><label>Reemplazar</label>
-                <input type="checkbox" checked={genShowReplace} onChange={(e) => setGenShowReplace(e.target.checked)} />
-                <span style={{ fontSize: 11, color: "var(--txt-3)", marginLeft: 6 }}>Limpiar timeline antes</span>
-              </div>
-              <div className="ci-row" style={{ marginTop: 6 }}>
-                <button className="btn primary sm" style={{ flex: 1 }} onClick={async () => {
-                  setGenShowStatus("Generando…");
-                  try {
-                    const r: any = await control.call("generate_show", { style: genShowStyle, density: genShowDensity, replace: genShowReplace });
-                    if (r?.ok) {
-                      setGenShowStatus(`✓ ${r.clips_created} clips creados`);
-                      refreshClips();
-                      setTimeout(() => { setGenShowOpen(false); setGenShowStatus(null); }, 1800);
-                    } else {
-                      setGenShowStatus(r?.error ?? "Error");
-                    }
-                  } catch (e: any) {
-                    setGenShowStatus("Error: " + e.message);
-                  }
-                }} disabled={!!genShowStatus && genShowStatus === "Generando…"}>
-                  {genShowStatus === "Generando…" ? "Generando…" : "Generar show"}
-                </button>
-              </div>
-              {genShowStatus && genShowStatus !== "Generando…" && (
-                <div style={{ fontSize: 11, marginTop: 6, color: genShowStatus.startsWith("✓") ? "var(--good)" : "var(--bad)" }}>
-                  {genShowStatus}
-                </div>
-              )}
-              <p className="muted" style={{ fontSize: 10.5, lineHeight: 1.4, marginTop: 6 }}>
-                Genera clips sincronizados a beats/downbeats. Requiere análisis previo. Deshaciable con Ctrl+Z.
-              </p>
-            </div>
-          </div>
-        </div>
+        <GenerateShowModal onClose={() => setGenShowOpen(false)} onGenerated={refreshClips} />
       )}
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
