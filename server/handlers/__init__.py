@@ -45,8 +45,8 @@ def load_all() -> None:
     global _LOADED
     if _LOADED:
         return
-    from server.handlers import patch, projects, waveform
-    for mod in (waveform, projects, patch):
+    from server.handlers import autovj, cues, live, markers, patch, projects, waveform
+    for mod in (waveform, projects, patch, live, markers, autovj, cues):
         LOCAL.update(getattr(mod, "HANDLERS", {}))
         TIMELINE_MUTATORS.update(getattr(mod, "TIMELINE_MUTATORS", set()))
         RIG_MUTATORS.update(getattr(mod, "RIG_MUTATORS", set()))

@@ -115,8 +115,6 @@ _TIMELINE_MUTATORS = {
     # A3 — mutadores de patterns/instances (el snapshot se hace dentro del handler,
     # no en el dispatcher, porque necesitan snapshotear ANTES de resolver lookup)
     # create_pattern_from_clips y los demás llaman session.snapshot() internamente.
-    # I2 — mutadores de marcadores de timeline
-    "add_marker", "delete_marker", "update_marker",
 }
 
 # Métodos que mutan el rig de fixtures → regenerar rig_layout.json para el visor 3D
@@ -1199,490 +1197,6 @@ def _h_toggle_baked(session, params):
     return {"ok": True, "baked": True}
 
 
-# ── C1 — Performance grid: lanzar patterns en vivo ──────────────────────────
-
-def _live_emit(session, state: dict) -> None:
-    """Emite {type:'live_state_changed'} al stream hub si está disponible."""
-    import asyncio
-    hub = getattr(session, "hub", None)
-    if hub:
-        try:
-            asyncio.ensure_future(
-                hub.broadcast_json({"type": "live_state_changed", **state})
-            )
-        except Exception:
-            pass
-
-
-def _h_live_assign_slot(session, params):
-    """live_assign_slot(slot_idx, pattern_uid?, key?, quantize?, mode?) → {ok, slot}.
-
-    Asigna o actualiza la configuración de un slot del performance grid.
-    Limpia el slot en live_slots del timeline y toma snapshot para undo (I1).
-    """
-    try:
-        slot_idx = require_int(params, "slot_idx", min_val=0)
-        if slot_idx > 15:
-            return {"ok": False, "error": "slot_idx debe ser 0..15"}
-    except ValidationError as e:
-        return {"ok": False, "error": str(e)}
-
-    pattern_uid = params.get("pattern_uid")
-    key = params.get("key")
-    quantize = params.get("quantize")
-    mode = params.get("mode")
-
-    # Validar que el pattern existe (si se pasa uno)
-    if pattern_uid:
-        if not any(p.get("uid") == pattern_uid for p in session.timeline.patterns):
-            return {"ok": False, "error": "pattern_uid no encontrado"}
-
-    session.snapshot()
-    try:
-        slot = session.live_engine.assign_slot(
-            slot_idx,
-            pattern_uid=pattern_uid,
-            key=key,
-            quantize=quantize,
-            mode=mode,
-        )
-    except IndexError as e:
-        return {"ok": False, "error": str(e)}
-
-    session.timeline.live_slots = session.live_engine.slots_to_dicts()
-    state = session.live_engine.get_state(session.analysis)
-    _live_emit(session, state)
-    return {"ok": True, "slot": slot.to_dict()}
-
-
-def _h_live_trigger(session, params):
-    """live_trigger(slot_idx) → {ok, slot, armed_at_ms}.
-
-    Dispara un slot: lo arma hasta el próximo límite de cuantización.
-    Si quantize='bar' pero no hay downbeats → degrada a 'free' (armed_at_ms = t_actual).
-    """
-    try:
-        slot_idx = require_int(params, "slot_idx", min_val=0)
-        if slot_idx > 15:
-            return {"ok": False, "error": "slot_idx debe ser 0..15"}
-    except ValidationError as e:
-        return {"ok": False, "error": str(e)}
-
-    t_ms = float(params.get("t_ms", session.time * 1000))
-    slot, t_armed = session.live_engine.trigger(slot_idx, t_ms, session.analysis)
-    state = session.live_engine.get_state(session.analysis)
-    _live_emit(session, state)
-    return {"ok": True, "slot": slot.to_dict(), "armed_at_ms": t_armed}
-
-
-def _h_live_release(session, params):
-    """live_release(slot_idx) → {ok}.
-
-    Detiene un slot. Solo relevante para mode='hold'; libera también los demás modos.
-    """
-    try:
-        slot_idx = require_int(params, "slot_idx", min_val=0)
-        if slot_idx > 15:
-            return {"ok": False, "error": "slot_idx debe ser 0..15"}
-    except ValidationError as e:
-        return {"ok": False, "error": str(e)}
-
-    slot = session.live_engine.release(slot_idx)
-    state = session.live_engine.get_state(session.analysis)
-    _live_emit(session, state)
-    return {"ok": True, "slot": slot.to_dict()}
-
-
-def _h_live_stop_all(session, params):
-    """live_stop_all() → {ok}.
-
-    Botón de pánico: detiene todos los slots activos y armados.
-    """
-    session.live_engine.stop_all()
-    state = session.live_engine.get_state(session.analysis)
-    _live_emit(session, state)
-    return {"ok": True}
-
-
-def _h_get_live_state(session, params):
-    """get_live_state() → {ok, slots, active, armed}.
-
-    Estado completo de los 16 slots con flags active/armed/degraded.
-    """
-    state = session.live_engine.get_state(session.analysis)
-    return {"ok": True, **state}
-
-
-# C2 — Macros en vivo
-_MACRO_RANGES: dict = {
-    "brightness_mul": (0.0, 2.0),
-    "speed_mul":      (0.0, 4.0),
-    "hue_shift":      (-180.0, 180.0),
-    "strobe_rate":    (0.0, 30.0),
-}
-
-
-def _h_set_macro(session, params):
-    """set_macro(name, value) → {ok, macros}.
-
-    Modifica una macro en vivo (estado de sesión, no del show.json).
-    Throttle recomendado en el cliente: ≤ 20 llamadas/s.
-    """
-    name = params.get("name")
-    if name not in _MACRO_RANGES:
-        return {"ok": False, "error": f"Macro desconocida: {name!r}. "
-                f"Válidas: {list(_MACRO_RANGES)}"}
-    lo, hi = _MACRO_RANGES[name]
-    try:
-        value = float(params["value"])
-    except (KeyError, TypeError, ValueError):
-        return {"ok": False, "error": "value requerido (float)"}
-    if not (lo <= value <= hi):
-        return {"ok": False, "error": f"{name} debe estar en [{lo}, {hi}], recibido {value}"}
-    session.macros[name] = value
-    return {"ok": True, "macros": dict(session.macros)}
-
-
-# ── I1 — Grabación en vivo de macros ────────────────────────────────────────
-
-def _h_start_record(session, params):
-    """start_record() → {ok, recording: True}.
-
-    Activa la grabación de macros. Limpia puntos anteriores y registra el
-    tiempo de inicio. Mientras graba, compute_frame captura cada cambio de
-    macro con throttle 50ms.
-    """
-    session._recorded_lanes = {}
-    session._record_last_ms = {}
-    session._record_start_ms = float(session._current_t_ms)
-    session._recording = True
-    return {"ok": True, "recording": True}
-
-
-def _h_stop_record(session, params):
-    """stop_record() → {ok, recording: False, lanes_created: int, lane_uids: [str]}.
-
-    Detiene la grabación y convierte los puntos capturados en AutomationLanes
-    en session.timeline.automation. Es idempotente: llamar sin grabación activa
-    devuelve lanes_created=0. Las lanes son undoables (I1).
-    """
-    if not session._recording and not session._recorded_lanes:
-        return {"ok": True, "recording": False, "lanes_created": 0, "lane_uids": []}
-
-    session._recording = False
-
-    from uuid import uuid4
-
-    from src.core.automation import AutomationLane
-
-    start_ms = session._record_start_ms
-    lane_uids = []
-
-    # Snapshot ANTES de mutar → undo revierte las lanes creadas (I1)
-    session.snapshot()
-
-    for macro_name, points in session._recorded_lanes.items():
-        if not points:
-            continue
-        target = f"master:{macro_name}"
-        auto_points = [
-            {"t_ms": int(pt["t_ms"] - start_ms), "value": float(pt["value"]), "shape": "linear"}
-            for pt in points
-        ]
-        uid = uuid4().hex[:12]
-        lane = AutomationLane(uid=uid, target=target, points=auto_points, enabled=True)
-        session.timeline.automation.append(lane.to_dict())
-        lane_uids.append(uid)
-
-    session._recorded_lanes = {}
-    session._record_last_ms = {}
-    session.invalidate_caches()
-    return {
-        "ok": True,
-        "recording": False,
-        "lanes_created": len(lane_uids),
-        "lane_uids": lane_uids,
-    }
-
-
-def _h_get_record_state(session, params):
-    """get_record_state() → {ok, recording, elapsed_ms, points_captured}."""
-    recording = getattr(session, '_recording', False)
-    elapsed = (float(session._current_t_ms) - session._record_start_ms) if recording else 0.0
-    points = sum(len(v) for v in getattr(session, '_recorded_lanes', {}).values())
-    return {
-        "ok": True,
-        "recording": recording,
-        "elapsed_ms": elapsed,
-        "points_captured": points,
-    }
-
-
-# ── I2 — Marcadores de timeline con nombre, color y categoría ────────────────
-
-_VALID_MARKER_CATS = frozenset({"intro", "verso", "estribillo", "bridge", "outro", "custom"})
-
-
-def _h_list_markers(session, params):
-    """list_markers(category=None) → {ok, markers: [...]}.
-
-    Devuelve los marcadores ordenados por t_ms. Si se pasa `category`, filtra
-    por esa categoría.
-    """
-    from src.core.timeline_model import Marker  # noqa: F401 — para type hint
-    cat = params.get("category")
-    mkrs = session.timeline.markers
-    if cat:
-        mkrs = [m for m in mkrs if m.category == cat]
-    return {"ok": True, "markers": [m.to_dict() for m in mkrs]}
-
-
-def _h_add_marker(session, params):
-    """add_marker(time_ms, name='', color='#888888', category='custom') → {ok, marker}.
-
-    Añade un marcador en t_ms (reemplaza si ya existe uno exactamente en ese punto).
-    Devuelve el marcador creado (I3).
-    """
-    from src.core.timeline_model import Marker
-    t_ms = int(params.get("time_ms", params.get("t_ms", 0)))
-    name = str(params.get("name", ""))
-    color = str(params.get("color", "#888888"))
-    cat = str(params.get("category", "custom"))
-    if cat not in _VALID_MARKER_CATS:
-        cat = "custom"
-    session.timeline.markers = [m for m in session.timeline.markers if m.t_ms != t_ms]
-    marker = Marker(t_ms=t_ms, name=name, color=color, category=cat)
-    session.timeline.markers.append(marker)
-    session.timeline.markers.sort(key=lambda m: m.t_ms)
-    return {"ok": True, "marker": marker.to_dict()}
-
-
-def _h_delete_marker(session, params):
-    """delete_marker(time_ms) → {ok, deleted: int}."""
-    t_ms = int(params.get("time_ms", params.get("t_ms", 0)))
-    before = len(session.timeline.markers)
-    session.timeline.markers = [m for m in session.timeline.markers if m.t_ms != t_ms]
-    return {"ok": True, "deleted": before - len(session.timeline.markers)}
-
-
-def _h_update_marker(session, params):
-    """update_marker(t_ms, name?, color?, category?) → {ok, marker}.
-
-    Actualiza los campos del marcador en la posición t_ms. Devuelve el marcador
-    actualizado (invariante I3). Undo revierte la mutación (invariante I1).
-    """
-    t_ms = int(params.get("t_ms", params.get("time_ms", 0)))
-    marker = next((m for m in session.timeline.markers if m.t_ms == t_ms), None)
-    if marker is None:
-        return {"ok": False, "error": f"Marcador en {t_ms}ms no encontrado"}
-    if "name" in params:
-        marker.name = str(params["name"])
-    if "color" in params:
-        marker.color = str(params["color"])
-    if "category" in params:
-        cat = str(params["category"])
-        marker.category = cat if cat in _VALID_MARKER_CATS else "custom"
-    return {"ok": True, "marker": marker.to_dict()}
-
-
-# ── I3 — Grupos colapsables: clips de un grupo ───────────────────────────────
-
-def _h_get_group_clips(session, params):
-    """get_group_clips(group_name) → {ok, clips: [...]}.
-
-    Devuelve los clips de tipo pixel (scope=per_bar) cuya pista (track) está
-    incluida en el grupo indicado. Lee los grupos del timeline para obtener
-    la lista de barras del grupo. Read-only.
-    """
-    name = str(params.get("group_name", ""))
-    tl = session.timeline
-    grp = next((g for g in tl.groups if g.name == name), None)
-    if grp is None:
-        return {"ok": False, "error": f"Grupo '{name}' no encontrado"}
-    bar_set = set(grp.bars)
-    pixel_clips = [
-        c.to_dict()
-        for c in tl.clips
-        if getattr(c, "track", None) in bar_set
-        and (getattr(c, "category", "pixel") or "pixel") == "pixel"
-    ]
-    return {"ok": True, "clips": pixel_clips}
-
-
-# ── D1 — Auto-VJ por reglas ─────────────────────────────────────────────────
-
-def _h_autovj_get_state(session, params):
-    """autovj_get_state() → {ok, ruleset|null, presets: [{uid, name, rules}]}.
-
-    Estado completo del motor AutoVJ: ruleset activo + presets disponibles.
-    """
-    from src.core.autovj import PRESETS
-    ruleset = session.autovj_engine.ruleset
-    return {
-        "ok": True,
-        "ruleset": ruleset.to_dict() if ruleset is not None else None,
-        "presets": [
-            {"uid": p.uid, "name": p.name, "rules": len(p.rules)}
-            for p in PRESETS.values()
-        ],
-    }
-
-
-def _h_autovj_set_ruleset(session, params):
-    """autovj_set_ruleset(ruleset|null) → {ok, ruleset|null}.
-
-    Reemplaza el ruleset activo. Pasar null desactiva el AutoVJ.
-    """
-    from src.core.autovj import RuleSet
-    ruleset_dict = params.get("ruleset")
-    if ruleset_dict is None:
-        session.autovj_engine.ruleset = None
-        return {"ok": True, "ruleset": None}
-    try:
-        rs = RuleSet.from_dict(ruleset_dict)
-        session.autovj_engine.ruleset = rs
-        return {"ok": True, "ruleset": rs.to_dict()}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-
-def _h_autovj_activate_preset(session, params):
-    """autovj_activate_preset(preset_uid) → {ok, ruleset}.
-
-    Carga un preset integrado como ruleset activo (copia fresca, estado
-    runtime reseteado).
-    """
-    from src.core.autovj import PRESETS, RuleSet
-    preset_uid = params.get("preset_uid", "")
-    preset = PRESETS.get(preset_uid)
-    if preset is None:
-        return {"ok": False, "error": f"Preset no encontrado: {preset_uid!r}. "
-                f"Válidos: {list(PRESETS)}"}
-    # from_dict crea objetos Rule nuevos con _last_fired_ms=-inf y _above=False
-    rs = RuleSet.from_dict(preset.to_dict())
-    session.autovj_engine.ruleset = rs
-    return {"ok": True, "ruleset": rs.to_dict()}
-
-
-def _h_autovj_update_rule(session, params):
-    """autovj_update_rule(rule_uid, enabled?, cooldown_ms?, trigger?, action?) → {ok, rule}.
-
-    Actualiza campos de una regla en el ruleset activo. Devuelve la regla (I3).
-    """
-    try:
-        rule_uid = require_key(params, "rule_uid")
-    except ValidationError as e:
-        return {"ok": False, "error": str(e)}
-
-    rs = session.autovj_engine.ruleset
-    if rs is None:
-        return {"ok": False, "error": "No hay ruleset activo"}
-    rule = next((r for r in rs.rules if r.uid == rule_uid), None)
-    if rule is None:
-        return {"ok": False, "error": "rule_uid no encontrado"}
-
-    if "enabled" in params:
-        rule.enabled = bool(params["enabled"])
-    if "cooldown_ms" in params:
-        rule.cooldown_ms = max(0, int(params["cooldown_ms"]))
-    if "trigger" in params:
-        rule.trigger = str(params["trigger"])
-    if "action" in params:
-        rule.action = str(params["action"])
-
-    return {"ok": True, "rule": rule.to_dict()}
-
-
-def _h_autovj_save(session, params):
-    """autovj_save() → {ok, path}.
-
-    Guarda el ruleset activo en projects/<slug>/autovj.json (guardado atómico).
-    No-op si no hay ruleset activo.
-    """
-    path = session.project.folder / "autovj.json"
-    session.autovj_engine.save(path)
-    ruleset = session.autovj_engine.ruleset
-    return {
-        "ok": True,
-        "path": str(path),
-        "saved": ruleset is not None,
-    }
-
-
-def _h_autovj_load(session, params):
-    """autovj_load() → {ok, ruleset|null}.
-
-    Carga el ruleset desde projects/<slug>/autovj.json.
-    No-op si el archivo no existe.
-    """
-    path = session.project.folder / "autovj.json"
-    session.autovj_engine.load(path)
-    ruleset = session.autovj_engine.ruleset
-    return {
-        "ok": True,
-        "ruleset": ruleset.to_dict() if ruleset is not None else None,
-    }
-
-
-# ── D2 — Análisis en vivo (entrada de audio) ─────────────────────────────────
-
-def _h_live_input_list_devices(session, params):
-    """live_input_list_devices() → {ok, devices: [{index, name, channels, default_sr}]}"""
-    from server.live_input import LiveInput
-    return {"ok": True, "devices": LiveInput.list_devices()}
-
-
-def _h_live_input_start(session, params):
-    """live_input_start(device_index?) → {ok, device_index, bpm}
-
-    Arranca la captura de audio desde el dispositivo de entrada seleccionado
-    (por defecto el dispositivo del SO) y activa el modo live: _get_audio_context
-    usará las features del ring buffer en vez del análisis offline.
-    """
-    device = params.get("device_index", None)
-    if device is not None:
-        device = require_int(params, "device_index")
-    if session.live_input is None:
-        from server.live_input import LiveInput
-        session.live_input = LiveInput()
-    try:
-        session.live_input.start(device=device)
-    except Exception as e:
-        return {"ok": False, "error": f"No se pudo abrir el dispositivo: {e}"}
-    session._live_mode = True
-    return {
-        "ok": True,
-        "device_index": device,
-        "bpm": session.live_input.summary.get("bpm"),
-    }
-
-
-def _h_live_input_stop(session, params):
-    """live_input_stop() → {ok}
-
-    Detiene la captura y desactiva el modo live.
-    El sistema vuelve a usar el análisis offline para actx y AutoVJ.
-    """
-    if session.live_input is not None:
-        session.live_input.stop()
-    session._live_mode = False
-    return {"ok": True}
-
-
-def _h_live_input_get_state(session, params):
-    """live_input_get_state() → {ok, active, live_mode, bpm?, duration_s}"""
-    li = session.live_input
-    active = li is not None and li.is_active
-    summary = li.summary if li is not None else {}
-    return {
-        "ok": True,
-        "active": active,
-        "live_mode": bool(getattr(session, '_live_mode', False)),
-        "bpm": summary.get("bpm"),
-        "duration_s": summary.get("duration_s", 0.0),
-    }
-
-
 # ── E2 — OSC bridge (ROADMAP v3) ─────────────────────────────────────────────
 
 def _h_osc_get_state(session, params):
@@ -1988,148 +1502,6 @@ def _h_tempo_sync_list_midi_ports(session, params):
     except Exception as e:
         return {"ok": False, "error": str(e)}
     return {"ok": True, "ports": list(ports)}
-
-
-# ── E1 — Sistema de Cues profesional (ROADMAP v3) ────────────────────────────
-
-def _h_add_cue(session, params):
-    """add_cue(t_ms, name?, number?, fade_in_ms?, hold_ms?) → {ok, cue}
-
-    Añade una CueEntry a la CueList. El number se auto-asigna si no se indica.
-    La lista queda ordenada por number tras la inserción.
-    """
-    from uuid import uuid4
-
-    from src.core.timeline_model import CueEntry
-    try:
-        t_ms = require_int(params, "t_ms", min_val=0)
-    except ValidationError as e:
-        return {"ok": False, "error": str(e)}
-
-    entries = session.timeline.cue_list.entries
-    number = float(params.get("number", len(entries) + 1))
-    hold_ms = int(params.get("hold_ms", -1))
-    auto_follow = bool(params.get("auto_follow", hold_ms >= 0))
-    entry = CueEntry(
-        uid=uuid4().hex[:12],
-        number=number,
-        name=str(params.get("name", f"Cue {number:g}")),
-        t_ms=t_ms,
-        fade_in_ms=int(params.get("fade_in_ms", 0)),
-        hold_ms=hold_ms,
-        auto_follow=auto_follow,
-    )
-    session.snapshot()
-    entries.append(entry)
-    entries.sort(key=lambda e: e.number)
-    session.notify_changed("cues")
-    return {"ok": True, "cue": entry.to_dict()}
-
-
-def _h_delete_cue(session, params):
-    """delete_cue(uid) → {ok}
-
-    Borra una CueEntry. NO borra el CuePoint homónimo (son entidades separadas).
-    """
-    uid = params.get("uid")
-    if not uid:
-        return {"ok": False, "error": "uid requerido"}
-    entries = session.timeline.cue_list.entries
-    before = len(entries)
-    session.snapshot()
-    session.timeline.cue_list.entries = [e for e in entries if e.uid != uid]
-    if len(session.timeline.cue_list.entries) == before:
-        return {"ok": False, "error": "cue no encontrado"}
-    if session.timeline.cue_list.active_uid == uid:
-        session.timeline.cue_list.active_uid = None
-    session.notify_changed("cues")
-    return {"ok": True}
-
-
-def _h_update_cue(session, params):
-    """update_cue(uid, name?, t_ms?, number?, fade_in_ms?, hold_ms?) → {ok, cue}
-
-    Actualiza campos de una CueEntry existente (los campos no indicados no cambian).
-    """
-    uid = params.get("uid")
-    if not uid:
-        return {"ok": False, "error": "uid requerido"}
-    entry = next((e for e in session.timeline.cue_list.entries if e.uid == uid), None)
-    if entry is None:
-        return {"ok": False, "error": "cue no encontrado"}
-    session.snapshot()
-    if "name" in params:
-        entry.name = str(params["name"])
-    if "t_ms" in params:
-        entry.t_ms = int(params["t_ms"])
-    if "number" in params:
-        entry.number = float(params["number"])
-    if "fade_in_ms" in params:
-        entry.fade_in_ms = int(params["fade_in_ms"])
-    if "hold_ms" in params:
-        entry.hold_ms = int(params["hold_ms"])
-    if "auto_follow" in params:
-        entry.auto_follow = bool(params["auto_follow"])
-    session.notify_changed("cues")
-    return {"ok": True, "cue": entry.to_dict()}
-
-
-def _h_reorder_cues(session, params):
-    """reorder_cues() → {ok, cues}
-
-    Reordena la CueList por el campo number (llamar tras editar numbers).
-    """
-    session.timeline.cue_list.entries.sort(key=lambda e: e.number)
-    session.notify_changed("cues")
-    return {"ok": True, "cues": [e.to_dict() for e in session.timeline.cue_list.entries]}
-
-
-def _h_list_cues(session, params):
-    """list_cues() → {ok, cues: [...], active_uid: str|None}"""
-    cue_list = session.timeline.cue_list
-    return {
-        "ok": True,
-        "cues": [e.to_dict() for e in cue_list.entries],
-        "active_uid": cue_list.active_uid,
-    }
-
-
-def _h_go_cue(session, params):
-    """go_cue(uid) → {ok, cue}
-
-    Salta al cue: seek al t_ms, inicia fade si fade_in_ms > 0, programa
-    auto-follow si cue.auto_follow=True. Emite cue_changed al stream.
-    """
-    uid = params.get("uid")
-    if not uid:
-        return {"ok": False, "error": "uid requerido"}
-    cue = session.go_cue(uid)
-    if cue is None:
-        return {"ok": False, "error": "cue no encontrado"}
-    return {"ok": True, "cue": cue.to_dict()}
-
-
-def _h_go_next_cue(session, params):
-    """go_next_cue() → {ok, cue: CueEntry|None}
-
-    Avanza al siguiente cue por número. Si ya es el último: {ok, cue: None}.
-    """
-    cue = session.go_next_cue()
-    return {"ok": True, "cue": cue.to_dict() if cue else None}
-
-
-def _h_go_prev_cue(session, params):
-    """go_prev_cue() → {ok, cue: CueEntry|None}
-
-    Retrocede al cue anterior por número. Si ya es el primero: {ok, cue: None}.
-    """
-    cue = session.go_prev_cue()
-    return {"ok": True, "cue": cue.to_dict() if cue else None}
-
-
-def _h_get_cue_state(session, params):
-    """get_cue_state() → {ok, active_uid, fade_pct: 0..1, next_uid} (O(1))"""
-    return {"ok": True, **session.get_cue_state()}
 
 
 # ── E3 — Export de video preview ─────────────────────────────────────────────
@@ -3314,37 +2686,6 @@ _LOCAL = {
     "list_autosaves": _h_list_autosaves,
     "restore_autosave": _h_restore_autosave,
     "discard_autosave_prompt": _h_discard_autosave_prompt,
-    # C1 — Performance grid: lanzar patterns en vivo
-    "live_assign_slot": _h_live_assign_slot,
-    "live_trigger": _h_live_trigger,
-    "live_release": _h_live_release,
-    "live_stop_all": _h_live_stop_all,
-    "get_live_state": _h_get_live_state,
-    # C2 — Macros en vivo
-    "set_macro": _h_set_macro,
-    # I1 — Grabación en vivo de macros
-    "start_record": _h_start_record,
-    "stop_record": _h_stop_record,
-    "get_record_state": _h_get_record_state,
-    # I2 — Marcadores de timeline con nombre, color y categoría
-    "list_markers": _h_list_markers,
-    "add_marker": _h_add_marker,
-    "delete_marker": _h_delete_marker,
-    "update_marker": _h_update_marker,
-    # I3 — Grupos colapsables
-    "get_group_clips": _h_get_group_clips,
-    # D1 — Auto-VJ por reglas
-    "autovj_get_state": _h_autovj_get_state,
-    "autovj_set_ruleset": _h_autovj_set_ruleset,
-    "autovj_activate_preset": _h_autovj_activate_preset,
-    "autovj_update_rule": _h_autovj_update_rule,
-    "autovj_save": _h_autovj_save,
-    "autovj_load": _h_autovj_load,
-    # D2 — Análisis en vivo (entrada de audio)
-    "live_input_list_devices": _h_live_input_list_devices,
-    "live_input_start": _h_live_input_start,
-    "live_input_stop": _h_live_input_stop,
-    "live_input_get_state": _h_live_input_get_state,
     # E2 — OSC bridge (ROADMAP v3)
     "osc_get_state": _h_osc_get_state,
     "osc_set_config": _h_osc_set_config,
@@ -3363,16 +2704,6 @@ _LOCAL = {
     "tempo_sync_get_state": _h_tempo_sync_get_state,
     "tempo_sync_set_mode": _h_tempo_sync_set_mode,
     "tempo_sync_list_midi_ports": _h_tempo_sync_list_midi_ports,
-    # E1 — Sistema de Cues profesional (ROADMAP v3)
-    "add_cue": _h_add_cue,
-    "delete_cue": _h_delete_cue,
-    "update_cue": _h_update_cue,
-    "reorder_cues": _h_reorder_cues,
-    "list_cues": _h_list_cues,
-    "go_cue": _h_go_cue,
-    "go_next_cue": _h_go_next_cue,
-    "go_prev_cue": _h_go_prev_cue,
-    "get_cue_state": _h_get_cue_state,
     # J3 — Biblioteca GDTF: browser y búsqueda
     "list_gdtf_profiles": _h_list_gdtf_profiles,
     "add_fixture_from_gdtf": _h_add_fixture_from_gdtf,
@@ -3435,6 +2766,47 @@ _TIMELINE_MUTATORS |= _handlers_pkg.TIMELINE_MUTATORS
 _RIG_MUTATORS |= _handlers_pkg.RIG_MUTATORS
 
 # Compat: tests y server/web.py importan estos nombres desde server.dispatcher.
+from server.handlers.autovj import (  # noqa: E402,F401
+    _h_autovj_activate_preset,
+    _h_autovj_get_state,
+    _h_autovj_load,
+    _h_autovj_save,
+    _h_autovj_set_ruleset,
+    _h_autovj_update_rule,
+    _h_live_input_get_state,
+    _h_live_input_list_devices,
+    _h_live_input_start,
+    _h_live_input_stop,
+)
+from server.handlers.cues import (  # noqa: E402,F401
+    _h_add_cue,
+    _h_delete_cue,
+    _h_get_cue_state,
+    _h_go_cue,
+    _h_go_next_cue,
+    _h_go_prev_cue,
+    _h_list_cues,
+    _h_reorder_cues,
+    _h_update_cue,
+)
+from server.handlers.live import (  # noqa: E402,F401
+    _h_get_live_state,
+    _h_get_record_state,
+    _h_live_assign_slot,
+    _h_live_release,
+    _h_live_stop_all,
+    _h_live_trigger,
+    _h_set_macro,
+    _h_start_record,
+    _h_stop_record,
+)
+from server.handlers.markers import (  # noqa: E402,F401
+    _h_add_marker,
+    _h_delete_marker,
+    _h_get_group_clips,
+    _h_list_markers,
+    _h_update_marker,
+)
 from server.handlers.patch import (  # noqa: E402,F401
     _get_artnet_ip_for_universe,
     _h_duplicate_fixture,
