@@ -18,6 +18,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src._paths import PROJECT_DIR
+from src.log import get_logger
+
+_log = get_logger(__name__)
 
 PROJECTS_DIR  = PROJECT_DIR / 'projects'
 
@@ -101,7 +104,7 @@ class Project:
                 notes          = data.get('notes', ''),
             )
         except Exception as e:
-            print(f"[project] Error cargando {pf}: {e}")
+            _log.warning(f"[project] Error cargando {pf}: {e}")
             return None
 
 
@@ -233,7 +236,7 @@ class ProjectManager:
             raise RuntimeError("No hay proyecto activo")
         p.folder.mkdir(parents=True, exist_ok=True)
         timeline.save(p.show_file)
-        print(f"[project] Show guardado: {p.show_file}")
+        _log.info(f"[project] Show guardado: {p.show_file}")
 
     def save_rig(self, rig, project: Project | None = None):
         """Guarda el rig en rig.json del proyecto activo."""
@@ -242,7 +245,7 @@ class ProjectManager:
             raise RuntimeError("No hay proyecto activo")
         p.folder.mkdir(parents=True, exist_ok=True)
         rig.save(p.rig_file)
-        print(f"[project] Rig guardado: {p.rig_file}")
+        _log.info(f"[project] Rig guardado: {p.rig_file}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -267,11 +270,11 @@ def get_manager() -> ProjectManager:
 if __name__ == '__main__':
     pm = ProjectManager()
     proj = pm.ensure_migrated()
-    print(f"\nProyecto activo: {proj.name!r} (slug={proj.slug})")
-    print(f"  audio:    {proj.audio}")
-    print(f"  show:     {proj.show_file}  (existe={proj.show_file.is_file()})")
-    print(f"  rig:      {proj.rig_file}   (existe={proj.rig_file.is_file()})")
-    print(f"  analysis: {proj.analysis_file}  (existe={proj.analysis_file.is_file()})")
-    print("\nProyectos disponibles:")
+    _log.info(f"\nProyecto activo: {proj.name!r} (slug={proj.slug})")
+    _log.info(f"  audio:    {proj.audio}")
+    _log.info(f"  show:     {proj.show_file}  (existe={proj.show_file.is_file()})")
+    _log.info(f"  rig:      {proj.rig_file}   (existe={proj.rig_file.is_file()})")
+    _log.info(f"  analysis: {proj.analysis_file}  (existe={proj.analysis_file.is_file()})")
+    _log.info("\nProyectos disponibles:")
     for p in pm.list_projects():
-        print(f"  [{p.slug}] {p.name}")
+        _log.info(f"  [{p.slug}] {p.name}")

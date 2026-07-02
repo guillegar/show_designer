@@ -14,6 +14,10 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from src.log import get_logger
+
+_log = get_logger(__name__)
+
 if TYPE_CHECKING:
     from fixtures import FixtureRig
     from timeline_model import Clip, Timeline
@@ -375,9 +379,9 @@ if __name__ == '__main__':
 
         # CSV clips
         n = export_clips_csv(tl, p / 'clips.csv')
-        print(f"[OK] CSV clips: {n} filas -> {p/'clips.csv'}")
+        _log.info(f"[OK] CSV clips: {n} filas -> {p/'clips.csv'}")
 
         # QLC+ XML
         stats = export_qlc_workspace(tl, None, p / 'show.qxw', song_name='Test')
-        print(f"[OK] QLC+ XML: {stats} -> {p/'show.qxw'}")
-        print((p / 'show.qxw').read_text(encoding='utf-8')[:500])
+        _log.info(f"[OK] QLC+ XML: {stats} -> {p/'show.qxw'}")
+        _log.info((p / 'show.qxw').read_text(encoding='utf-8')[:500])

@@ -14,6 +14,9 @@ from typing import Any, Optional
 from uuid import uuid4
 
 from src._paths import PROJECT_DIR
+from src.log import get_logger
+
+_log = get_logger(__name__)
 
 TIMELINE_FILE = PROJECT_DIR / 'show_timeline.json'
 
@@ -548,8 +551,8 @@ def make_demo_timeline(duration_ms: int = 273_300) -> Timeline:
 if __name__ == '__main__':
     # Demo: crear timeline de prueba y guardarlo
     tl = make_demo_timeline()
-    print(f"Timeline con {len(tl.clips)} clips. Duración: {tl.duration_ms/1000:.1f}s")
+    _log.info(f"Timeline con {len(tl.clips)} clips. Duración: {tl.duration_ms/1000:.1f}s")
     for c in tl.clips:
-        print(f"  Track {c.track}: effect_id={c.effect_id}, {c.start_ms}–{c.end_ms} ms")
+        _log.info(f"  Track {c.track}: effect_id={c.effect_id}, {c.start_ms}–{c.end_ms} ms")
     tl.save()
-    print(f"Guardado en {TIMELINE_FILE.name}")
+    _log.info(f"Guardado en {TIMELINE_FILE.name}")

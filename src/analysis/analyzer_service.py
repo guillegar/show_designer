@@ -42,6 +42,9 @@ from typing import Any
 import numpy as np
 
 from src._paths import ANALIZADAS_DIR
+from src.log import get_logger
+
+_log = get_logger(__name__)
 
 # ───────────────────────────────────────────────────────────────
 # Vocabulario de tipos de sección (vocabulario híbrido + libre)
@@ -258,7 +261,7 @@ class Curation:
             with open(path, encoding='utf-8') as f:
                 data = json.load(f)
             if data.get('version') != cls.SCHEMA_VERSION:
-                print(f"[curation] versión {data.get('version')} no soportada, ignorando")
+                _log.warning(f"[curation] versión {data.get('version')} no soportada, ignorando")
                 return c
             for sl in data.get('section_labels', []):
                 c.section_labels[int(sl['idx'])] = {
@@ -281,7 +284,7 @@ class Curation:
             c.threshold_overrides = dict(data.get('manual_threshold_overrides', {}))
             c.cue_seeds = list(data.get('cue_seeds', []))
         except Exception as e:
-            print(f"[curation] error cargando {path}: {e}")
+            _log.warning(f"[curation] error cargando {path}: {e}")
         return c
 
     def save(self) -> None:
@@ -506,7 +509,7 @@ class AnalysisService:
         self._timeseries = {k: npz[k] for k in npz.files}
         # Pre-cache: los tiempos del grid
         if 'times' not in self._timeseries:
-            print("[analyzer_service] timeseries.npz sin 'times', interpolación deshabilitada")
+            _log.warning("[analyzer_service] timeseries.npz sin 'times', interpolación deshabilitada")
 
     # ── Summary ───────────────────────────────────────────────
     @property
@@ -915,65 +918,65 @@ def discover_analyzed_songs() -> list[str]:
 
 if __name__ == '__main__':
     import sys
-    print("=== analyzer_service.py self-test ===")
-    print(f"Canciones analizadas: {discover_analyzed_songs()}")
+    _log.info("=== analyzer_service.py self-test ===")
+    _log.info(f"Canciones analizadas: {discover_analyzed_songs()}")
 
     svc = default_service()
-    print(f"Has analysis: {svc.has_analysis}")
-    print(f"Has timeseries: {svc.has_timeseries}")
+    _log.info(f"Has analysis: {svc.has_analysis}")
+    _log.info(f"Has timeseries: {svc.has_timeseries}")
 
     if not svc.has_analysis:
-        print("No analysis available — saliendo")
+        _log.info("No analysis available — saliendo")
         sys.exit(0)
 
     summary = svc.summary
-    print(f"Summary keys: {list(summary.keys())}")
-    print(f"  BPM: {summary['bpm']} ({summary['bpm_source']})")
-    print(f"  Beats: {summary['beat_count']}")
-    print(f"  Sections: {summary['num_sections']}")
-    print(f"  Downbeats source: {summary['downbeats_source']}")
-    print(f"  Has stems: {summary['has_stems']}")
-    print(f"  Has piano_roll: {summary['has_piano_roll']}")
+    _log.info(f"Summary keys: {list(summary.keys())}")
+    _log.info(f"  BPM: {summary['bpm']} ({summary['bpm_source']})")
+    _log.info(f"  Beats: {summary['beat_count']}")
+    _log.info(f"  Sections: {summary['num_sections']}")
+    _log.info(f"  Downbeats source: {summary['downbeats_source']}")
+    _log.info(f"  Has stems: {summary['has_stems']}")
+    _log.info(f"  Has piano_roll: {summary['has_piano_roll']}")
 
     secs = svc.list_sections()
-    print(f"\nSecciones ({len(secs)}):")
+    _log.info(f"\nSecciones ({len(secs)}):")
     for s in secs:
-        print(f"  [{s.idx}] {s.start:7.2f}->{s.end:7.2f}  E={s.energy:.4f}  {s.label}"
+        _log.info(f"  [{s.idx}] {s.start:7.2f}->{s.end:7.2f}  E={s.energy:.4f}  {s.label}"
               + (f"  name={s.name!r} type={s.type!r}" if s.name or s.type else ""))
 
     beats = svc.list_beats(0, 10)
-    print(f"\nBeats primeros 10s: {len(beats)} ({beats[:5]}...)")
+    _log.info(f"\nBeats primeros 10s: {len(beats)} ({beats[:5]}...)")
 
     downbeats = svc.list_downbeats(0, 20)
-    print(f"Downbeats primeros 20s: {len(downbeats)} ({downbeats})")
+    _log.info(f"Downbeats primeros 20s: {len(downbeats)} ({downbeats})")
 
     kicks = svc.list_events('kick', 0, 30)
-    print(f"\nKicks 0-30s: {len(kicks)}")
+    _log.info(f"\nKicks 0-30s: {len(kicks)}")
 
     drops = svc.find_drops()
-    print(f"\nDrops detectados ({len(drops)}):")
+    _log.info(f"\nDrops detectados ({len(drops)}):")
     for d in drops:
-        print(f"  Section {d['idx']}: start={d['start']:.1f}s "
+        _log.info(f"  Section {d['idx']}: start={d['start']:.1f}s "
               f"energy_jump={d['energy_jump_ratio']:.2f}")
 
     bdwn = svc.find_breakdowns()
-    print(f"\nBreakdowns ({len(bdwn)}):")
+    _log.info(f"\nBreakdowns ({len(bdwn)}):")
     for b in bdwn:
-        print(f"  Section {b['idx']}: {b['start']:.1f}->{b['end']:.1f} "
+        _log.info(f"  Section {b['idx']}: {b['start']:.1f}->{b['end']:.1f} "
               f"({b['duration']:.1f}s)  E={b['energy']:.4f}")
 
     feats = svc.features_at(60.0)
-    print(f"\nFeatures @ t=60s: {sorted(feats.keys())}")
-    print(f"  rms={feats.get('rms', 0):.4f}  centroid={feats.get('centroid', 0):.0f}Hz")
+    _log.info(f"\nFeatures @ t=60s: {sorted(feats.keys())}")
+    _log.info(f"  rms={feats.get('rms', 0):.4f}  centroid={feats.get('centroid', 0):.0f}Hz")
 
     ctx = svc.get_audio_context(60.0)
-    print(f"\nAudio context @ t=60s keys: {sorted(ctx.keys())}")
-    print(f"  rms={ctx['rms']:.4f}  energy={ctx['energy']:.4f}  dtempo={ctx.get('dtempo', 0):.1f}")
+    _log.info(f"\nAudio context @ t=60s keys: {sorted(ctx.keys())}")
+    _log.info(f"  rms={ctx['rms']:.4f}  energy={ctx['energy']:.4f}  dtempo={ctx.get('dtempo', 0):.1f}")
 
     # Curation
-    print(f"\nCuration en: {svc.curation.path}")
-    print(f"  section_labels: {len(svc.curation.section_labels)}")
-    print(f"  disabled: {len(svc.curation.disabled_events)}")
-    print(f"  manuales: {len(svc.curation.manual_events)}")
+    _log.info(f"\nCuration en: {svc.curation.path}")
+    _log.info(f"  section_labels: {len(svc.curation.section_labels)}")
+    _log.info(f"  disabled: {len(svc.curation.disabled_events)}")
+    _log.info(f"  manuales: {len(svc.curation.manual_events)}")
 
-    print("\n[OK] self-test completado")
+    _log.info("\n[OK] self-test completado")

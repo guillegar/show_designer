@@ -10,6 +10,10 @@ from typing import Any, ClassVar
 
 import numpy as np
 
+from src.log import get_logger
+
+_log = get_logger(__name__)
+
 # ------------------------------------------------------------
 # v2.3: Constantes de geometría de las barras
 # ------------------------------------------------------------
@@ -1716,17 +1720,17 @@ class EffectLibrary:
                         if not isinstance(eff_instance, Effect):
                             continue
                         if eff_id < PLUGIN_BASE_ID:
-                            print(f"[plugin] AVISO: {plugin_file.name} usa ID {eff_id} "
+                            _log.info(f"[plugin] AVISO: {plugin_file.name} usa ID {eff_id} "
                                   f"(< {PLUGIN_BASE_ID}). Reasignando a {next_auto_id}.")
                             eff_id = next_auto_id
                         if eff_id in self.effects:
-                            print(f"[plugin] AVISO: ID {eff_id} ya existe. Reasignando a {next_auto_id}.")
+                            _log.info(f"[plugin] AVISO: ID {eff_id} ya existe. Reasignando a {next_auto_id}.")
                             eff_id = next_auto_id
                         self.effects[eff_id] = eff_instance
                         next_auto_id = max(next_auto_id, eff_id + 1)
                         count += 1
                     if count:
-                        print(f"[plugin] {plugin_file.name}: {count} efectos cargados (PLUGIN_EFFECTS)")
+                        _log.info(f"[plugin] {plugin_file.name}: {count} efectos cargados (PLUGIN_EFFECTS)")
                     continue
 
                 # 2) Autodescubrir subclases concretas de Effect en el módulo
@@ -1740,16 +1744,16 @@ class EffectLibrary:
                         try:
                             instance = cls()
                             self.effects[next_auto_id] = instance
-                            print(f"[plugin] {plugin_file.name}: {attr_name} -> ID {next_auto_id}")
+                            _log.info(f"[plugin] {plugin_file.name}: {attr_name} -> ID {next_auto_id}")
                             next_auto_id += 1
                             loaded += 1
                         except Exception as e:
-                            print(f"[plugin] {plugin_file.name}: error instanciando {attr_name}: {e}")
+                            _log.warning(f"[plugin] {plugin_file.name}: error instanciando {attr_name}: {e}")
                 if loaded == 0:
-                    print(f"[plugin] {plugin_file.name}: ninguna subclase de Effect encontrada")
+                    _log.info(f"[plugin] {plugin_file.name}: ninguna subclase de Effect encontrada")
 
             except Exception as e:
-                print(f"[plugin] Error cargando {plugin_file.name}: {e}")
+                _log.warning(f"[plugin] Error cargando {plugin_file.name}: {e}")
                 import traceback; traceback.print_exc()
 
     def get_effect(self, effect_id: int) -> Effect | None:
@@ -1784,11 +1788,11 @@ if __name__ == "__main__":
     # Test básico
     import math
     library = EffectLibrary()
-    print(f"[OK] Cargados {len(library.effects)} efectos")
+    _log.info(f"[OK] Cargados {len(library.effects)} efectos")
 
     # Test un efecto
     effect = library.get_effect(0)
-    print(f"[OK] Efecto 0: {effect.name}")
+    _log.info(f"[OK] Efecto 0: {effect.name}")
 
     # Renderizar un frame de prueba
     audio_ctx = {
@@ -1799,5 +1803,5 @@ if __name__ == "__main__":
         'flux': 0.4,
     }
     frame = effect.render(25, np.zeros((NUM_BARS, 93, 3)), audio_ctx)
-    print(f"[OK] Frame shape: {frame.shape}")
-    print("[OK] Effects Engine initialized successfully!")
+    _log.info(f"[OK] Frame shape: {frame.shape}")
+    _log.info("[OK] Effects Engine initialized successfully!")

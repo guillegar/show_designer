@@ -29,6 +29,10 @@ import threading
 import traceback
 from collections.abc import Callable
 
+from src.log import get_logger
+
+_log = get_logger(__name__)
+
 # v1.9 F2 — silenciar logs ERROR de la librería websockets cuando llegan
 # conexiones TCP mal formadas (Test-NetConnection, healthchecks, etc.).
 # El handshake fallido es esperable y nuestro exception_handler ya lo gestiona,
@@ -741,7 +745,7 @@ def _dirty_timeline(app, refresh_props=False):
                 app.props.set_clips([c for c in app.tl_view.selected_clips
                                      if c in app.timeline.clips])
         except Exception as e:
-            print(f"[mcp_bridge] _dirty_timeline error: {e}")
+            _log.warning(f"[mcp_bridge] _dirty_timeline error: {e}")
     _qt_call(app, _do)
 
 
@@ -1504,7 +1508,7 @@ def _dispatch(app, msg: dict) -> dict:
         return {"jsonrpc": "2.0", "id": msg_id, "result": result}
     except Exception as e:
         tb = traceback.format_exc()
-        print(f"[mcp_bridge] Error en {method}:\n{tb}")
+        _log.warning(f"[mcp_bridge] Error en {method}:\n{tb}")
         return {"jsonrpc": "2.0", "id": msg_id,
                 "error": {"code": -32000, "message": str(e), "data": tb}}
 
@@ -1517,7 +1521,7 @@ async def _handle_client(websocket, app_provider):
     thread del bridge. Las InvalidMessage durante handshake se manejan en
     el exception handler del loop (set_exception_handler en MCPBridge.start).
     """
-    print("[mcp_bridge] cliente conectado")
+    _log.info("[mcp_bridge] cliente conectado")
     try:
         async for raw in websocket:
             try:
@@ -1542,14 +1546,14 @@ async def _handle_client(websocket, app_provider):
     except Exception as e:
         # v1.9 F2: cualquier otra cosa (cliente que se va, payload roto,
         # error de socket) se loguea pero NO mata el thread/loop.
-        print(f"[mcp_bridge] conexión cerrada por error: "
+        _log.warning(f"[mcp_bridge] conexión cerrada por error: "
               f"{type(e).__name__}: {e}")
     finally:
-        print("[mcp_bridge] cliente desconectado")
+        _log.info("[mcp_bridge] cliente desconectado")
 
 
 async def _server_main(app_provider):
-    print(f"[mcp_bridge] WebSocket listening on ws://{HOST}:{PORT}")
+    _log.info(f"[mcp_bridge] WebSocket listening on ws://{HOST}:{PORT}")
     async with websockets.serve(lambda ws: _handle_client(ws, app_provider),
                                 HOST, PORT, ping_interval=20):
         await asyncio.Future()  # corre para siempre
@@ -1575,7 +1579,7 @@ class MCPBridge:
         if self._thread is not None:
             return
         if websockets is None:
-            print("[mcp_bridge] websockets no instalado; bridge deshabilitado "
+            _log.info("[mcp_bridge] websockets no instalado; bridge deshabilitado "
                   "(pip install websockets para habilitarlo)")
             return
 
@@ -1603,7 +1607,7 @@ class MCPBridge:
                 return   # ignorar silencioso — son normales
             # Errores reales sí se loguean
             exc_name = type(exc).__name__ if exc else 'no-exc'
-            print(f"[mcp_bridge] async error: {msg} ({exc_name})")
+            _log.warning(f"[mcp_bridge] async error: {msg} ({exc_name})")
 
         def _run():
             self._loop = asyncio.new_event_loop()
@@ -1612,7 +1616,7 @@ class MCPBridge:
             try:
                 self._loop.run_until_complete(_server_main(self.app_provider))
             except Exception as e:
-                print(f"[mcp_bridge] thread terminated: {e}")
+                _log.info(f"[mcp_bridge] thread terminated: {e}")
         self._thread = threading.Thread(target=_run, daemon=True, name="mcp_bridge")
         self._thread.start()
 
@@ -1648,16 +1652,16 @@ if __name__ == "__main__":
             show_engine = None
             tl_view = type("V", (), {"_snap_grid": "beat", "_snap_on": True})()
             library = type("L", (), {"effects": {}})()
-            def _send_blackout(self): print("blackout!")
+            def _send_blackout(self): _log.info("[mock] blackout!")
             def _refresh_cue_buttons(self): pass
-            def _trigger_cue(self, s): print(f"trigger cue {s}")
+            def _trigger_cue(self, s): _log.info(f"[mock] trigger cue {s}")
             def _clear_cue(self, s): pass
         app = MockApp()
-        print("[mock] Servidor WS arrancando con MockApp en ws://127.0.0.1:9876")
+        _log.info("[mock] Servidor WS arrancando con MockApp en ws://127.0.0.1:9876")
         try:
             asyncio.run(_server_main(lambda: app))
         except KeyboardInterrupt:
-            print("\n[mock] Cerrado")
+            _log.info("\n[mock] Cerrado")
     else:
-        print("Este módulo se importa desde el server / mcp_show_server.")
-        print("Para test standalone: python mcp_bridge.py --mock")
+        _log.info("Este módulo se importa desde el server / mcp_show_server.")
+        _log.info("Para test standalone: python mcp_bridge.py --mock")

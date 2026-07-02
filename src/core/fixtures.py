@@ -24,6 +24,9 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from src._paths import PROFILES_DIR, PROJECT_DIR
+from src.log import get_logger
+
+_log = get_logger(__name__)
 
 DEFAULT_RIG_FILE = PROJECT_DIR / 'fixtures.json'
 
@@ -126,7 +129,7 @@ def load_profile(profile_id: str) -> FixtureProfile | None:
                 from src.io.loaders.gdtf_profile import load_gdtf_profile
             return load_gdtf_profile(p_gdtf, profile_id=profile_id)
         except Exception as e:
-            print(f"[fixtures] No se pudo cargar {p_gdtf.name}: {e}")
+            _log.warning(f"[fixtures] No se pudo cargar {p_gdtf.name}: {e}")
             return None
 
     return None
@@ -318,17 +321,17 @@ def build_default_wled_rig() -> FixtureRig:
 # ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print("=== fixtures.py self-test ===")
-    print(f"Profiles disponibles: {list_available_profiles()}")
+    _log.info("=== fixtures.py self-test ===")
+    _log.info(f"Profiles disponibles: {list_available_profiles()}")
 
     rig = build_default_wled_rig()
-    print(f"Rig por defecto: {len(rig.fixtures)} fixtures")
-    print(f"Universos: {rig.universes()}")
-    print(f"Primero: {rig.fixtures[0]}")
-    print(f"Por legacy_bar(5): {rig.by_legacy_bar(5)}")
+    _log.info(f"Rig por defecto: {len(rig.fixtures)} fixtures")
+    _log.info(f"Universos: {rig.universes()}")
+    _log.info(f"Primero: {rig.fixtures[0]}")
+    _log.info(f"Por legacy_bar(5): {rig.by_legacy_bar(5)}")
 
     prof = rig.get_profile('wled_strip_93')
-    print(f"Profile wled_strip_93: {prof}")
+    _log.info(f"Profile wled_strip_93: {prof}")
 
     # Test save/load
     tmp = PROJECT_DIR / 'fixtures_test.json'
@@ -336,4 +339,4 @@ if __name__ == "__main__":
     rig2 = FixtureRig.load(tmp)
     assert len(rig2.fixtures) == len(rig.fixtures)
     tmp.unlink()
-    print("[OK] save/load test pasado")
+    _log.info("[OK] save/load test pasado")

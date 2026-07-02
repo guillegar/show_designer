@@ -19,6 +19,8 @@ from typing import Any
 try:
     from mcp.server.fastmcp import FastMCP
 except ImportError:
+    # print deliberado: es un chequeo de deps ANTES de que el logger exista, y
+    # este proceso habla MCP por stdout → los diagnósticos van SIEMPRE a stderr.
     print("Falta dependencia: pip install mcp", file=sys.stderr)
     sys.exit(1)
 
@@ -62,6 +64,10 @@ async def _rpc(method: str, params: dict | None = None) -> dict:
 
 
 import threading as _threading
+
+from src.log import get_logger
+
+_log = get_logger(__name__)
 
 # Loop dedicado en thread aparte: evita "Cannot run the event loop while another
 # loop is running" cuando FastMCP nos llama desde su propio event loop.

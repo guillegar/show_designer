@@ -299,9 +299,9 @@ class ShowEngine:
             from ..io.outputs.router import OutputRouter
             target_path = output_targets_path or (PROJECT_DIR / 'output_targets.json')
             self.router = OutputRouter.load(target_path)
-            print(f"[+] OutputRouter cargado: {len(self.router.targets)} universos enrutados")
+            _log.info(f"[+] OutputRouter cargado: {len(self.router.targets)} universos enrutados")
         except Exception as e:
-            print(f"[!] OutputRouter no disponible: {e}")
+            _log.warning(f"[!] OutputRouter no disponible: {e}")
         self.rig = rig    # FixtureRig | None
         self.analysis = analysis  # AnalysisService | None
 
@@ -314,9 +314,9 @@ class ShowEngine:
             try:
                 self.effect_library = EffectLibrary()
                 self.timeline_scheduler = TimelineScheduler()
-                print("[+] Effects engine initialized")
+                _log.info("[+] Effects engine initialized")
             except Exception as e:
-                print(f"[!] Error initializing effects: {e}")
+                _log.warning(f"[!] Error initializing effects: {e}")
                 self.use_effects = False
 
         self._load_data()
@@ -334,13 +334,13 @@ class ShowEngine:
                     from src.analysis.analyzer_service import default_service
                     self.analysis = default_service()
                 except Exception as e:
-                    print(f"[!] No se pudo crear AnalysisService default: {e}")
+                    _log.warning(f"[!] No se pudo crear AnalysisService default: {e}")
                     self.loaded = False
                     return
 
             svc = self.analysis
             if not svc.has_analysis:
-                print(f"[!] No analysis en {svc.analysis_dir}")
+                _log.info(f"[!] No analysis en {svc.analysis_dir}")
                 self.loaded = False
                 return
 
@@ -361,13 +361,13 @@ class ShowEngine:
             self.timeseries = svc._timeseries if svc.has_timeseries else None
 
             self.loaded = True
-            print(f"[+] ShowEngine inicializado vía AnalysisService "
+            _log.info(f"[+] ShowEngine inicializado vía AnalysisService "
                   f"(song_id={payload.get('song_id', '?')}, "
                   f"bpm={payload['global'].get('bpm', '?')}, "
                   f"downbeats_source={payload['global'].get('downbeats_source', '?')})")
 
         except Exception as e:
-            print(f"[!] Error cargando ShowEngine: {e}")
+            _log.warning(f"[!] Error cargando ShowEngine: {e}")
             import traceback
             traceback.print_exc()
             self.loaded = False
@@ -449,7 +449,7 @@ class ShowEngine:
             return audio_context
 
         except Exception as e:
-            print(f"[!] Error extracting audio context: {e}")
+            _log.warning(f"[!] Error extracting audio context: {e}")
             import traceback
             traceback.print_exc()
             return self._default_audio_context()
@@ -496,7 +496,7 @@ class ShowEngine:
                 return self._compute_frame_legacy(elapsed_time)
 
         except Exception as e:
-            print(f"[!] Error en compute_frame({elapsed_time}): {e}")
+            _log.warning(f"[!] Error en compute_frame({elapsed_time}): {e}")
             return self._compute_frame_legacy(elapsed_time)
 
     def _compute_frame_with_effects(self, elapsed_time: float) -> list[bytearray]:
@@ -554,7 +554,7 @@ class ShowEngine:
 
             except Exception as e:
                 # Log de error pero continúa con siguiente evento
-                print(f"[!] Error renderizando effect {event.effect_id}: {e}")
+                _log.warning(f"[!] Error renderizando effect {event.effect_id}: {e}")
                 continue
 
         # Agregar capa de fondo: sección actual
@@ -581,7 +581,7 @@ class ShowEngine:
             frame_3d = self.blend_frames(frame_3d, bg_frame, alpha=0.2)  # 20% fondo
 
         except Exception as e:
-            print(f"[!] Error rendering section background: {e}")
+            _log.warning(f"[!] Error rendering section background: {e}")
 
         # Convertir a list[bytearray] como espera la app
         rgb_frames = []
@@ -634,7 +634,7 @@ class ShowEngine:
             return rgb_frames
 
         except Exception as e:
-            print(f"[!] Error en _compute_frame_legacy({elapsed_time}): {e}")
+            _log.warning(f"[!] Error en _compute_frame_legacy({elapsed_time}): {e}")
             return [bytearray(LEDS * 3) for _ in range(NUM_BARS)]
 
     def auto_schedule_from_analysis(self, audio_path: str | None = None,
@@ -650,7 +650,7 @@ class ShowEngine:
 
         try:
             if self.analysis is None or not self.analysis.has_analysis:
-                print("[!] auto_schedule_from_analysis sin AnalysisService disponible")
+                _log.warning("[!] auto_schedule_from_analysis sin AnalysisService disponible")
                 return False
             svc = self.analysis
 
@@ -658,7 +658,7 @@ class ShowEngine:
             beats = svc.list_beats()
             if beats:
                 self.timeline_scheduler.add_beat_events(beats, beat_effect_id, scope="global")
-                print(f"[+] Scheduled {len(beats)} beat events")
+                _log.info(f"[+] Scheduled {len(beats)} beat events")
 
             # Onsets — usamos 'all' como fuente principal
             onsets_list = [e.time_sec for e in svc.list_events('onsets_all')]
@@ -666,7 +666,7 @@ class ShowEngine:
                 self.timeline_scheduler.add_onset_events(
                     onsets_list, onset_effect_id, scope="global"
                 )
-                print(f"[+] Scheduled {len(onsets_list)} onset events")
+                _log.info(f"[+] Scheduled {len(onsets_list)} onset events")
 
             # Spectral peaks - kicks como peaks de energía (respeta curación)
             kick_times = [e.time_sec for e in svc.list_events('kick')]
@@ -674,7 +674,7 @@ class ShowEngine:
                 self.timeline_scheduler.add_spectral_events(
                     kick_times, spectral_effect_id, peak_type="energy", scope="global"
                 )
-                print(f"[+] Scheduled {len(kick_times)} kick (energy peak) events")
+                _log.info(f"[+] Scheduled {len(kick_times)} kick (energy peak) events")
 
             # Sections - límites como triggers de transición
             section_starts = [s.start for s in svc.list_sections()]
@@ -683,12 +683,12 @@ class ShowEngine:
                 self.timeline_scheduler.add_section_events(
                     section_starts, effect_id=8, scope="global"
                 )
-                print(f"[+] Scheduled {len(section_starts)} section transition events")
+                _log.info(f"[+] Scheduled {len(section_starts)} section transition events")
 
             return True
 
         except Exception as e:
-            print(f"[!] Error en auto_schedule_from_analysis: {e}")
+            _log.warning(f"[!] Error en auto_schedule_from_analysis: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -849,7 +849,7 @@ class ShowEngine:
                 from .channel_effects import ChannelEffectLibrary
                 self._channel_library = ChannelEffectLibrary()
             except Exception as e:
-                print(f"[!] ChannelEffectLibrary no disponible: {e}")
+                _log.warning(f"[!] ChannelEffectLibrary no disponible: {e}")
                 self._channel_library = None
         return self._channel_library
 
@@ -883,7 +883,7 @@ class ShowEngine:
                     for k, v in result.items():
                         merged[k] = max(0, min(255, int(round(v))))
                 except Exception as e:
-                    print(f"[!] ChannelEffect {eff_id} render error: {e}")
+                    _log.warning(f"[!] ChannelEffect {eff_id} render error: {e}")
             return merged
 
         # Legacy: channel_effect_id + params (un solo efecto)
@@ -900,7 +900,7 @@ class ShowEngine:
             result = effect.render(elapsed, audio_context, getattr(clip, 'params', None) or {})
             return {k: max(0, min(255, int(round(v)))) for k, v in result.items()}
         except Exception as e:
-            print(f"[!] ChannelEffect {eff_id} render error: {e}")
+            _log.warning(f"[!] ChannelEffect {eff_id} render error: {e}")
             return {}
 
     def assemble_universe(self, universe_id: int, t: float,
