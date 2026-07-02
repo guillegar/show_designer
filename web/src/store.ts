@@ -49,6 +49,15 @@ export type Group = { name: string; bars: number[]; color: string; subgroups: st
 
 export type Tab = "projects" | "timeline" | "live" | "analyzer" | "patch" | "viewer3d" | "preview";
 
+// ── Envelopes de respuesta RPC (tipado de control.call; revisión 2026-06-30) ──
+// La sección puede llegar con `label` en vez de `name` (analyzer legacy).
+type RawSection = Partial<Section> & { label?: string; start: number; end: number };
+type SummaryResponse = {
+  available?: boolean;
+  summary?: { file?: string; bpm?: number; duration_s?: number;
+              key?: string | { tonic?: string; mode?: string } };
+};
+
 // Familia de efecto → variable CSS de color (design tokens)
 export const FAM_COLOR: Record<string, string> = {
   flash: "var(--fam-flash)", wave: "var(--fam-wave)", gradient: "var(--fam-gradient)",
@@ -150,13 +159,13 @@ export const useStore = create<Store>((set, get) => ({
 
   refreshAll: async () => {
     const [summary, clips, fixtures, effects, chEffects, sections, presets] = await Promise.all([
-      control.call("analyzer_summary").catch(() => null),
-      control.call("list_clips").catch(() => ({ clips: [] })),
-      control.call("list_fixtures").catch(() => ({ fixtures: [] })),
-      control.call("list_effects").catch(() => ({ effects: [] })),
-      control.call("list_channel_effects").catch(() => ({ effects: [] })),
-      control.call("analyzer_list_sections").catch(() => ({ sections: [] })),
-      control.call("list_presets").catch(() => ({ presets: [] })),
+      control.call<SummaryResponse>("analyzer_summary").catch(() => null),
+      control.call<{ clips: Clip[] }>("list_clips").catch(() => ({ clips: [] as Clip[] })),
+      control.call<{ fixtures: Fixture[] }>("list_fixtures").catch(() => ({ fixtures: [] as Fixture[] })),
+      control.call<{ effects: EffectInfo[] }>("list_effects").catch(() => ({ effects: [] as EffectInfo[] })),
+      control.call<{ effects: ChannelEffectInfo[] }>("list_channel_effects").catch(() => ({ effects: [] as ChannelEffectInfo[] })),
+      control.call<{ sections: RawSection[] }>("analyzer_list_sections").catch(() => ({ sections: [] as RawSection[] })),
+      control.call<{ presets: Preset[] }>("list_presets").catch(() => ({ presets: [] as Preset[] })),
     ]);
     get().refreshCues();
     get().refreshMarkers();
@@ -176,9 +185,9 @@ export const useStore = create<Store>((set, get) => ({
       fixtures: fixtures.fixtures ?? [],
       effects: effects.effects ?? [],
       channelEffects: chEffects.effects ?? [],
-      sections: (sections.sections ?? []).map((s: any) => ({
+      sections: (sections.sections ?? []).map((s) => ({
         ...s, name: s.name || s.label || "—", type: s.type || "",
-      })),
+      })) as Section[],
       presets: presets.presets ?? [],
     });
   },
@@ -189,45 +198,45 @@ export const useStore = create<Store>((set, get) => ({
     // solo aplica la última pedida. Evita que una respuesta vieja pise una
     // posición recién movida.
     const token = ++_clipsReqToken;
-    const r = await control.call("list_clips").catch(() => null);
+    const r = await control.call<{ clips: Clip[] }>("list_clips").catch(() => null);
     if (r && token === _clipsReqToken) set({ clips: r.clips ?? [] });
   },
   refreshFixtures: async () => {
-    const r = await control.call("list_fixtures").catch(() => null);
+    const r = await control.call<{ fixtures: Fixture[] }>("list_fixtures").catch(() => null);
     if (r) set({ fixtures: r.fixtures ?? [] });
   },
   refreshPresets: async () => {
-    const r = await control.call("list_presets").catch(() => null);
+    const r = await control.call<{ presets: Preset[] }>("list_presets").catch(() => null);
     if (r) set({ presets: r.presets ?? [] });
   },
   refreshCues: async () => {
-    const r = await control.call("list_cue_points").catch(() => null);
+    const r = await control.call<{ cues: Cue[] }>("list_cue_points").catch(() => null);
     if (r) set({ cues: r.cues ?? [] });
   },
   refreshMarkers: async () => {
-    const r = await control.call("list_markers").catch(() => null);
+    const r = await control.call<{ markers: Marker[] }>("list_markers").catch(() => null);
     if (r) set({ markers: r.markers ?? [] });
   },
   refreshSections: async () => {
-    const r = await control.call("analyzer_list_sections").catch(() => null);
+    const r = await control.call<{ sections: RawSection[] }>("analyzer_list_sections").catch(() => null);
     if (r) set({
-      sections: (r.sections ?? []).map((s: any) => ({ ...s, name: s.name || s.label || "—", type: s.type || "" })),
+      sections: (r.sections ?? []).map((s) => ({ ...s, name: s.name || s.label || "—", type: s.type || "" })) as Section[],
     });
   },
   refreshGroups: async () => {
-    const r = await control.call("list_groups").catch(() => null);
+    const r = await control.call<{ groups: Group[] }>("list_groups").catch(() => null);
     if (r) set({ groups: r.groups ?? [] });
   },
 
   // A3 — Patterns
   refreshPatterns: async () => {
     const token = ++_patternsReqToken;
-    const r = await control.call("list_patterns").catch(() => null);
+    const r = await control.call<{ patterns: Pattern[] }>("list_patterns").catch(() => null);
     if (r && token === _patternsReqToken) set({ patterns: r.patterns ?? [] });
   },
   refreshPatternInstances: async () => {
     const token = ++_patternInstancesReqToken;
-    const r = await control.call("list_pattern_instances").catch(() => null);
+    const r = await control.call<{ instances: PatternInstance[] }>("list_pattern_instances").catch(() => null);
     if (r && token === _patternInstancesReqToken) set({ patternInstances: r.instances ?? [] });
   },
   applyPatternMovesOptimistic: (calls) => {

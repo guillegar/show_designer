@@ -26,6 +26,8 @@ function ViewFallback() {
 }
 
 type ProjectInfo = { slug: string; name: string; audio_path: string };
+type ListProjectsResponse = { ok?: boolean; projects?: ProjectInfo[]; current?: string };
+type AuthRoleResponse = { ok?: boolean; role?: "operator" | "assistant" | "anonymous" };
 
 function ProjectSwitcher({ current }: { current: string }) {
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
@@ -35,7 +37,7 @@ function ProjectSwitcher({ current }: { current: string }) {
   const refreshAll = useStore((s) => s.refreshAll);
 
   useEffect(() => {
-    control.call("list_projects").then((r: any) => {
+    control.call<ListProjectsResponse>("list_projects").then((r) => {
       setProjects(r?.projects ?? []);
     }).catch(() => {});
   }, [current]);
@@ -119,13 +121,13 @@ export function App() {
     refreshAll();
     // L3: obtener rol del token actual
     const fetchRole = () => {
-      control.call("auth_get_role").then((r: any) => {
+      control.call<AuthRoleResponse>("auth_get_role").then((r) => {
         setRole(r?.role ?? "operator");
       }).catch(() => {});
     };
     fetchRole();
     control.onReconnect = () => { refreshAll(); fetchRole(); };
-    control.call("list_projects").then((r: any) => {
+    control.call<ListProjectsResponse>("list_projects").then((r) => {
       setCurrentSlug(r?.current ?? "");
     }).catch(() => {});
   }, [refreshAll, setRole]);

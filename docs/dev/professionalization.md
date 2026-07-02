@@ -23,8 +23,9 @@ Leyenda: ✅ hecho · 🟡 parcial (patrón establecido + resto documentado) · 
   **4517 → 2459 líneas (-46%)**. Resto de dominios: incremental.
 
 ## P2 — Pulido y operabilidad
-- [🟡] **#9 Despiece de `Timeline.tsx`** — **EN MARCHA**: `views/timeline/` con `WaveformCanvas` +
-  `GenerateShowModal` → **1791 → 1600 líneas** (gesto/optimista intactos). Resto: incremental.
+- [🟡] **#9 Despiece de `Timeline.tsx`** — **EN MARCHA**: `views/timeline/` con `WaveformCanvas`,
+  `GenerateShowModal`, `GenerateSectionModal` y `MarkerContextMenu` → **1791 → 1529 líneas**
+  (gesto/optimista intactos). Resto: incremental (toolbar, ruler, lanes).
 - [x] **#10 Code-splitting frontend** — `React.lazy` en todas las vistas menos Timeline: bundle
   inicial **624 → 524 kB** (gzip 192 → 166); 6 chunks bajo demanda. Verificado servido (HTTP 200).
 - [x] **#11 Higiene de config/secretos** — `docs/dev/configuration.md` (`LUCES_*` + secretos de output_targets).
@@ -51,6 +52,19 @@ Leyenda: ✅ hecho · 🟡 parcial (patrón establecido + resto documentado) · 
   `test_bench_compute_frame_…` (faltaba `session._recording` al construir la sesión con
   `object.__new__`) arregla 1. **Suite completa: 1063 tests, 0 fallos.**
 - **mypy baseline:** 95 errores en 17 ficheros (gradual, no bloqueante) — deuda a reducir.
+
+### 2026-07-01 · sesión 4 — frente frontend (en paralelo al worktree del dispatcher)
+- Reparto de trabajo: la tarea en background (worktree aislado) continúa los dominios del
+  dispatcher; esta sesión avanza SOLO frontend para evitar conflictos de merge.
+- **#9**: 2 extracciones más a `views/timeline/` — `GenerateSectionModal` (✨ Generar clips en
+  sección; estado sección/disparo/barras propio) y `MarkerContextMenu` (I2: color/categoría/
+  borrar). Timeline.tsx **1600 → 1529** (total −262 desde 1791).
+- **Tipado RPC** (hallazgo de la revisión: exceso de `any`): `control.call<T>()` tipado en TODOS
+  los fetch de `store.ts` (clips/fixtures/effects/sections/presets/cues/markers/groups/patterns/
+  instances + analyzer_summary) y `App.tsx` (list_projects, auth_get_role). **0 `: any`** en
+  ambos ficheros; `RawSection` modela el `label` legacy del analyzer.
+- Verificación: tsc+vite build, 36 Vitest, smoke real (:8000 — bundle nuevo servido + WS +
+  1358 clips).
 
 ### 2026-07-01 · sesión 3 — ADR-005 tanda 2 + Fase 6 cerrada
 - **#5 (tanda 2)**: 4 dominios más extraídos — `live.py` (C1+C2+I1, 9 handlers + `_live_emit`),

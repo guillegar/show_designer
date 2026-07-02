@@ -15,6 +15,8 @@ import { HelpOverlay } from "../components/HelpOverlay";
 import { xToMs, msToX } from "./timelineGeometry";
 import { WaveformCanvas } from "./timeline/WaveformCanvas";
 import { GenerateShowModal } from "./timeline/GenerateShowModal";
+import { GenerateSectionModal, DrawInfo } from "./timeline/GenerateSectionModal";
+import { MarkerContextMenu } from "./timeline/MarkerContextMenu";
 
 const NUM_BARS = 10;
 const LANE_H = 22;
@@ -74,9 +76,6 @@ export function TimelineView() {
   const [inspector, setInspector] = useState(false);
   const [detailClipId, setDetailClipId] = useState<string | null>(null);
   const [genOpen, setGenOpen] = useState(false);
-  const [genSec, setGenSec] = useState(0);
-  const [genTrig, setGenTrig] = useState("on_beat");
-  const [genAll, setGenAll] = useState(true);
   // M2: generación automática de show completo
   const [genShowOpen, setGenShowOpen] = useState(false);
   const [lastEffectDuration, setLastEffectDuration] = useState(() => {
@@ -992,18 +991,9 @@ export function TimelineView() {
   };
 
   // Info del efecto activo (preset o base) para generar
-  const drawInfo = activePreset && !isChannelPreset
+  const drawInfo: DrawInfo | null = activePreset && !isChannelPreset
     ? { effect_id: activePreset.base_effect_id, color: activePreset.color, params: activePreset.params, name: activePreset.name }
     : activeFx ? { effect_id: activeFx.id, color: "#3a7acc", params: {}, name: activeFx.name } : null;
-  const runGenerate = async () => {
-    if (!drawInfo || !sections[genSec]) return;
-    const s = sections[genSec];
-    const base = { start_sec: s.start, end_sec: s.end, effect_id: drawInfo.effect_id, color: drawInfo.color, clip_params: drawInfo.params, trigger: genTrig, scope: "per_bar" };
-    if (genAll) { for (let b = 0; b < NUM_BARS; b++) await control.call("generate_section", { ...base, track: b }); }
-    else await control.call("generate_section", { ...base, track: 0 });
-    setGenOpen(false);
-    refreshClips();
-  };
 
   const selClip = clips.find((c) => c.id === selectedClipId);
   const barTicks = Math.ceil(duration / barSec);
@@ -1602,73 +1592,12 @@ export function TimelineView() {
 
       {/* I2: menú contextual de marcador — color picker + categoría + borrar */}
       {markerMenu && (
-        <div className="modal-overlay" style={{ background: "transparent" }}
-          onMouseDown={(e) => { if (e.target === e.currentTarget) setMarkerMenu(null); }}>
-          <div className="marker-ctx-menu" style={{ position: "fixed", top: markerMenu.y, left: markerMenu.x, zIndex: 300 }}>
-            <div className="marker-ctx-row">
-              <label style={{ fontSize: 10, color: "var(--txt-3)" }}>Color</label>
-              <input type="color" value={markerMenu.color} style={{ width: 32, height: 22, border: "none", padding: 0, cursor: "pointer" }}
-                onChange={(e) => setMarkerMenu({ ...markerMenu, color: e.target.value })}
-                onBlur={() => {
-                  control.call("update_marker", { t_ms: markerMenu.t_ms, color: markerMenu.color }).then(refreshMarkers);
-                }} />
-            </div>
-            <div className="marker-ctx-row">
-              <label style={{ fontSize: 10, color: "var(--txt-3)" }}>Categoría</label>
-              <select className="field" style={{ height: 22, fontSize: 10 }} value={markerMenu.category}
-                onChange={(e) => {
-                  const cat = e.target.value as MarkerCategory;
-                  setMarkerMenu({ ...markerMenu, category: cat });
-                  control.call("update_marker", { t_ms: markerMenu.t_ms, category: cat }).then(refreshMarkers);
-                }}>
-                <option value="intro">Intro</option>
-                <option value="verso">Verso</option>
-                <option value="estribillo">Estribillo</option>
-                <option value="bridge">Bridge</option>
-                <option value="outro">Outro</option>
-                <option value="custom">Custom</option>
-              </select>
-            </div>
-            <button className="btn sm ghost" style={{ width: "100%", marginTop: 4, color: "var(--err)" }}
-              onClick={() => {
-                control.call("delete_marker", { time_ms: markerMenu.t_ms }).then(refreshMarkers);
-                setMarkerMenu(null);
-              }}>Borrar marcador</button>
-          </div>
-        </div>
+        <MarkerContextMenu initial={markerMenu} onClose={() => setMarkerMenu(null)} onChanged={refreshMarkers} />
       )}
 
       {genOpen && drawInfo && (
-        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setGenOpen(false); }}>
-          <div className="preset-editor">
-            <div className="ci-head"><h4>Generar · {drawInfo.name}</h4><button className="x" onClick={() => setGenOpen(false)}>×</button></div>
-            <div className="ci-body">
-              <div className="ci-row"><label>Sección</label>
-                <select value={genSec} onChange={(e) => setGenSec(+e.target.value)}>
-                  {sections.map((s, i) => <option key={i} value={i}>{s.name} ({fmtTime(s.start)})</option>)}
-                </select></div>
-              <div className="ci-row"><label>Disparo</label>
-                <select value={genTrig} onChange={(e) => setGenTrig(e.target.value)}>
-                  <option value="on_beat">en cada beat</option>
-                  <option value="on_downbeat">en cada compás</option>
-                  <option value="on_kick">en cada kick</option>
-                  <option value="on_snare">en cada snare</option>
-                  <option value="on_drop">en drops</option>
-                  <option value="every_500ms">cada 500 ms</option>
-                  <option value="fill">rellenar (1 clip)</option>
-                </select></div>
-              <div className="ci-row"><label>Barras</label>
-                <select value={genAll ? "all" : "one"} onChange={(e) => setGenAll(e.target.value === "all")}>
-                  <option value="all">Todas (0-9)</option>
-                  <option value="one">Solo Bar 0</option>
-                </select></div>
-              <div className="ci-row" style={{ marginTop: 6 }}>
-                <button className="btn primary sm" style={{ flex: 1 }} onClick={runGenerate}>Generar</button>
-              </div>
-              <p className="muted" style={{ fontSize: 10.5, lineHeight: 1.4 }}>Crea clips con el efecto/preset activo sincronizados a los eventos de la sección.</p>
-            </div>
-          </div>
-        </div>
+        <GenerateSectionModal drawInfo={drawInfo} sections={sections}
+          onClose={() => setGenOpen(false)} onGenerated={refreshClips} />
       )}
 
       {genShowOpen && (
