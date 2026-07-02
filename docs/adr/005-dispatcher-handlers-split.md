@@ -54,6 +54,8 @@ puras `f(session, params)` — también las consume el bridge); más churn sin b
 2. [x] Mover dominio **waveform** (B1) → `handlers/waveform.py`.
 3. [x] Mover dominio **proyectos** (galería/componentes/crear/copiar) → `handlers/projects.py`.
 4. [x] Mover dominio **patch/fixture editor** (v4 + Patch UX) → `handlers/patch.py`.
-5. [ ] Resto de dominios (cues, live, autovj, markers, mixer, export, …) — incremental, un commit
-   por dominio, suite verde tras cada uno.
-6. [ ] Al terminar: retirar re-exports de compat y actualizar imports de tests.
+5. [x] Tanda 2 (2026-07-01): **live** (C1+C2+I1), **markers** (I2+I3), **autovj** (D1+D2),
+   **cues** (E1) → `dispatcher.py` en 2459 líneas (-46% desde 4517).
+6. [ ] Resto de dominios (mixer, export/render, output-test E4, GDTF, K1/K2, M/N…) — incremental,
+   un commit por tanda, suite verde tras cada una.
+7. [ ] Al terminar: retirar re-exports de compat y actualizar imports de tests.

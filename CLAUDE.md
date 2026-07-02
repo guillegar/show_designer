@@ -457,8 +457,8 @@ Estado a **2026-06-30** · **v2.0 · 1043 tests Python + 36 Vitest · ROADMAP v2
   throttled** (el bug "IP mal configurada y no dice nada"). (18) `ShowEngine.close()` +
   `OutputRouter.close()` (cierran sockets, idempotentes) cableados al `@app.on_event("shutdown")` del
   server; `Timeline.save()` **atómico** (`.tmp` + `os.replace`). +4 tests (`test_logging_resources.py`).
-  432 verde. NOTA: el barrido mecánico de los ~251 `print()` restantes a logger es **incremental por
-  módulos** (no se hizo en bloque por churn/riesgo); de momento migrados los paths de red + `router.py`.
+  432 verde. NOTA: el barrido `print`→logger se completó el **2026-07-01** (server/ + src/); quedan
+  solo 3 prints deliberados (banner CLI de main.py + chequeos de deps a stderr de mcp_show_server).
 - **Fase 7 (core agnóstico + split editor) APLICADA** (2026-06-12): hallazgos 10,11,19.
   (10) `render_stub` + `BARS` (IPs de El Taser) + `_beat_env` + mapa de secciones → movidos a
   **`src/legacy_show.py`** (import perezoso para evitar circular; el core ya NO tiene defaults de
@@ -471,8 +471,8 @@ Estado a **2026-06-30** · **v2.0 · 1043 tests Python + 36 Vitest · ROADMAP v2
   `tests/test_timeline_waveform.py`; rama Qt de `_qt_call` (mcp_bridge) eliminada; PyQt5 fuera de
   requirements; `CREDITS.md` movido a `web/public/v3d/`. Tag `pre-qt-removal` = rollback. 432 verde.
 - ✅ **AUDITORÍA `ANALYSIS.md` COMPLETA**: 8 fases aplicadas (1→8), un commit por fase sobre
-  `timeline-fixes-2`. Único trabajo incremental que queda: barrido masivo `print`→logger (Fase 6,
-  hecho en paths de red). Progreso en el memory `analysis_audit_progress.md`.
+  `timeline-fixes-2`. El barrido `print`→logger (Fase 6) quedó **CERRADO el 2026-07-01** (server/ +
+  src/ completos; 3 prints deliberados documentados). Progreso en `analysis_audit_progress.md`.
 - ✅ **Fase 9 (bug UX, 2026-06-12) APLICADA: "el clip no se queda al soltarlo".** Síntoma real
   (aclarado por el usuario): el drag SÍ funciona, pero al soltar el clip volvía a su sitio. La
   hipótesis estática del "doble gesto" (stopPropagation) era FALSA — reproducido en vivo, la

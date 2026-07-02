@@ -15,10 +15,12 @@ Leyenda: ✅ hecho · 🟡 parcial (patrón establecido + resto documentado) · 
 - [x] **#8 mypy gradual** — config lenient en `pyproject.toml` + CI informativo (baseline 95 errores).
 - [🟡] **#7 Dispatch async** — decisión tomada: el global `run_in_executor` se **descarta** (rompería
   la invariante mono-hilo). Patrón correcto = offload por handler (ya en waveform/render/key).
-- [🟡] **#6 print → logger** — **`server/` COMPLETO** (31 migrados; banner CLI de `main.py` se queda
-  como print deliberado). Quedan ~111 en `src/` (mecánico, por módulo).
-- [🟡] **#5 Despiece de `dispatcher.py`** — **EN MARCHA (ADR-005)**: `server/handlers/` creado con 3
-  dominios (`waveform`, `projects`, `patch`) → **4517 → 2963 líneas**. Resto de dominios: incremental.
+- [x] **#6 print → logger** — **COMPLETO (server/ + src/)**: 31 + 106 migrados. Quedan solo 3 prints
+  deliberados y comentados (banner CLI de `main.py`; 2 chequeos de deps a stderr en
+  `mcp_show_server.py` — proceso stdio MCP, el logger no existe aún en ese punto).
+- [🟡] **#5 Despiece de `dispatcher.py`** — **EN MARCHA (ADR-005)**: `server/handlers/` con **7
+  dominios** (`waveform`, `projects`, `patch`, `live`, `markers`, `autovj`, `cues`) →
+  **4517 → 2459 líneas (-46%)**. Resto de dominios: incremental.
 
 ## P2 — Pulido y operabilidad
 - [🟡] **#9 Despiece de `Timeline.tsx`** — **EN MARCHA**: `views/timeline/` con `WaveformCanvas` +
@@ -49,6 +51,18 @@ Leyenda: ✅ hecho · 🟡 parcial (patrón establecido + resto documentado) · 
   `test_bench_compute_frame_…` (faltaba `session._recording` al construir la sesión con
   `object.__new__`) arregla 1. **Suite completa: 1063 tests, 0 fallos.**
 - **mypy baseline:** 95 errores en 17 ficheros (gradual, no bloqueante) — deuda a reducir.
+
+### 2026-07-01 · sesión 3 — ADR-005 tanda 2 + Fase 6 cerrada
+- **#5 (tanda 2)**: 4 dominios más extraídos — `live.py` (C1+C2+I1, 9 handlers + `_live_emit`),
+  `markers.py` (I2+I3, mutadores declarados en el módulo), `autovj.py` (D1+D2, 10 handlers),
+  `cues.py` (E1, 9 handlers). `dispatcher.py` **2963 → 2459** (total **-46%** desde 4517).
+  Gotcha del script de corte: los bloques deben extraerse **top-down** (el marcador final de cada
+  corte es el inicial del siguiente); en orden inverso el marcador desaparece antes de usarse.
+- **#6 (src/)**: barrido mecánico con heurística de nivel — 106 prints migrados en 9 ficheros.
+  Corrección manual: los 2 prints de chequeo de deps de `mcp_show_server.py` se REVIRTIERON a
+  `print(..., file=sys.stderr)` con comentario (el logger no existe aún y stdout es el canal MCP).
+  **La Fase 6 de ANALYSIS.md queda cerrada.**
+- Verificación de ambas: suite completa **1063/0** + ruff verde tras cada tanda.
 
 ### 2026-07-01 · sesión 2 — logging, ADR-005, splitting
 - **#6 (server/)**: 31 `print()` → `_log.info/warning/error` en `session.py`, `web.py`,
