@@ -120,7 +120,7 @@ _TIMELINE_MUTATORS = {
 # Métodos que mutan el rig de fixtures → regenerar rig_layout.json para el visor 3D
 # (si no, el visor muestra posiciones obsoletas tras mover/editar fixtures en Patch).
 _RIG_MUTATORS = {
-    "move_fixture", "set_fixture_property", "add_fixture", "delete_fixture",
+    "set_fixture_property", "add_fixture", "delete_fixture",
     "save_rig", "load_show",
 }
 
@@ -1016,665 +1016,6 @@ def _h_update_micro_event(session, params):
     return {"ok": True, "clip": clip.to_dict()}
 
 
-# ── J1 — Editor de patch visual 2D ───────────────────────────────────────────
-
-# Escenario 3D (coincide con session.sync_rig_layout → layout["stage"]).
-# El Patch 2D (patch_x/patch_y ∈ 0..1) mapea al plano del suelo del escenario:
-#   x_mundo = (patch_x - 0.5) * STAGE_W   ;   z_mundo = (patch_y - 0.5) * STAGE_D
-# La ALTURA (position.y) NO se toca aquí: solo se edita desde el panel 3D.
-STAGE_W = 12.0
-STAGE_D = 6.0
-
-
-def _update_layout_floor(proj, fixture_id, x, z):
-    """Si existe el rig_layout.json K1 (posiciones 3D explícitas que SOBREESCRIBEN
-    fx.position en el visor), actualiza x/z de este fixture preservando su altura
-    (y) y rotación. Así el visor 3D refleja el arrastre del Patch 2D aunque haya
-    override K1. No-op si no hay archivo K1."""
-    if proj is None:
-        return
-    import json as _json
-    lf = getattr(proj, "rig_layout_file", None)
-    if lf is None or not lf.is_file():
-        return
-    try:
-        with open(lf, encoding="utf-8") as f:
-            data = _json.load(f)
-        fixtures = data.get("fixtures", [])
-        ent = next((e for e in fixtures if e.get("id") == fixture_id), None)
-        if ent is None:
-            fixtures.append({"id": fixture_id, "x": x, "y": 0.0, "z": z,
-                             "rx": 0.0, "ry": 0.0, "rz": 0.0})
-        else:
-            ent["x"] = x
-            ent["z"] = z
-        data["fixtures"] = fixtures
-        tmp = lf.with_suffix(".tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            _json.dump(data, f, indent=2)
-        tmp.replace(lf)
-    except Exception:
-        pass
-
-
-def _h_move_fixture(session, params):
-    """move_fixture(fixture_id, x, y) → {ok, fixture}.
-
-    Mueve el fixture en el canvas 2D de patch. x/y normalizados 0.0..1.0.
-    Persiste el rig a disco (project/rig.json). Devuelve el fixture actualizado
-    (Invariante I3: actualización optimista en el UI).
-
-    Acepta también position=[x,y,z] (legado bridge) para compatibilidad.
-    En ese caso actualiza también fx.position y guarda patch_x/patch_y como la
-    proyección XZ normalizada (0.5 si sólo hay un fixture).
-    """
-    fixture_id = params.get("fixture_id")
-    if not fixture_id:
-        return {"ok": False, "error": "fixture_id requerido"}
-    rig = getattr(session, "fixture_rig", None)
-    if rig is None:
-        return {"ok": False, "error": "No hay rig cargado"}
-    fx = rig.by_id(fixture_id)
-    if fx is None:
-        return {"ok": False, "error": f"Fixture no encontrado: {fixture_id}"}
-
-    if "x" in params and "y" in params:
-        px = max(0.0, min(1.0, float(params["x"])))
-        py = max(0.0, min(1.0, float(params["y"])))
-        fx.patch_x, fx.patch_y = px, py
-        # Acoplar al 3D: el plano del suelo (x,z) sigue al Patch 2D; la ALTURA
-        # (position.y) se preserva (solo se edita desde el panel 3D).
-        oy = fx.position[1] if (fx.position and len(fx.position) > 1) else 0.0
-        fx.position = ((px - 0.5) * STAGE_W, oy, (py - 0.5) * STAGE_D)
-        _update_layout_floor(getattr(session, "project", None),
-                             fixture_id, fx.position[0], fx.position[2])
-    elif "position" in params:
-        # Path legado (puente MCP): patch_x/patch_y = proyección XZ normalizada
-        # sobre el bbox del rig (comportamiento histórico, no se toca).
-        pos = list(params["position"])
-        fx.position = tuple(float(v) for v in pos[:3])
-        all_xs = [f.position[0] for f in rig.fixtures]
-        all_zs = [f.position[2] for f in rig.fixtures]
-        min_x, max_x = min(all_xs), max(all_xs)
-        min_z, max_z = min(all_zs), max(all_zs)
-        fx.patch_x = 0.5 if max_x == min_x else (fx.position[0] - min_x) / (max_x - min_x)
-        fx.patch_y = 0.5 if max_z == min_z else (fx.position[2] - min_z) / (max_z - min_z)
-    else:
-        return {"ok": False, "error": "Parámetros requeridos: x/y o position"}
-
-    rig.save(session.project.rig_file)
-
-    return {"ok": True, "fixture": fx.to_dict()}
-
-
-# ── J3 — Biblioteca GDTF: browser y búsqueda ─────────────────────────────────
-
-_gdtf_cache: dict = {}   # path_str → {name, manufacturer, modes, channel_count, path}
-
-
-def _gdtf_metadata(gdtf_path) -> dict:
-    """Extrae metadatos ligeros de un .gdtf sin cargar el profile completo."""
-    from pathlib import Path as _Path
-    key = str(gdtf_path)
-    if key in _gdtf_cache:
-        return _gdtf_cache[key]
-    try:
-        import pygdtf
-        ft = pygdtf.FixtureType(path=str(gdtf_path))
-        modes = [m.name or "(unnamed)" for m in ft.dmx_modes]
-        # Canal count del primer modo
-        channel_count = 0
-        first_modes = list(ft.dmx_modes)
-        if first_modes:
-            chs = list(getattr(first_modes[0], "_dmx_channels", None) or
-                       getattr(first_modes[0], "dmx_channels", None) or [])
-            offsets = []
-            for ch in chs:
-                offs = getattr(ch, "offset", None) or []
-                if offs:
-                    offsets.extend(offs)
-            channel_count = max(offsets) if offsets else 0
-        meta = {
-            "name": ft.name or _Path(gdtf_path).stem,
-            "manufacturer": getattr(ft, "manufacturer", "") or "",
-            "modes": modes,
-            "channel_count": channel_count,
-            "path": str(gdtf_path),
-        }
-    except Exception as e:
-        meta = {
-            "name": _Path(gdtf_path).stem,
-            "manufacturer": "",
-            "modes": [],
-            "channel_count": 0,
-            "path": str(gdtf_path),
-            "_error": str(e),
-        }
-    _gdtf_cache[key] = meta
-    return meta
-
-
-def _h_list_gdtf_profiles(session, params):
-    """list_gdtf_profiles() → {ok, profiles: [{name, manufacturer, modes, channel_count, path}]}.
-
-    Escanea PROFILES_DIR/*.gdtf y devuelve metadatos de cada perfil.
-    Caché en memoria (_gdtf_cache) para llamadas repetidas.
-    """
-    from src._paths import PROFILES_DIR
-    profiles = []
-    if PROFILES_DIR.is_dir():
-        for p in sorted(PROFILES_DIR.glob("*.gdtf")):
-            profiles.append(_gdtf_metadata(p))
-    return {"ok": True, "profiles": profiles}
-
-
-def _h_add_fixture_from_gdtf(session, params):
-    """add_fixture_from_gdtf(profile_path, universe, start_channel, name="") → {ok, fixture}.
-
-    Carga el GDTF en profile_path, crea un Fixture en el rig y lo persiste.
-    profile_path: ruta al .gdtf (relativa a PROFILES_DIR o absoluta).
-    Invariante I3: devuelve el fixture creado.
-    """
-    from pathlib import Path as _Path
-
-    from src._paths import PROFILES_DIR
-    from src.core.fixtures import Fixture
-    from src.io.loaders.gdtf_profile import load_gdtf_profile
-
-    profile_path = params.get("profile_path")
-    universe = int(params.get("universe", 1))
-    start_channel = int(params.get("start_channel", 1))
-    name = str(params.get("name", "")).strip()
-    mode_name = params.get("mode_name")
-
-    if not profile_path:
-        return {"ok": False, "error": "profile_path requerido"}
-
-    p = _Path(profile_path)
-    if not p.is_absolute():
-        p = PROFILES_DIR / p
-    if not p.is_file():
-        return {"ok": False, "error": f"Perfil GDTF no encontrado: {profile_path}"}
-
-    rig = getattr(session, "fixture_rig", None)
-    if rig is None:
-        return {"ok": False, "error": "No hay rig cargado"}
-
-    try:
-        profile = load_gdtf_profile(p, mode_name=mode_name)
-    except Exception as e:
-        return {"ok": False, "error": f"Error cargando GDTF: {e}"}
-
-    # Generar fixture_id único
-    base = (name or profile.name or p.stem).lower().replace(" ", "_").replace("/", "_")
-    import re as _re
-    base = _re.sub(r"[^a-z0-9_]", "", base)[:30] or "fixture"
-    existing_ids = {fx.fixture_id for fx in rig.fixtures}
-    fixture_id = base
-    counter = 1
-    while fixture_id in existing_ids:
-        fixture_id = f"{base}_{counter}"
-        counter += 1
-
-    fx = Fixture(
-        fixture_id=fixture_id,
-        profile_id=profile.profile_id,
-        universe=universe,
-        dmx_start=start_channel,
-        label=name or profile.name,
-    )
-    rig.fixtures.append(fx)
-    rig.save(session.project.rig_file)
-
-    return {"ok": True, "fixture": fx.to_dict()}
-
-
-# ── J2 — Soporte DMX completo por canal ──────────────────────────────────────
-
-_DMX_KINDS = {"dimmer", "rgb", "rgb_par", "moving_head", "strobe", "led_strip", "wled_bar"}
-
-
-def _h_set_fixture_type(session, params):
-    """set_fixture_type(fixture_id, fixture_type) → {ok, fixture}.
-
-    Cambia el kind_override del fixture (dimmer/rgb/moving_head/strobe/led_strip).
-    Persiste rig.json. Devuelve el fixture actualizado (I3).
-    """
-    fixture_id = params.get("fixture_id")
-    fixture_type = params.get("fixture_type") or params.get("kind")
-    if not fixture_id:
-        return {"ok": False, "error": "fixture_id requerido"}
-    if not fixture_type or fixture_type not in _DMX_KINDS:
-        return {"ok": False, "error": f"fixture_type inválido: {fixture_type!r}. Válidos: {sorted(_DMX_KINDS)}"}
-    rig = getattr(session, "fixture_rig", None)
-    if rig is None:
-        return {"ok": False, "error": "No hay rig cargado"}
-    fx = rig.by_id(fixture_id)
-    if fx is None:
-        return {"ok": False, "error": f"Fixture no encontrado: {fixture_id}"}
-
-    fx.kind_override = fixture_type
-    rig.save(session.project.rig_file)
-    return {"ok": True, "fixture": fx.to_dict()}
-
-
-# ── E4 — Test de output y patch visual ───────────────────────────────────────
-
-def _h_identify_fixture(session, params):
-    """identify_fixture(fixture_id, color=(255,255,255), duration_ms=2000) → {ok}.
-
-    Enciende el fixture al color dado durante duration_ms ms.
-    Estado efímero en session._identify (fixture_id → {t_expires, color}).
-    Backwards-compatible: sin color → blanco; sin duration_ms → 2000 ms.
-    """
-    import asyncio
-    import time
-
-    fixture_id = params.get("fixture_id")
-    if not fixture_id:
-        return {"ok": False, "error": "fixture_id requerido"}
-
-    # Validar que el fixture existe
-    rig = getattr(session, 'fixture_rig', None)
-    if rig is None:
-        return {"ok": False, "error": "No hay rig cargado"}
-
-    fx = None
-    for f in getattr(rig, 'fixtures', []):
-        if getattr(f, 'fixture_id', None) == fixture_id:
-            fx = f
-            break
-    if fx is None:
-        return {"ok": False, "error": f"Fixture '{fixture_id}' no encontrado"}
-
-    duration_ms = int(params.get("duration_ms", 2000))
-    if duration_ms < 100 or duration_ms > 30000:
-        return {"ok": False, "error": "duration_ms debe ser 100..30000"}
-
-    # J4: color configurable (r,g,b) 0..255 — por defecto blanco
-    raw_color = params.get("color", [255, 255, 255])
-    if isinstance(raw_color, (list, tuple)) and len(raw_color) >= 3:
-        color = tuple(max(0, min(255, int(v))) for v in raw_color[:3])
-    else:
-        color = (255, 255, 255)
-
-    t_expires = time.monotonic() + duration_ms / 1000.0
-    if not hasattr(session, '_identify'):
-        session._identify = {}
-    session._identify[fixture_id] = {"t_expires": t_expires, "color": color}
-
-    async def _auto_off():
-        await asyncio.sleep(duration_ms / 1000.0)
-        if hasattr(session, '_identify'):
-            session._identify.pop(fixture_id, None)
-
-    try:
-        asyncio.ensure_future(_auto_off())
-    except RuntimeError:
-        pass  # sin event loop (tests)
-
-    return {"ok": True, "fixture_id": fixture_id, "duration_ms": duration_ms,
-            "color": list(color)}
-
-
-# J4 — Chase automático de fixtures ──────────────────────────────────────────
-
-_CHASE_SEQUENCE = [
-    (255, 0, 0),    # rojo
-    (0, 255, 0),    # verde
-    (0, 0, 255),    # azul
-    (255, 255, 255),# blanco
-]
-_CHASE_STEP_MS = 500
-
-
-def _h_chase_test(session, params):
-    """chase_test(universe) → {ok, chase_id}.
-
-    Cicla rojo→verde→azul→blanco por los fixtures del universo, 500 ms cada color.
-    Estado efímero en session._active_chases: {universe: asyncio.Task}.
-    """
-    import asyncio
-
-    universe = int(params.get("universe", 0))
-    if universe < 1:
-        return {"ok": False, "error": "universe debe ser >= 1"}
-
-    rig = getattr(session, "fixture_rig", None)
-    if rig is None:
-        return {"ok": False, "error": "No hay rig cargado"}
-
-    fixtures_in_uni = [fx for fx in rig.fixtures if fx.universe == universe]
-    if not fixtures_in_uni:
-        return {"ok": False, "error": f"No hay fixtures en el universo {universe}"}
-
-    if not hasattr(session, "_active_chases"):
-        session._active_chases = {}
-
-    # Cancelar chase anterior en este universo
-    prev = session._active_chases.pop(universe, None)
-    if prev is not None:
-        try:
-            prev.cancel()
-        except Exception:
-            pass
-
-    if not hasattr(session, "_identify"):
-        session._identify = {}
-
-    chase_id = f"chase_u{universe}"
-
-    async def _run_chase():
-        step = 0
-        while True:
-            color = _CHASE_SEQUENCE[step % len(_CHASE_SEQUENCE)]
-            for fx in fixtures_in_uni:
-                import time as _time
-                session._identify[fx.fixture_id] = {
-                    "t_expires": _time.monotonic() + _CHASE_STEP_MS / 1000.0 + 0.05,
-                    "color": color,
-                }
-            await asyncio.sleep(_CHASE_STEP_MS / 1000.0)
-            step += 1
-
-    try:
-        task = asyncio.ensure_future(_run_chase())
-        session._active_chases[universe] = task
-    except RuntimeError:
-        pass  # sin event loop (tests)
-
-    return {"ok": True, "chase_id": chase_id, "universe": universe}
-
-
-def _h_chase_stop(session, params):
-    """chase_stop(universe) → {ok}.
-
-    Cancela el chase activo del universo y apaga sus fixtures.
-    """
-    universe = int(params.get("universe", 0))
-    if universe < 1:
-        return {"ok": False, "error": "universe debe ser >= 1"}
-
-    chases = getattr(session, "_active_chases", {})
-    task = chases.pop(universe, None)
-    if task is not None:
-        try:
-            task.cancel()
-        except Exception:
-            pass
-
-    # Apagar identify de todos los fixtures del universo
-    rig = getattr(session, "fixture_rig", None)
-    if rig is not None and hasattr(session, "_identify"):
-        for fx in rig.fixtures:
-            if fx.universe == universe:
-                session._identify.pop(fx.fixture_id, None)
-
-    return {"ok": True, "universe": universe}
-
-
-# ── L2 — Webhooks de eventos ─────────────────────────────────────────────────
-
-def _h_webhook_get_config(session, params):
-    """webhook_get_config() → {ok, webhooks: [{url, events, secret?}]}."""
-    wh = getattr(session, "_webhook_dispatcher", None)
-    if wh is None:
-        return {"ok": True, "webhooks": []}
-    return {"ok": True, "webhooks": wh.get_configs()}
-
-
-def _h_webhook_set_config(session, params):
-    """webhook_set_config(webhooks: list) → {ok}.
-
-    Guarda la lista en output_targets.json (escritura atómica) y recarga
-    el dispatcher en memoria.
-    """
-    import json
-    webhooks = params.get("webhooks", [])
-    if not isinstance(webhooks, list):
-        return {"ok": False, "error": "webhooks debe ser una lista"}
-
-    # Validar entradas básicas + FIX 5: SSRF guard on webhook URLs
-    from server.webhooks import _validate_webhook_url
-    for entry in webhooks:
-        if not isinstance(entry, dict) or "url" not in entry:
-            return {"ok": False, "error": "Cada webhook requiere campo 'url'"}
-        if "events" not in entry or not isinstance(entry["events"], list):
-            return {"ok": False, "error": "Cada webhook requiere campo 'events' (lista)"}
-        try:
-            _validate_webhook_url(entry["url"])
-        except ValueError as e:
-            return {"ok": False, "error": str(e)}
-
-    # Actualizar dispatcher en memoria
-    wh = getattr(session, "_webhook_dispatcher", None)
-    if wh is not None:
-        wh.set_configs(webhooks)
-
-    # Persistir en output_targets.json (atómico)
-    from src._paths import PROJECT_DIR
-    targets_file = PROJECT_DIR / "output_targets.json"
-    if targets_file.is_file():
-        try:
-            with open(targets_file, encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:
-            data = {}
-    else:
-        data = {}
-    data["webhooks"] = webhooks
-    tmp = targets_file.with_suffix(".tmp")
-    try:
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-        tmp.replace(targets_file)
-    except Exception as e:
-        return {"ok": False, "error": f"Error guardando config: {e}"}
-
-    return {"ok": True, "count": len(webhooks)}
-
-
-# ── K1 — Viewer 3D: posicionamiento de fixtures ──────────────────────────────
-
-def _h_get_rig_layout(session, params):
-    """get_rig_layout() → {ok, fixtures: [{id, x, y, z, rx, ry, rz}]}.
-
-    Lee el archivo rig_layout.json del proyecto activo (posiciones 3D explícitas).
-    Si el archivo no existe, devuelve lista vacía.
-    """
-    import json
-    proj = getattr(session, "project", None)
-    if proj is None:
-        return {"ok": True, "fixtures": []}
-    layout_file = proj.rig_layout_file
-    if not layout_file.is_file():
-        return {"ok": True, "fixtures": []}
-    try:
-        with open(layout_file, encoding="utf-8") as f:
-            data = json.load(f)
-        return {"ok": True, "fixtures": data.get("fixtures", [])}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-
-def _h_set_fixture_3d(session, params):
-    """set_fixture_3d(fixture_id, x, y, z, rx?, ry?, rz?) → {ok, fixture}.
-
-    Guarda la posición 3D del fixture en el rig_layout.json del proyecto.
-    Coordenadas en metros (espacio de escenario), rotación en grados (euler XYZ).
-    Escribe atómicamente (.tmp → replace). Actualiza el viewer vía sync_rig_layout.
-    """
-    import json
-    fixture_id = require_key(params, "fixture_id")
-    try:
-        x = float(params.get("x", 0.0))
-        y = float(params.get("y", 4.0))
-        z = float(params.get("z", 0.0))
-        rx = float(params.get("rx", 0.0))
-        ry = float(params.get("ry", 0.0))
-        rz = float(params.get("rz", 0.0))
-    except (TypeError, ValueError) as e:
-        return {"ok": False, "error": f"Coordenada inválida: {e}"}
-
-    rig = getattr(session, "fixture_rig", None)
-    if rig is None:
-        return {"ok": False, "error": "rig no disponible"}
-    fx = next((f for f in rig.fixtures if f.fixture_id == fixture_id), None)
-    if fx is None:
-        return {"ok": False, "error": f"fixture_id no encontrado: {fixture_id!r}"}
-
-    proj = getattr(session, "project", None)
-    if proj is None:
-        return {"ok": False, "error": "proyecto no disponible"}
-
-    layout_file = proj.rig_layout_file
-    # Leer existente o empezar vacío
-    if layout_file.is_file():
-        try:
-            with open(layout_file, encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:
-            data = {"fixtures": []}
-    else:
-        data = {"fixtures": []}
-
-    # Actualizar o insertar
-    entry = {"id": fixture_id, "x": x, "y": y, "z": z, "rx": rx, "ry": ry, "rz": rz}
-    fixtures_list = data.get("fixtures", [])
-    idx = next((i for i, e in enumerate(fixtures_list) if e.get("id") == fixture_id), None)
-    if idx is not None:
-        fixtures_list[idx] = entry
-    else:
-        fixtures_list.append(entry)
-    data["fixtures"] = fixtures_list
-
-    # Escritura atómica
-    tmp = layout_file.with_suffix(".tmp")
-    try:
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-        tmp.replace(layout_file)
-    except Exception as e:
-        return {"ok": False, "error": f"Error guardando rig_layout.json: {e}"}
-
-    # Acople inverso: x/z afectan también al Patch 2D (la altura y, solo 3D).
-    fx.position = (x, y, z)
-    fx.patch_x = max(0.0, min(1.0, x / STAGE_W + 0.5))
-    fx.patch_y = max(0.0, min(1.0, z / STAGE_D + 0.5))
-    try:
-        rig.save(proj.rig_file)
-    except Exception:
-        pass
-
-    # Regenerar viewer layout (merge automático de posiciones K1)
-    try:
-        session.sync_rig_layout()
-    except Exception:
-        pass
-
-    return {"ok": True, "fixture": fx.to_dict()}
-
-
-# ── K2 — Pixel mapping imagen/vídeo → LEDs ───────────────────────────────────
-
-def _h_set_clip_pixel_map(session, params):
-    """set_clip_pixel_map(clip_id, source_path, x?, y?, width?, height?,
-                          fit_mode?, speed?) → {ok, clip}.
-
-    Actualiza los params de un clip para que use PixelMapEffect (id=1010).
-    Sobrescribe parcialmente los params: solo los campos proporcionados se
-    actualizan; el resto se conserva de los params actuales del clip.
-    """
-    clip_id = require_key(params, "clip_id")
-    clip = session.find_clip_by_id(clip_id)
-    if clip is None:
-        return {"ok": False, "error": f"clip_id no encontrado: {clip_id!r}"}
-
-    source_path = params.get("source_path", "")
-    updates = {"source_path": str(source_path)}
-    for k in ("x", "y", "width", "height"):
-        if k in params:
-            try:
-                updates[k] = int(params[k])
-            except (TypeError, ValueError):
-                return {"ok": False, "error": f"Parámetro inválido: {k}"}
-    if "fit_mode" in params:
-        fm = str(params["fit_mode"])
-        if fm not in ("stretch", "crop", "tile"):
-            return {"ok": False, "error": "fit_mode debe ser stretch, crop o tile"}
-        updates["fit_mode"] = fm
-    if "speed" in params:
-        try:
-            updates["speed"] = float(params["speed"])
-        except (TypeError, ValueError):
-            return {"ok": False, "error": "speed inválido"}
-
-    clip.params = {**clip.params, **updates}
-    # Asignar PixelMapEffect como efecto del clip
-    clip.effect_id = 1010
-    session.invalidate_caches()
-    return {"ok": True, "clip": clip.to_dict()}
-
-
-def _h_test_universe(session, params):
-    """test_universe(universe, r, g, b) → {ok}.
-
-    Llena ese universo Art-Net con el color dado.
-    Toggle: segunda llamada con el mismo universo lo apaga.
-    universe: 1..10, r/g/b: 0..255.
-    """
-    try:
-        universe = int(params.get("universe", 0))
-        r = int(params.get("r", 255))
-        g = int(params.get("g", 255))
-        b = int(params.get("b", 255))
-    except (TypeError, ValueError) as e:
-        return {"ok": False, "error": f"Parámetro inválido: {e}"}
-
-    if universe < 1 or universe > 10:
-        return {"ok": False, "error": "universe debe ser 1..10"}
-    for name, v in [("r", r), ("g", g), ("b", b)]:
-        if v < 0 or v > 255:
-            return {"ok": False, "error": f"{name} debe ser 0..255"}
-
-    if not hasattr(session, '_test_universes'):
-        session._test_universes = {}
-
-    # Toggle: si ya está activo con esos mismos datos, apagar
-    current = session._test_universes.get(universe)
-    if current is not None and current == (r, g, b):
-        del session._test_universes[universe]
-        return {"ok": True, "universe": universe, "active": False}
-
-    session._test_universes[universe] = (r, g, b)
-    return {"ok": True, "universe": universe, "active": True, "r": r, "g": g, "b": b}
-
-
-def _h_blackout(session, params):
-    """blackout(enabled: bool) → {ok, blackout: bool}.
-
-    Override instantáneo de master brightness a 0 cuando enabled=True.
-    No muta timeline.mixer (para no perder el valor del usuario).
-    Estado en session.blackout_override (no se persiste en show.json).
-    Distinto de blackout_fade (B2): este es de pánico, instantáneo.
-    """
-    enabled = bool(params.get("enabled", False))
-    session.blackout_override = enabled
-
-    # Emitir evento al stream
-    import asyncio
-    hub = getattr(session, "hub", None)
-    if hub:
-        try:
-            asyncio.ensure_future(
-                hub.broadcast_json({"type": "blackout_changed", "enabled": enabled})
-            )
-        except Exception:
-            pass
-
-    return {"ok": True, "blackout": enabled}
-
-
 def _h_list_clips(session, params):
     """list_clips(filter?, offset?, limit?) → {ok, clips, total, next_offset?}
 
@@ -1716,208 +1057,6 @@ def _h_list_clips(session, params):
         "count": total,       # alias para compat con test_dispatcher.py
         "next_offset": next_offset,
     }
-
-
-def _h_get_output_status(session, params):
-    """get_output_status() → {ok, blackout, has_ffmpeg, render_ready, active_test_universe}.
-
-    Estado unificado de las herramientas de output de E3/E4.
-    """
-    import shutil
-
-    blackout = getattr(session, 'blackout_override', False)
-    has_ffmpeg = shutil.which("ffmpeg") is not None
-    render_ready = (session.project.folder / "render.npz").is_file()
-    test_uni = getattr(session, '_test_universes', {})
-    active_test_universe = list(test_uni.keys())[0] if test_uni else None
-
-    return {
-        "ok": True,
-        "blackout": blackout,
-        "has_ffmpeg": has_ffmpeg,
-        "render_ready": render_ready,
-        "active_test_universe": active_test_universe,
-    }
-
-
-# ── M2 — Generación automática de show ───────────────────────────────────────
-
-def _h_generate_show(session, params):
-    """generate_show(style?, density?, replace?) → {ok, clips_created: int}.
-
-    Genera clips automáticamente desde el análisis de audio. Sin IA externa.
-    Toma snapshot antes de mutar (deshaciable con Ctrl+Z) — I1.
-    Corre en executor si los datos son voluminosos — I6.
-    """
-    from server.show_generator import STYLES, generate_show
-
-    style = params.get("style", "club")
-    if style not in STYLES:
-        return {"ok": False, "error": f"style debe ser uno de {STYLES}"}
-    density = float(params.get("density", 0.5))
-    density = max(0.0, min(1.0, density))
-    replace = bool(params.get("replace", False))
-
-    # Obtener datos de análisis
-    analysis = getattr(session, "analysis", None)
-    if analysis is None:
-        return {"ok": False, "error": "No hay análisis disponible para este show"}
-
-    try:
-        beats = analysis.list_beats()
-        downbeats = analysis.list_downbeats()
-        sections = analysis.list_sections()
-    except Exception as e:
-        return {"ok": False, "error": f"Error leyendo análisis: {e}"}
-
-    if not beats and not downbeats:
-        return {"ok": False, "error": "El análisis no tiene beats detectados"}
-
-    bpm = getattr(session, "bpm", None) or 120.0
-
-    # I1: snapshot para undo
-    try:
-        session.snapshot()
-    except Exception:
-        pass
-
-    # Limpiar timeline si replace=True
-    if replace:
-        session.timeline.clips.clear()
-
-    # Generar clips
-    new_clips = generate_show(beats, downbeats, sections, style, density, bpm)
-
-    # Añadir clips al timeline
-    from src.core.timeline_model import Clip
-    for cd in new_clips:
-        clip = Clip(
-            track=cd["track"],
-            start_ms=cd["start_ms"],
-            end_ms=cd["end_ms"],
-            effect_id=cd["effect_id"],
-            scope=cd.get("scope", "per_bar"),
-            params=cd.get("params", {}),
-            color=cd.get("color", "#3a7acc"),
-            label=cd.get("label", "GEN"),
-            layer=cd.get("layer", 0),
-            uid=cd.get("uid") or None,
-        )
-        if cd.get("uid"):
-            clip.uid = cd["uid"]
-        session.timeline.clips.append(clip)
-
-    session.invalidate_caches()
-    return {"ok": True, "clips_created": len(new_clips)}
-
-
-# ── M3 — Historial de gestos y replay ────────────────────────────────────────
-
-def _h_list_gesture_history(session, params):
-    """list_gesture_history(last?: int) → {ok, gestures: [...]}."""
-    gl = getattr(session, "_gesture_log", None)
-    if gl is None:
-        return {"ok": True, "gestures": []}
-    last = int(params.get("last", 200))
-    return {"ok": True, "gestures": gl.list(last)}
-
-
-def _h_replay_gesture(session, params):
-    """replay_gesture(idx: int) → resultado del handler re-ejecutado."""
-    from server.validators import require_int
-    idx = require_int(params, "idx")
-    gl = getattr(session, "_gesture_log", None)
-    if gl is None:
-        return {"ok": False, "error": "GestureLog no disponible"}
-    entry = gl.get(idx)
-    if entry is None:
-        return {"ok": False, "error": f"Gesto {idx} no encontrado"}
-    handler_name = entry["handler"]
-    handler_params = entry.get("params") or {}
-    if handler_name in _LOCAL:
-        try:
-            return _LOCAL[handler_name](session, handler_params)
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
-    return {"ok": False, "error": f"Handler {handler_name!r} no re-ejecutable"}
-
-
-def _h_clear_gesture_history(session, params):
-    """clear_gesture_history() → {ok}."""
-    gl = getattr(session, "_gesture_log", None)
-    if gl is not None:
-        gl.clear()
-    return {"ok": True}
-
-
-# ── N1 — Marketplace de plugins ───────────────────────────────────────────────
-
-_DEFAULT_MARKETPLACE_URL = (
-    "https://raw.githubusercontent.com/example/sd-plugins/main/manifest.json"
-)
-
-
-def _get_marketplace_url(session) -> str:
-    try:
-        import json
-        from pathlib import Path as _Path
-        data = json.loads(_Path("output_targets.json").read_text("utf-8"))
-        return data.get("marketplace_url", _DEFAULT_MARKETPLACE_URL)
-    except Exception:
-        return _DEFAULT_MARKETPLACE_URL
-
-
-async def _h_list_marketplace_plugins(session, params):
-    """list_marketplace_plugins() → {ok, plugins: [...], cached: bool}.
-    FIX 3: async to avoid blocking the event loop during HTTP fetch."""
-    from server.marketplace import fetch_manifest
-    url = _get_marketplace_url(session)
-    try:
-        plugins, cached = await fetch_manifest(url)
-        return {"ok": True, "plugins": plugins, "cached": cached}
-    except TimeoutError:
-        return {"ok": False, "error": "timeout"}
-    except Exception as exc:
-        return {"ok": False, "error": str(exc)}
-
-
-async def _h_install_plugin(session, params):
-    """install_plugin(download_url) → {ok, name} or {ok: false, error}.
-    FIX 3: async to avoid blocking; FIX 2: URL validated against manifest."""
-    from pathlib import Path as _Path
-
-    from server.marketplace import install_plugin
-    from server.validators import require_key
-    download_url = require_key(params, "download_url")
-    plugins_dir = _Path("plugins/effects")
-    return await install_plugin(download_url, plugins_dir)
-
-
-# ── N2 — Backup y restauración de show ───────────────────────────────────────
-
-def _h_export_show_bundle(session, params):
-    """export_show_bundle(include_audio?) → {ok, path}."""
-    include_audio = bool(params.get("include_audio", False))
-    from server.show_bundle import export_show_bundle
-    try:
-        path = export_show_bundle(session, include_audio=include_audio)
-        return {"ok": True, "path": path}
-    except Exception as exc:
-        return {"ok": False, "error": str(exc)}
-
-
-def _h_import_show_bundle(session, params):
-    """import_show_bundle(zip_path) → {ok, slug, warnings} or {ok: false, error}."""
-    from pathlib import Path as _Path
-
-    from server.show_bundle import import_show_bundle
-    from server.validators import require_key
-    zip_path = require_key(params, "zip_path")
-    try:
-        slug, warnings = import_show_bundle(zip_path, _Path("projects"))
-        return {"ok": True, "slug": slug, "warnings": warnings}
-    except Exception as exc:
-        return {"ok": False, "error": str(exc)}
 
 
 _LOCAL = {
@@ -1971,47 +1110,12 @@ _LOCAL = {
     # Heartbeat — keep-alive ligero (el frontend lo usa para detectar
     # conexiones medio-abiertas y forzar la reconexión).
     "ping": lambda session, params: {"ok": True},
-    # J3 — Biblioteca GDTF: browser y búsqueda
-    "list_gdtf_profiles": _h_list_gdtf_profiles,
-    "add_fixture_from_gdtf": _h_add_fixture_from_gdtf,
-    # J1 — Editor de patch visual 2D
-    "move_fixture": _h_move_fixture,
-    # J2 — Soporte DMX completo por canal
-    "set_fixture_type": _h_set_fixture_type,
-    # E4 — Test de output y patch visual (ROADMAP v3)
-    "identify_fixture": _h_identify_fixture,
-    "test_universe": _h_test_universe,
-    "blackout": _h_blackout,
-    "get_output_status": _h_get_output_status,
-    # J4 — Chase test de fixtures
-    "chase_test": _h_chase_test,
-    "chase_stop": _h_chase_stop,
-    # L2 — Webhooks de eventos
-    "webhook_get_config": _h_webhook_get_config,
-    "webhook_set_config": _h_webhook_set_config,
-    # K1 — Viewer 3D: posicionamiento de fixtures
-    "get_rig_layout": _h_get_rig_layout,
-    "set_fixture_3d": _h_set_fixture_3d,
-    # K2 — Pixel mapping imagen/vídeo
-    "set_clip_pixel_map": _h_set_clip_pixel_map,
     # F2 — Plugin UI auto-generada (ROADMAP v3)
     "get_effect_schema": _h_get_effect_schema,
     # F4 — Live preview en el inspector (ROADMAP v3)
     "preview_effect_frame": _h_preview_effect_frame,
     # L3 — Multiusuario: rol del token actual
     "auth_get_role": lambda session, params: {"ok": True, "role": "operator"},
-    # M2 — Generación automática de show
-    "generate_show": _h_generate_show,
-    # M3 — Historial de gestos
-    "list_gesture_history": _h_list_gesture_history,
-    "replay_gesture": _h_replay_gesture,
-    "clear_gesture_history": _h_clear_gesture_history,
-    # N1 — Marketplace de plugins
-    "list_marketplace_plugins": _h_list_marketplace_plugins,
-    "install_plugin": _h_install_plugin,
-    # N2 — Backup y restauración de show
-    "export_show_bundle": _h_export_show_bundle,
-    "import_show_bundle": _h_import_show_bundle,
 }
 
 # ── ADR-005: dominios extraídos a server/handlers/ ────────────────────────────
@@ -2041,6 +1145,12 @@ from server.handlers.autovj import (  # noqa: E402,F401
     _h_live_input_start,
     _h_live_input_stop,
 )
+from server.handlers.bundle_market import (  # noqa: E402,F401
+    _h_export_show_bundle,
+    _h_import_show_bundle,
+    _h_install_plugin,
+    _h_list_marketplace_plugins,
+)
 from server.handlers.cues import (  # noqa: E402,F401
     _h_add_cue,
     _h_delete_cue,
@@ -2051,6 +1161,12 @@ from server.handlers.cues import (  # noqa: E402,F401
     _h_list_cues,
     _h_reorder_cues,
     _h_update_cue,
+)
+from server.handlers.gdtf import (  # noqa: E402,F401
+    _gdtf_cache,
+    _gdtf_metadata,
+    _h_add_fixture_from_gdtf,
+    _h_list_gdtf_profiles,
 )
 from server.handlers.live import (  # noqa: E402,F401
     _h_get_live_state,
@@ -2087,6 +1203,14 @@ from server.handlers.osc import (  # noqa: E402,F401
     _h_osc_get_state,
     _h_osc_set_config,
 )
+from server.handlers.output_test import (  # noqa: E402,F401
+    _h_blackout,
+    _h_chase_stop,
+    _h_chase_test,
+    _h_get_output_status,
+    _h_identify_fixture,
+    _h_test_universe,
+)
 from server.handlers.patch import (  # noqa: E402,F401
     _get_artnet_ip_for_universe,
     _h_duplicate_fixture,
@@ -2097,6 +1221,14 @@ from server.handlers.patch import (  # noqa: E402,F401
     _h_next_free_address,
     _h_update_fixture,
     _update_rig_layout_height,
+)
+from server.handlers.patch_visual import (  # noqa: E402,F401
+    _h_move_fixture,
+    _h_set_fixture_type,
+    _update_layout_floor,
+)
+from server.handlers.pixelmap import (  # noqa: E402,F401
+    _h_set_clip_pixel_map,
 )
 from server.handlers.projects import (  # noqa: E402,F401
     _h_apply_autovj,
@@ -2120,6 +1252,12 @@ from server.handlers.render_export import (  # noqa: E402,F401
     _h_render_offline,
     _h_toggle_baked,
 )
+from server.handlers.showgen import (  # noqa: E402,F401
+    _h_clear_gesture_history,
+    _h_generate_show,
+    _h_list_gesture_history,
+    _h_replay_gesture,
+)
 from server.handlers.switch import (  # noqa: E402,F401
     _h_list_projects,
     _h_switch_project,
@@ -2131,10 +1269,18 @@ from server.handlers.tempo import (  # noqa: E402,F401
     _h_tempo_sync_list_midi_ports,
     _h_tempo_sync_set_mode,
 )
+from server.handlers.viewer3d import (  # noqa: E402,F401
+    _h_get_rig_layout,
+    _h_set_fixture_3d,
+)
 from server.handlers.waveform import (  # noqa: E402,F401
     _compute_waveform,
     _ensure_waveform_cached,
     _h_get_waveform,
+)
+from server.handlers.webhooks_config import (  # noqa: E402,F401
+    _h_webhook_get_config,
+    _h_webhook_set_config,
 )
 
 

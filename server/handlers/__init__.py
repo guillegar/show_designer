@@ -41,28 +41,21 @@ def handler(name: str, *, timeline_mutator: bool = False, rig_mutator: bool = Fa
 
 
 def load_all() -> None:
-    """Importa los módulos de dominio y mergea sus registros. Idempotente."""
+    """Importa TODOS los módulos de dominio del paquete y mergea sus registros.
+
+    Autodescubrimiento vía pkgutil: añadir un dominio nuevo = crear el .py con
+    su dict HANDLERS — sin listas que mantener (una lista hardcodeada se quedó
+    obsoleta en silencio durante la tanda 4 y costó 14 tests). Idempotente.
+    """
     global _LOADED
     if _LOADED:
         return
-    from server.handlers import (
-        autosave,
-        autovj,
-        cues,
-        live,
-        markers,
-        mixer,
-        movers,
-        osc,
-        patch,
-        projects,
-        render_export,
-        switch,
-        tempo,
-        waveform,
-    )
-    for mod in (waveform, projects, patch, live, markers, autovj, cues,
-                mixer, render_export, autosave, osc, movers, switch, tempo):
+    import importlib
+    import pkgutil
+    for info in pkgutil.iter_modules(__path__):
+        if info.name.startswith("_"):
+            continue
+        mod = importlib.import_module(f"{__name__}.{info.name}")
         LOCAL.update(getattr(mod, "HANDLERS", {}))
         TIMELINE_MUTATORS.update(getattr(mod, "TIMELINE_MUTATORS", set()))
         RIG_MUTATORS.update(getattr(mod, "RIG_MUTATORS", set()))
