@@ -83,6 +83,9 @@ class StreamClient {
       try {
         m = JSON.parse(e.data);
       } catch {
+        // Mensaje corrupto del stream: no debería pasar (server propio) — avisar
+        // en vez de tragarlo en silencio, truncado para no inundar la consola.
+        console.warn("[stream] mensaje no-JSON descartado:", String(e.data).slice(0, 80));
         return;
       }
       if (m.type === "state") {
@@ -159,10 +162,13 @@ class StreamClient {
     return () => this.waveformReadySubs.delete(fn);
   }
 
-  // Color RGB de un LED concreto del último frame (para canvas Live/Patch)
+  // Color RGB de un LED concreto del último frame (para canvas Live/Patch).
+  // Clampea bar/led al rango del frame: un caller fuera de rango devuelve
+  // negro en vez de leer índices basura del buffer.
   ledRGB(bar: number, led: number): [number, number, number] {
     const f = this.latestFrame;
     if (!f) return [0, 0, 0];
+    if (bar < 0 || bar >= NUM_BARS || led < 0 || led >= LEDS) return [0, 0, 0];
     const i = (bar * LEDS + led) * 3;
     return [f[i] || 0, f[i + 1] || 0, f[i + 2] || 0];
   }
