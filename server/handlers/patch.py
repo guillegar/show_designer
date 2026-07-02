@@ -6,7 +6,6 @@ por universo y destinos de salida.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from src._paths import PROJECT_DIR
 
@@ -359,7 +358,9 @@ def _h_get_output_targets(session, params):
 
     Lee output_targets.json y devuelve las entradas numéricas (universos).
     """
-    _ot = Path(__file__).resolve().parent.parent / "output_targets.json"
+    # OJO (ADR-005): anclado a PROJECT_DIR — Path(__file__).parent.parent dejó de
+    # apuntar a la raíz al mover este código un nivel más adentro.
+    _ot = PROJECT_DIR / "output_targets.json"
     try:
         if _ot.is_file():
             raw = json.loads(_ot.read_text(encoding="utf-8"))

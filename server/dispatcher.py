@@ -1016,656 +1016,6 @@ def _h_update_micro_event(session, params):
     return {"ok": True, "clip": clip.to_dict()}
 
 
-# ── B2 — Mixer: cadena por pista + master ────────────────────────────────────
-# Throttle en el cliente: los sliders no deben disparar más de ~20 req/s
-# (cada llamada < 50 ms). Implementar en la UI con un ref de timestamp:
-#   if (Date.now() - lastSent) < 50 ms → no enviar; actualizar solo en mouseUp.
-
-_MIXER_CHAIN_KEYS = {'brightness', 'gamma', 'hue_shift', 'white_limit'}
-_MASTER_KEYS = _MIXER_CHAIN_KEYS | {'blackout_fade'}
-
-
-def _h_set_track_chain(session, params):
-    """set_track_chain(track, chain) — actualiza la cadena postfx de una pista.
-
-    chain = {brightness?:0..1, gamma?:0.5..2.2, hue_shift?:-180..180,
-             white_limit?:0..1}
-    Devuelve {ok, track, chain} (invariante I3).
-    Throttle en el cliente: máx ~20 req/s (< 50 ms entre llamadas).
-    """
-    try:
-        track = require_int(params, "track", min_val=0)
-        if track > 9:
-            return {"ok": False, "error": "'track' debe ser 0..9"}
-        chain_in = params.get("chain", {})
-        if not isinstance(chain_in, dict):
-            return {"ok": False, "error": "chain debe ser un dict"}
-    except ValidationError as e:
-        return {"ok": False, "error": str(e)}
-
-    mixer = session.timeline.mixer
-    if "tracks" not in mixer:
-        mixer["tracks"] = {}
-
-    current = dict(mixer["tracks"].get(str(track), {}))
-    current.update({k: float(v) for k, v in chain_in.items()
-                    if k in _MIXER_CHAIN_KEYS})
-    mixer["tracks"][str(track)] = current
-
-    session.notify_changed("mixer")
-    return {"ok": True, "track": track, "chain": current}
-
-
-def _h_set_master(session, params):
-    """set_master(master) — actualiza el strip master del mixer.
-
-    master = {brightness?:0..1, gamma?:0.5..2.2, hue_shift?:-180..180,
-               white_limit?:0..1, blackout_fade?:0..1}
-    Devuelve {ok, master} (invariante I3).
-    Throttle en el cliente: máx ~20 req/s (< 50 ms entre llamadas).
-    El blackout_fade es animable con una lane de A2 (target 'master:blackout_fade').
-    """
-    master_in = params.get("master", params)
-    if not isinstance(master_in, dict):
-        return {"ok": False, "error": "master debe ser un dict"}
-
-    mixer = session.timeline.mixer
-    current = dict(mixer.get("master", {}))
-    current.update({k: float(v) for k, v in master_in.items()
-                    if k in _MASTER_KEYS})
-    mixer["master"] = current
-
-    session.notify_changed("mixer")
-    return {"ok": True, "master": current}
-
-
-def _h_get_mixer(session, params):
-    """get_mixer() — devuelve el estado completo del mixer."""
-    mixer = session.timeline.mixer
-    return {
-        "ok": True,
-        "mixer": {
-            "tracks": dict(mixer.get("tracks", {})),
-            "master": dict(mixer.get("master", {})),
-        },
-    }
-
-
-# ── B3 — Render offline + playback baked ────────────────────────────────────
-
-def _h_render_offline(session, params):
-    """render_offline() — lanza el render del timeline completo en background.
-
-    Corre en loop.run_in_executor (thread pool) — no bloquea el tick (I4).
-    El progreso se emite como {type:'render_progress', pct:float} en el stream.
-    Devuelve {ok, message} inmediatamente (el render continúa en background).
-    """
-    if getattr(session, 'render_in_progress', False):
-        return {"ok": False, "error": "Ya hay un render en curso"}
-    import asyncio
-
-    from server.offline_render import start_render
-    try:
-        asyncio.ensure_future(start_render(session))
-    except RuntimeError as e:
-        return {"ok": False, "error": f"No se pudo lanzar render: {e}"}
-    return {"ok": True, "message": "Render iniciado en background"}
-
-
-# ── B4 — Autosave + versiones de show ────────────────────────────────────────
-
-def _h_list_autosaves(session, params):
-    """list_autosaves() → {ok, autosaves: [{filename, ts, size_kb}]} desc por fecha."""
-    import os
-    d = session.project.folder / "autosave"
-    if not d.is_dir():
-        return {"ok": True, "autosaves": []}
-    files = sorted(d.glob("show_*.json"), key=lambda p: p.name, reverse=True)
-    result = []
-    for f in files:
-        try:
-            size_kb = round(os.path.getsize(f) / 1024, 1)
-        except OSError:
-            size_kb = 0
-        ts = f.stem[5:]  # "show_YYYYMMDDTHHMMSS" → "YYYYMMDDTHHMMSS"
-        result.append({"filename": f.name, "ts": ts, "size_kb": size_kb})
-    return {"ok": True, "autosaves": result}
-
-
-def _h_restore_autosave(session, params):
-    """restore_autosave(filename) → {ok}.
-
-    Carga el autosave como timeline activo. Valida que el filename esté
-    DENTRO de projects/<slug>/autosave/ para evitar path traversal.
-    """
-    try:
-        filename = require_key(params, "filename")
-    except ValidationError as e:
-        return {"ok": False, "error": str(e)}
-
-    # Defensa path traversal: solo nombres de archivo simples con patrón seguro
-    from pathlib import Path as _Path
-    safe_name = _Path(filename).name  # elimina cualquier separador de directorio
-    if safe_name != filename or "/" in filename or "\\" in filename:
-        return {"ok": False, "error": "filename inválido (path traversal bloqueado)"}
-    if not safe_name.startswith("show_") or not safe_name.endswith(".json"):
-        return {"ok": False, "error": "filename debe ser show_<ts>.json"}
-
-    autosave_path = session.project.folder / "autosave" / safe_name
-    if not autosave_path.is_file():
-        return {"ok": False, "error": "autosave no encontrado"}
-
-    try:
-        from src.core.timeline_model import Timeline
-        new_tl = Timeline.load(autosave_path)
-        # Preservar duration_ms del show activo (viene del audio, no del autosave)
-        new_tl.duration_ms = session.timeline.duration_ms
-        session.snapshot()
-        session.timeline = new_tl
-        session.invalidate_caches()
-    except Exception as e:
-        return {"ok": False, "error": f"Error al cargar autosave: {e}"}
-    return {"ok": True, "filename": safe_name}
-
-
-def _h_discard_autosave_prompt(session, params):
-    """discard_autosave_prompt() → {ok}. Solo cierra el banner en el frontend."""
-    return {"ok": True}
-
-
-def _h_toggle_baked(session, params):
-    """toggle_baked(enabled: bool) → {ok, baked: bool}.
-
-    Si enabled=True: intenta cargar los frames bakeados del npz en memoria.
-    Si no hay render válido (hash no coincide o no existe), devuelve error.
-    Si enabled=False: descarga los frames de memoria (vuelve al modo live).
-    """
-    enabled = bool(params.get("enabled", True))
-
-    if not enabled:
-        session.baked_frames = None
-        session.baked_hash = None
-        return {"ok": True, "baked": False}
-
-    ok = session.load_baked_frames()
-    if not ok:
-        return {
-            "ok": False,
-            "error": "Sin render válido. Lanza render_offline primero.",
-            "baked": False,
-        }
-    return {"ok": True, "baked": True}
-
-
-# ── E2 — OSC bridge (ROADMAP v3) ─────────────────────────────────────────────
-
-def _h_osc_get_state(session, params):
-    """osc_get_state() → estado completo del bridge OSC."""
-    osc = getattr(session, "osc_bridge", None)
-    if osc is None:
-        return {"ok": True, "enabled": False, "available": False,
-                "port_in": 8001, "port_out": 8002,
-                "clients_out": [], "recv_log": [], "active": False}
-    return {"ok": True, **osc.get_state()}
-
-
-def _h_osc_set_config(session, params):
-    """osc_set_config(port_in?, port_out?, enabled?, clients_out?) → {ok}.
-
-    clients_out: lista de {ip, port}.
-    Persiste en output_targets.json. Reinicia el servidor IN si cambia el puerto o enabled.
-    """
-    osc = getattr(session, "osc_bridge", None)
-    if osc is None:
-        return {"ok": False, "error": "OSC bridge no disponible"}
-
-    changed_server = False
-    if "port_in" in params and params["port_in"] != osc.port_in:
-        osc.port_in = int(params["port_in"])
-        changed_server = True
-    if "port_out" in params:
-        osc.port_out = int(params["port_out"])
-    if "enabled" in params and bool(params["enabled"]) != osc.enabled:
-        osc.enabled = bool(params["enabled"])
-        changed_server = True
-    if "clients_out" in params:
-        raw = params["clients_out"]
-        osc.set_clients_out([(c["ip"], int(c["port"])) for c in raw if "ip" in c and "port" in c])
-
-    # Guardar config (atómico vía output_targets.json)
-    from pathlib import Path
-    _ot = Path(__file__).resolve().parent.parent / "output_targets.json"
-    osc.save_config(_ot)
-
-    # Reiniciar servidor IN si cambiaron port_in o enabled
-    if changed_server:
-        import asyncio
-        asyncio.create_task(osc.restart())
-
-    return {"ok": True, **osc.get_state()}
-
-
-# ── G3 — Moving heads: pan/tilt en el timeline ──────────────────────────────
-
-def _h_list_channel_effects(session, params):
-    """list_channel_effects() → {ok, effects: [{effect_id, name, category, required_channels, ...}]}"""
-    lib = getattr(session, 'channel_lib', None)
-    if lib is None:
-        return {"ok": True, "effects": []}
-    return {"ok": True, "effects": lib.describe_all()}
-
-
-def _h_set_clip_channel_effect(session, params):
-    """set_clip_channel_effect(clip_id, config: {id, params?}) — añade/actualiza un efecto de canal.
-
-    El campo `config.id` es el effect_id del ChannelEffect (ej. "pos_pantilt_wave").
-    Si ya existe un entry con el mismo id en clip.channel_effects, lo reemplaza.
-    También actualiza legacy channel_effect_id + params del clip para compat con
-    fixtures que usan el campo individual.
-    """
-    clip = session.find_clip_by_id(require_key(params, "clip_id"))
-    if clip is None:
-        return {"ok": False, "error": "clip_id no encontrado"}
-
-    cfg = params.get("config")
-    if not cfg or not isinstance(cfg, dict):
-        return {"ok": False, "error": "config requerido: {id, params?}"}
-
-    eff_id = cfg.get("id") or cfg.get("effect_id")
-    if not eff_id:
-        return {"ok": False, "error": "config.id requerido"}
-
-    # Verificar que el efecto existe
-    lib = getattr(session, 'channel_lib', None)
-    if lib is not None and lib.get(str(eff_id)) is None:
-        return {"ok": False, "error": f"channel_effect '{eff_id}' no encontrado"}
-
-    eff_params = dict(cfg.get("params") or {})
-    entry = {"id": str(eff_id), "params": eff_params}
-
-    # Upsert en la lista channel_effects del clip
-    existing = list(getattr(clip, 'channel_effects', []) or [])
-    replaced = False
-    for i, e in enumerate(existing):
-        if e.get("id") == str(eff_id):
-            existing[i] = entry
-            replaced = True
-            break
-    if not replaced:
-        existing.append(entry)
-    clip.channel_effects = existing
-
-    # También actualizar el campo legacy para compat con show_engine legacy path
-    clip.channel_effect_id = str(eff_id)
-    clip.params = {**clip.params, **eff_params}
-
-    session.invalidate_caches()
-    return {"ok": True, "clip": clip.to_dict()}
-
-
-def _h_delete_clip_channel_effect(session, params):
-    """delete_clip_channel_effect(clip_id, channel_name_or_id) — elimina un efecto de canal.
-
-    Elimina la entrada cuyo id == channel_name_or_id, O que controla el canal channel_name_or_id.
-    """
-    clip = session.find_clip_by_id(require_key(params, "clip_id"))
-    if clip is None:
-        return {"ok": False, "error": "clip_id no encontrado"}
-
-    target = require_key(params, "channel_name_or_id")
-    existing = list(getattr(clip, 'channel_effects', []) or [])
-
-    before = len(existing)
-    # Eliminar por id directo
-    existing = [e for e in existing if e.get("id") != target]
-    if len(existing) == before:
-        # Buscar si algún efecto produce el canal pedido
-        lib = getattr(session, 'channel_lib', None)
-        if lib is not None:
-            existing = [e for e in existing
-                        if target not in (lib.get(e.get("id", "")) or type('', (), {'required_channels': [], 'optional_channels': []})()).required_channels]
-
-    clip.channel_effects = existing
-    if not existing:
-        clip.channel_effect_id = None
-
-    session.invalidate_caches()
-    return {"ok": True, "clip": clip.to_dict()}
-
-
-def _h_list_dmx_ports(session, params):
-    """list_dmx_ports() → {ok, ports: [str]} — lista puertos serie para DMX USB."""
-    from src.io.outputs.router import DmxUsbTarget
-    return {"ok": True, "ports": DmxUsbTarget.list_ports()}
-
-
-def _h_set_output_target(session, params):
-    """set_output_target(universe, type, port?, ip?, multicast?) → {ok}.
-
-    Actualiza output_targets.json para el universo indicado y recarga el router
-    en el engine de la sesión. Soporta type: wled, artnet_node, sacn, dmx_usb, sim_only.
-    """
-    import json
-    from pathlib import Path
-
-    uni = int(params.get("universe", 1))
-    ttype = str(params.get("type", "sim_only"))
-
-    cfg: dict = {"type": ttype}
-    if ttype in ("wled", "artnet_node", "sacn"):
-        ip = params.get("ip") or params.get("port") or ""
-        if ip:
-            cfg["ip"] = ip
-        if ttype == "sacn":
-            if params.get("multicast"):
-                cfg["multicast"] = True
-    elif ttype == "dmx_usb":
-        port = params.get("port") or "COM3"
-        cfg["port"] = port
-
-    _ot = Path(__file__).resolve().parent.parent / "output_targets.json"
-    try:
-        data: dict = {}
-        if _ot.is_file():
-            data = json.loads(_ot.read_text(encoding="utf-8"))
-        data[str(uni)] = cfg
-        tmp = _ot.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-        tmp.replace(_ot)
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-    # Recargar router en el engine
-    se = getattr(session, "show_engine", None)
-    if se is not None:
-        try:
-            from src.io.outputs.router import OutputRouter
-            new_router = OutputRouter.load(_ot)
-            if hasattr(se, "router") and se.router is not None:
-                se.router.close()
-            se.router = new_router
-        except Exception as e:
-            return {"ok": True, "warn": f"config guardada pero router no recargado: {e}"}
-
-    return {"ok": True, "universe": uni, "target": cfg}
-
-
-def _h_get_fixture_pan_tilt(session, params):
-    """get_fixture_pan_tilt(fixture_id?) → {ok, fixtures: [{fixture_id, pan, tilt}]}
-
-    Devuelve pan/tilt de todos los movers (o del fixture_id indicado) en el instante actual.
-    Valores 0..1 (normalizado). Útil para el preview 2D en la UI.
-    """
-    t = session.t if hasattr(session, 't') else 0.0
-    actx = session._cached_actx if hasattr(session, '_cached_actx') else {}
-
-    se = getattr(session, 'show_engine', None)
-    tl = getattr(session, 'timeline', None)
-    if se is None or tl is None or se.rig is None:
-        return {"ok": True, "fixtures": []}
-
-    fid_filter = params.get("fixture_id")
-    result = []
-    for fx in se.rig.all_fixtures():
-        if fid_filter is not None and str(fx.fixture_id) != str(fid_filter):
-            continue
-        profile = se.rig.get_profile(fx.profile_id)
-        if profile is None or 'pan' not in profile.channel_map:
-            continue
-        buf = se.render_channels_for_fixture(fx, t, actx, timeline=tl)
-        ch_pan  = profile.channel_map.get('pan', -1)
-        ch_tilt = profile.channel_map.get('tilt', -1)
-        pan_v  = buf[ch_pan]  / 255.0 if 0 <= ch_pan  < len(buf) else 0.5
-        tilt_v = buf[ch_tilt] / 255.0 if 0 <= ch_tilt < len(buf) else 0.5
-        result.append({"fixture_id": fx.fixture_id, "pan": round(pan_v, 4), "tilt": round(tilt_v, 4)})
-
-    return {"ok": True, "fixtures": result}
-
-
-# ── H3 — Multi-show quick-switch ────────────────────────────────────────────
-
-def _h_list_projects(session, params):
-    """list_projects() → {ok, projects: [{slug, name, audio_path, ...}], current: slug}"""
-    pm = getattr(session, "pm", None) or getattr(session, "_pm", None)
-    if pm is None:
-        return {"ok": True, "projects": [], "current": None}
-    projects = pm.list_projects()
-    current_slug = session.project.slug if hasattr(session, "project") and session.project else None
-    return {
-        "ok": True,
-        "projects": [
-            {
-                "slug": p.slug,
-                "name": p.name,
-                "audio_path": str(p.audio_path),
-            }
-            for p in projects
-        ],
-        "current": current_slug,
-    }
-
-
-def _h_switch_project(session, params):
-    """switch_project(slug) → {ok} — cambia el proyecto activo sin reiniciar el server.
-
-    Emite event project_changed al stream. La operación es async; el cliente debe
-    esperar el evento 'project_changed' antes de refetchear el timeline.
-    """
-    import asyncio
-    slug = str(params.get("slug", ""))
-    if not slug:
-        return {"ok": False, "error": "slug requerido"}
-    pm = getattr(session, "pm", None) or getattr(session, "_pm", None)
-    if pm is not None and pm.open_project(slug) is None:
-        return {"ok": False, "error": f"Proyecto no encontrado: {slug!r}"}
-    asyncio.create_task(session.switch_project(slug))
-    return {"ok": True, "slug": slug}
-
-
-# ── G2 — Sync de tempo (Ableton Link / MIDI Clock) ──────────────────────────
-
-def _h_tempo_sync_get_state(session, params):
-    """tempo_sync_get_state() → {mode, bpm, beat_phase, midi_device, synced}"""
-    ts = getattr(session, "tempo_sync", None)
-    if ts is None:
-        return {"mode": "off", "bpm": 0.0, "beat_phase": 0.0,
-                "midi_device": None, "synced": False}
-    return ts.get_state()
-
-
-def _h_tempo_sync_set_mode(session, params):
-    """tempo_sync_set_mode(mode, device?) — mode ∈ {"off","link","midi_clock"}.
-
-    Activa/desactiva la sincronización de tempo. Si mode="midi_clock", device
-    es el nombre del puerto MIDI (string). Si omitido, mido elige el primero disponible.
-    """
-    mode = require_key(params, "mode")
-    device = params.get("device")
-    ts = getattr(session, "tempo_sync", None)
-    if ts is None:
-        return {"ok": False, "error": "TempoSyncService no disponible"}
-    import asyncio
-    asyncio.create_task(ts.start(mode, device))
-    return {"ok": True, "state": ts.get_state()}
-
-
-def _h_tempo_sync_list_midi_ports(session, params):
-    """tempo_sync_list_midi_ports() → {ok, ports: [str]}
-
-    Lista los puertos MIDI disponibles para MIDI Clock.
-    """
-    try:
-        import mido  # type: ignore
-        ports = mido.get_input_names()
-    except ImportError:
-        ports = []
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-    return {"ok": True, "ports": list(ports)}
-
-
-# ── E3 — Export de video preview ─────────────────────────────────────────────
-
-def _h_export_video(session, params):
-    """export_video(format='gif', scale=4) → {ok} + eventos export_progress.
-
-    Lanza el export en executor (I4). Solo un export a la vez (flag
-    export_in_progress en session). Emite {type:'export_progress', pct:float}
-    al stream.
-    Si no hay render.npz → {ok: False, error}.
-    """
-    import asyncio
-    import shutil
-
-    if getattr(session, 'export_in_progress', False):
-        return {"ok": False, "error": "Ya hay un export en curso"}
-
-    fmt = params.get("format", "gif")
-    if fmt not in ("gif", "mp4"):
-        return {"ok": False, "error": "format debe ser 'gif' o 'mp4'"}
-
-    if fmt == "mp4" and shutil.which("ffmpeg") is None:
-        return {"ok": False, "error": "ffmpeg no encontrado en PATH"}
-
-    npz_path = session.project.folder / "render.npz"
-    if not npz_path.is_file():
-        return {"ok": False, "error": "Sin render. Ejecuta render_offline primero."}
-
-    scale = int(params.get("scale", 4))
-    if scale < 1 or scale > 16:
-        return {"ok": False, "error": "scale debe ser 1..16"}
-
-    out_path = session.project.folder / f"preview.{fmt}"
-    session.export_in_progress = True
-
-    async def _run():
-        loop = asyncio.get_event_loop()
-
-        def _progress_fn(pct: float):
-            hub = getattr(session, "hub", None)
-            if hub:
-                try:
-                    asyncio.run_coroutine_threadsafe(
-                        hub.broadcast_json({"type": "export_progress", "pct": pct}),
-                        loop,
-                    )
-                except Exception:
-                    pass
-
-        def _worker():
-            from server.video_export import export_preview
-            export_preview(str(npz_path), str(out_path), format=fmt,
-                           scale=scale, progress_cb=_progress_fn)
-
-        try:
-            await loop.run_in_executor(None, _worker)
-        except Exception as e:
-            _log.error(f"[export_video] error: {e}")
-        finally:
-            session.export_in_progress = False
-            hub = getattr(session, "hub", None)
-            if hub:
-                try:
-                    await hub.broadcast_json({"type": "export_progress", "pct": 100.0, "done": True})
-                except Exception:
-                    pass
-
-    try:
-        asyncio.ensure_future(_run())
-    except RuntimeError as e:
-        session.export_in_progress = False
-        return {"ok": False, "error": f"No se pudo lanzar export: {e}"}
-    return {"ok": True, "message": f"Export {fmt} iniciado"}
-
-
-def _h_get_render_status(session, params):
-    """get_render_status() → {ok, status, pct, hash, has_ffmpeg, render_ready}.
-
-    Amplía la versión de B3 con has_ffmpeg (E3) para que el frontend
-    sepa si mostrar el botón de MP4.
-    """
-    import json as _json
-    import shutil
-
-    from server.offline_render import compute_timeline_hash
-
-    has_ffmpeg = shutil.which("ffmpeg") is not None
-
-    if getattr(session, 'render_in_progress', False):
-        return {
-            "ok": True,
-            "status": "rendering",
-            "pct": getattr(session, 'render_pct', 0.0),
-            "hash": None,
-            "has_ffmpeg": has_ffmpeg,
-            "render_ready": False,
-        }
-
-    out_path = session.project.folder / "render.npz"
-    meta_path = session.project.folder / "render_meta.json"
-    if not out_path.is_file() or not meta_path.is_file():
-        return {"ok": True, "status": "idle", "pct": 0.0, "hash": None,
-                "has_ffmpeg": has_ffmpeg, "render_ready": False}
-
-    try:
-        with open(meta_path, encoding='utf-8') as f:
-            meta = _json.load(f)
-        current_hash = compute_timeline_hash(session.timeline.to_dict())
-        stored_hash = meta.get("show_hash")
-        if stored_hash == current_hash:
-            return {
-                "ok": True,
-                "status": "ready",
-                "pct": 100.0,
-                "hash": stored_hash,
-                "n_frames": meta.get("n_frames"),
-                "duration_s": meta.get("duration_s"),
-                "has_ffmpeg": has_ffmpeg,
-                "render_ready": True,
-            }
-    except Exception:
-        pass
-
-    return {"ok": True, "status": "idle", "pct": 0.0, "hash": None,
-            "has_ffmpeg": has_ffmpeg, "render_ready": False}
-
-
-# ── I5 — Exportación PDF patch + CSV DMX ─────────────────────────────────────
-
-def _h_export_patch_pdf(session, params):
-    """export_patch_pdf() → {ok, path}.
-
-    Genera PDF (o TXT fallback) con clips del timeline ordenados por pista y
-    tiempo. Usa fpdf2 si disponible; si no, crea un .txt equivalente.
-    """
-    from server.timeline_export import export_patch_pdf
-    out_path = str(session.project.folder / "patch.pdf")
-    try:
-        path = export_patch_pdf(session, out_path)
-        return {"ok": True, "path": path}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-
-def _h_export_dmx_csv(session, params):
-    """export_dmx_csv(fps=1) → {ok, path}.
-
-    Genera CSV con frames DMX muestreados a fps FPS.
-    Cabecera: t_ms,universe,ch_1,...,ch_512.
-    Reutiliza render.npz si existe y es coherente; si no, compute_frame.
-    """
-    from server.timeline_export import export_dmx_csv
-    fps = int(params.get("fps", 1))
-    if fps < 1:
-        return {"ok": False, "error": "fps debe ser >= 1"}
-    out_path = str(session.project.folder / "dmx_export.csv")
-    try:
-        path = export_dmx_csv(session, out_path, fps=fps)
-        return {"ok": True, "path": path}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-
 # ── J1 — Editor de patch visual 2D ───────────────────────────────────────────
 
 # Escenario 3D (coincide con session.sync_rig_layout → layout["stage"]).
@@ -2390,60 +1740,6 @@ def _h_get_output_status(session, params):
     }
 
 
-# ── M1 — Tap BPM + key detection ─────────────────────────────────────────────
-
-def _h_tap_bpm(session, params):
-    """tap_bpm() → {bpm, taps, ready}.
-    Registra un tap de tempo; tras 4+ taps calcula BPM por mediana.
-    """
-    import time as _time
-    ts = getattr(session, "tempo_sync", None)
-    if ts is None:
-        return {"ok": False, "error": "TempoSyncService no disponible"}
-    result = ts.tap(_time.perf_counter())
-    result["ok"] = True
-    return result
-
-
-def _h_get_key_info(session, params):
-    """get_key_info() → {ok, status, key?, mode?, confidence?}.
-    Si ya calculado → devuelve desde caché. Si no → lanza en executor
-    y devuelve {status: 'computing'}. El resultado llegará como evento del stream.
-    """
-    cache = getattr(session, "_key_cache", None)
-    if cache is not None:
-        return {"ok": True, "status": "ready", **cache}
-
-    # Lanzar detección en executor (no bloquea el event loop)
-    import asyncio
-    import concurrent.futures
-
-    audio_path = getattr(session, "audio_path", None) or ""
-    if not audio_path:
-        return {"ok": False, "error": "No hay audio cargado"}
-
-    loop = asyncio.get_event_loop()
-    hub = getattr(session, "hub", None)
-
-    def _detect_and_cache():
-        from server.key_detector import detect_key
-        result = detect_key(audio_path)
-        session._key_cache = result
-        if hub is not None:
-            import asyncio as _aio
-            try:
-                _aio.run_coroutine_threadsafe(
-                    hub.broadcast_json({"type": "key_detected", **result}),
-                    loop,
-                )
-            except Exception:
-                pass
-
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-    loop.run_in_executor(executor, _detect_and_cache)
-    return {"ok": True, "status": "computing"}
-
-
 # ── M2 — Generación automática de show ───────────────────────────────────────
 
 def _h_generate_show(session, params):
@@ -2675,35 +1971,6 @@ _LOCAL = {
     # Heartbeat — keep-alive ligero (el frontend lo usa para detectar
     # conexiones medio-abiertas y forzar la reconexión).
     "ping": lambda session, params: {"ok": True},
-    # B2 — Mixer
-    "set_track_chain": _h_set_track_chain,
-    "set_master": _h_set_master,
-    "get_mixer": _h_get_mixer,
-    # B3 — Render offline + playback baked
-    "render_offline": _h_render_offline,
-    "toggle_baked": _h_toggle_baked,
-    # B4 — Autosave + versiones de show
-    "list_autosaves": _h_list_autosaves,
-    "restore_autosave": _h_restore_autosave,
-    "discard_autosave_prompt": _h_discard_autosave_prompt,
-    # E2 — OSC bridge (ROADMAP v3)
-    "osc_get_state": _h_osc_get_state,
-    "osc_set_config": _h_osc_set_config,
-    # G3 — Moving heads: pan/tilt en el timeline
-    "list_channel_effects": _h_list_channel_effects,
-    "set_clip_channel_effect": _h_set_clip_channel_effect,
-    "delete_clip_channel_effect": _h_delete_clip_channel_effect,
-    "get_fixture_pan_tilt": _h_get_fixture_pan_tilt,
-    # G4 — DMX USB directa
-    "list_dmx_ports": _h_list_dmx_ports,
-    "set_output_target": _h_set_output_target,
-    # H3 — Multi-show quick-switch
-    "list_projects": _h_list_projects,
-    "switch_project": _h_switch_project,
-    # G2 — Sync de tempo (Ableton Link / MIDI Clock)
-    "tempo_sync_get_state": _h_tempo_sync_get_state,
-    "tempo_sync_set_mode": _h_tempo_sync_set_mode,
-    "tempo_sync_list_midi_ports": _h_tempo_sync_list_midi_ports,
     # J3 — Biblioteca GDTF: browser y búsqueda
     "list_gdtf_profiles": _h_list_gdtf_profiles,
     "add_fixture_from_gdtf": _h_add_fixture_from_gdtf,
@@ -2711,12 +1978,6 @@ _LOCAL = {
     "move_fixture": _h_move_fixture,
     # J2 — Soporte DMX completo por canal
     "set_fixture_type": _h_set_fixture_type,
-    # I5 — Exportación PDF patch + CSV DMX
-    "export_patch_pdf": _h_export_patch_pdf,
-    "export_dmx_csv": _h_export_dmx_csv,
-    # E3 — Export de video preview (ROADMAP v3)
-    "export_video": _h_export_video,
-    "get_render_status": _h_get_render_status,
     # E4 — Test de output y patch visual (ROADMAP v3)
     "identify_fixture": _h_identify_fixture,
     "test_universe": _h_test_universe,
@@ -2739,9 +2000,6 @@ _LOCAL = {
     "preview_effect_frame": _h_preview_effect_frame,
     # L3 — Multiusuario: rol del token actual
     "auth_get_role": lambda session, params: {"ok": True, "role": "operator"},
-    # M1 — Tap BPM + key detection
-    "tap_bpm": _h_tap_bpm,
-    "get_key_info": _h_get_key_info,
     # M2 — Generación automática de show
     "generate_show": _h_generate_show,
     # M3 — Historial de gestos
@@ -2766,6 +2024,11 @@ _TIMELINE_MUTATORS |= _handlers_pkg.TIMELINE_MUTATORS
 _RIG_MUTATORS |= _handlers_pkg.RIG_MUTATORS
 
 # Compat: tests y server/web.py importan estos nombres desde server.dispatcher.
+from server.handlers.autosave import (  # noqa: E402,F401
+    _h_discard_autosave_prompt,
+    _h_list_autosaves,
+    _h_restore_autosave,
+)
 from server.handlers.autovj import (  # noqa: E402,F401
     _h_autovj_activate_preset,
     _h_autovj_get_state,
@@ -2807,6 +2070,23 @@ from server.handlers.markers import (  # noqa: E402,F401
     _h_list_markers,
     _h_update_marker,
 )
+from server.handlers.mixer import (  # noqa: E402,F401
+    _h_get_mixer,
+    _h_set_master,
+    _h_set_track_chain,
+)
+from server.handlers.movers import (  # noqa: E402,F401
+    _h_delete_clip_channel_effect,
+    _h_get_fixture_pan_tilt,
+    _h_list_channel_effects,
+    _h_list_dmx_ports,
+    _h_set_clip_channel_effect,
+    _h_set_output_target,
+)
+from server.handlers.osc import (  # noqa: E402,F401
+    _h_osc_get_state,
+    _h_osc_set_config,
+)
 from server.handlers.patch import (  # noqa: E402,F401
     _get_artnet_ip_for_universe,
     _h_duplicate_fixture,
@@ -2831,6 +2111,25 @@ from server.handlers.projects import (  # noqa: E402,F401
     _h_load_sequence,
     _h_update_project,
     _safe_project_slug,
+)
+from server.handlers.render_export import (  # noqa: E402,F401
+    _h_export_dmx_csv,
+    _h_export_patch_pdf,
+    _h_export_video,
+    _h_get_render_status,
+    _h_render_offline,
+    _h_toggle_baked,
+)
+from server.handlers.switch import (  # noqa: E402,F401
+    _h_list_projects,
+    _h_switch_project,
+)
+from server.handlers.tempo import (  # noqa: E402,F401
+    _h_get_key_info,
+    _h_tap_bpm,
+    _h_tempo_sync_get_state,
+    _h_tempo_sync_list_midi_ports,
+    _h_tempo_sync_set_mode,
 )
 from server.handlers.waveform import (  # noqa: E402,F401
     _compute_waveform,

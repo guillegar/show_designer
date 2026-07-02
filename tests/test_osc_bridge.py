@@ -147,18 +147,15 @@ def test_osc_set_config_updates_clients():
         tmp = Path(f.name)
 
     try:
-        with patch("server.dispatcher.Path") as mock_path_cls:
-            mock_path_cls.return_value.__truediv__ = lambda s, o: tmp
-            # patch Path(__file__).resolve().parent.parent / "output_targets.json"
-            with patch("server.osc_bridge.Path", Path):
-                # Llamar directamente con el path real
-                params = {"clients_out": [{"ip": "192.168.1.50", "port": 8002}]}
-                # Parcheamos save_config para no tocar el archivo real
-                bridge.save_config = MagicMock()
-                result = _LOCAL["osc_set_config"](session, params)
-                assert result["ok"] is True
-                assert len(bridge.clients_out) == 1
-                assert bridge.clients_out[0] == ("192.168.1.50", 8002)
+        # save_config mockeado → el handler no toca el output_targets.json real
+        # (el handler ancla la ruta a PROJECT_DIR; ya no se parchea Path).
+        params = {"clients_out": [{"ip": "192.168.1.50", "port": 8002}]}
+        bridge.save_config = MagicMock()
+        result = _LOCAL["osc_set_config"](session, params)
+        assert result["ok"] is True
+        assert len(bridge.clients_out) == 1
+        assert bridge.clients_out[0] == ("192.168.1.50", 8002)
+        bridge.save_config.assert_called_once()
     finally:
         tmp.unlink(missing_ok=True)
 
