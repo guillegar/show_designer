@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from server.dispatcher import _h_delete_range, _h_duplicate_range
+from server.handlers.clips_edit import _h_delete_range, _h_duplicate_range
 from src.core.timeline_model import Clip, Timeline
 
 # ── Fake session ──────────────────────────────────────────────────────────────

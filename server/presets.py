@@ -241,6 +241,13 @@ class PresetBank:
             new_presets = [p for p in _seed_f3_effects(self.library) if p.base_effect_id in missing]
             self._global.extend(new_presets)
             _write(GLOBAL_FILE, [p.to_dict() for p in self._global])
+        # Migración canal: añadir presets de canal (movers) si aún no existen
+        existing_ch = {p.channel_effect_id for p in self._global if p.kind == 'channel'}
+        seed_ch = [p for p in _seed_global(self.library)
+                   if p.kind == 'channel' and p.channel_effect_id not in existing_ch]
+        if seed_ch:
+            self._global.extend(seed_ch)
+            _write(GLOBAL_FILE, [p.to_dict() for p in self._global])
         if self.project_file and self.project_file.is_file():
             self._project = [EffectPreset.from_dict(d) for d in _read(self.project_file)]
         for p in self._project:

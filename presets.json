@@ -1,315 +1,6 @@
 [
   {
-    "preset_id": "70b72b39f0c9",
-    "name": "Flash Blanco",
-    "kind": "pixel",
-    "base_effect_id": 0,
-    "channel_effect_id": null,
-    "category": "",
-    "family": "flash",
-    "params": {
-      "hue": 0
-    },
-    "param_links": [],
-    "color": "#f3f4f6",
-    "scope": "global"
-  },
-  {
-    "preset_id": "1d4f35f44555",
-    "name": "Flash Rojo",
-    "kind": "pixel",
-    "base_effect_id": 1,
-    "channel_effect_id": null,
-    "category": "",
-    "family": "flash",
-    "params": {
-      "hue": 0
-    },
-    "param_links": [],
-    "color": "#f0654b",
-    "scope": "global"
-  },
-  {
-    "preset_id": "4824796fca36",
-    "name": "Flash Verde",
-    "kind": "pixel",
-    "base_effect_id": 1,
-    "channel_effect_id": null,
-    "category": "",
-    "family": "flash",
-    "params": {
-      "hue": 120
-    },
-    "param_links": [],
-    "color": "#1fe39a",
-    "scope": "global"
-  },
-  {
-    "preset_id": "f7d41d5d6034",
-    "name": "Flash Azul",
-    "kind": "pixel",
-    "base_effect_id": 1,
-    "channel_effect_id": null,
-    "category": "",
-    "family": "flash",
-    "params": {
-      "hue": 220
-    },
-    "param_links": [],
-    "color": "#5aa9f0",
-    "scope": "global"
-  },
-  {
-    "preset_id": "d1cb9b586f38",
-    "name": "Strobe",
-    "kind": "pixel",
-    "base_effect_id": 3,
-    "channel_effect_id": null,
-    "category": "",
-    "family": "flash",
-    "params": {},
-    "param_links": [],
-    "color": "#ffffff",
-    "scope": "global"
-  },
-  {
-    "preset_id": "0ce0975c70e7",
-    "name": "Wave Azul",
-    "kind": "pixel",
-    "base_effect_id": 10,
-    "channel_effect_id": null,
-    "category": "",
-    "family": "wave",
-    "params": {
-      "hue": 210
-    },
-    "param_links": [],
-    "color": "#5aa9f0",
-    "scope": "global"
-  },
-  {
-    "preset_id": "8d3fc238cbe1",
-    "name": "Wave Arcoíris",
-    "kind": "pixel",
-    "base_effect_id": 13,
-    "channel_effect_id": null,
-    "category": "",
-    "family": "wave",
-    "params": {},
-    "param_links": [],
-    "color": "#d569e0",
-    "scope": "global"
-  },
-  {
-    "preset_id": "f7d00e67e9c6",
-    "name": "Gradiente Magenta",
-    "kind": "pixel",
-    "base_effect_id": 20,
-    "channel_effect_id": null,
-    "category": "",
-    "family": "gradient",
-    "params": {
-      "hue": 300
-    },
-    "param_links": [],
-    "color": "#d569e0",
-    "scope": "global"
-  },
-  {
-    "preset_id": "dec313dee26c",
-    "name": "Chase Verde",
-    "kind": "pixel",
-    "base_effect_id": 35,
-    "channel_effect_id": null,
-    "category": "",
-    "family": "pattern",
-    "params": {
-      "hue": 140
-    },
-    "param_links": [],
-    "color": "#3fe08a",
-    "scope": "global"
-  },
-  {
-    "preset_id": "34a77cdc03f3",
-    "name": "Sparkle",
-    "kind": "pixel",
-    "base_effect_id": 34,
-    "channel_effect_id": null,
-    "category": "",
-    "family": "pattern",
-    "params": {},
-    "param_links": [],
-    "color": "#e0c05a",
-    "scope": "global"
-  },
-  {
-    "preset_id": "918b76eceef1",
-    "name": "Breathing Ámbar",
-    "kind": "pixel",
-    "base_effect_id": 32,
-    "channel_effect_id": null,
-    "category": "",
-    "family": "pattern",
-    "params": {
-      "hue": 45
-    },
-    "param_links": [],
-    "color": "#e0c05a",
-    "scope": "global"
-  },
-  {
-    "preset_id": "f27443cf9524",
-    "name": "Hue Cycle",
-    "kind": "pixel",
-    "base_effect_id": 40,
-    "channel_effect_id": null,
-    "category": "",
-    "family": "spectral",
-    "params": {},
-    "param_links": [],
-    "color": "#a779f0",
-    "scope": "global"
-  },
-  {
-    "preset_id": "98efacf5ec9b",
-    "name": "Mover Círculo",
-    "kind": "channel",
-    "base_effect_id": 0,
-    "channel_effect_id": "pos_circle",
-    "category": "position",
-    "family": "position",
-    "params": {
-      "speed": 0.3,
-      "radius": 0.25
-    },
-    "param_links": [],
-    "color": "#a779f0",
-    "scope": "global"
-  },
-  {
-    "preset_id": "c2aea350b492",
-    "name": "Mover Ocho",
-    "kind": "channel",
-    "base_effect_id": 0,
-    "channel_effect_id": "pos_figure8",
-    "category": "position",
-    "family": "position",
-    "params": {
-      "speed": 0.3,
-      "radius": 0.25
-    },
-    "param_links": [],
-    "color": "#a779f0",
-    "scope": "global"
-  },
-  {
-    "preset_id": "3e710e5932b0",
-    "name": "Mover Barrido",
-    "kind": "channel",
-    "base_effect_id": 0,
-    "channel_effect_id": "pos_pan_sweep",
-    "category": "position",
-    "family": "position",
-    "params": {
-      "speed": 0.2
-    },
-    "param_links": [],
-    "color": "#5aa9f0",
-    "scope": "global"
-  },
-  {
-    "preset_id": "43323af3406d",
-    "name": "Color Arcoíris",
-    "kind": "channel",
-    "base_effect_id": 0,
-    "channel_effect_id": "col_rainbow",
-    "category": "color",
-    "family": "color",
-    "params": {
-      "speed": 0.2
-    },
-    "param_links": [],
-    "color": "#d569e0",
-    "scope": "global"
-  },
-  {
-    "preset_id": "083535c05bd8",
-    "name": "Color Cálido-Frío",
-    "kind": "channel",
-    "base_effect_id": 0,
-    "channel_effect_id": "col_warm_cold",
-    "category": "color",
-    "family": "color",
-    "params": {
-      "speed": 0.2
-    },
-    "param_links": [],
-    "color": "#e0c05a",
-    "scope": "global"
-  },
-  {
-    "preset_id": "39cb731fd9d9",
-    "name": "Dim Pulso",
-    "kind": "channel",
-    "base_effect_id": 0,
-    "channel_effect_id": "dim_pulse",
-    "category": "intensity",
-    "family": "intensity",
-    "params": {
-      "speed": 0.5
-    },
-    "param_links": [],
-    "color": "#1fe39a",
-    "scope": "global"
-  },
-  {
-    "preset_id": "a7c8b72d7b01",
-    "name": "Dim Respiración",
-    "kind": "channel",
-    "base_effect_id": 0,
-    "channel_effect_id": "dim_breath",
-    "category": "intensity",
-    "family": "intensity",
-    "params": {
-      "speed": 0.3
-    },
-    "param_links": [],
-    "color": "#1fe39a",
-    "scope": "global"
-  },
-  {
-    "preset_id": "8ae635f36f04",
-    "name": "Strobe",
-    "kind": "channel",
-    "base_effect_id": 0,
-    "channel_effect_id": "str_flash",
-    "category": "strobe",
-    "family": "strobe",
-    "params": {
-      "freq_hz": 12
-    },
-    "param_links": [],
-    "color": "#ffffff",
-    "scope": "global"
-  },
-  {
-    "preset_id": "151854a30d43",
-    "name": "Gobo Spin",
-    "kind": "channel",
-    "base_effect_id": 0,
-    "channel_effect_id": "opt_gobo_spin",
-    "category": "optical",
-    "family": "optical",
-    "params": {
-      "speed": 0.4
-    },
-    "param_links": [],
-    "color": "#f0654b",
-    "scope": "global"
-  },
-  {
-    "preset_id": "d25421e596f1",
+    "preset_id": "697906cde14e",
     "name": "Aurora Boreal",
     "kind": "pixel",
     "base_effect_id": 1010,
@@ -331,7 +22,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "e68162d8fe79",
+    "preset_id": "e033631ecceb",
     "name": "Amanecer",
     "kind": "pixel",
     "base_effect_id": 1010,
@@ -353,7 +44,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "29823e0c8a91",
+    "preset_id": "382271eed124",
     "name": "Crepúsculo",
     "kind": "pixel",
     "base_effect_id": 1010,
@@ -375,7 +66,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "ab90804c4005",
+    "preset_id": "9b507e3937c1",
     "name": "Hormiga Roja",
     "kind": "pixel",
     "base_effect_id": 1011,
@@ -396,7 +87,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "c1e3b4ae989c",
+    "preset_id": "0c75ed933a37",
     "name": "Luz de Policía",
     "kind": "pixel",
     "base_effect_id": 1011,
@@ -417,7 +108,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "ea726a0375c9",
+    "preset_id": "b781392d6eaf",
     "name": "Lluvia de Neón",
     "kind": "pixel",
     "base_effect_id": 1011,
@@ -438,7 +129,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "8663db879353",
+    "preset_id": "5564d68320f8",
     "name": "Marquesina Dorada",
     "kind": "pixel",
     "base_effect_id": 1012,
@@ -458,7 +149,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "497dc124dabb",
+    "preset_id": "f232ec364562",
     "name": "Teatro Azul",
     "kind": "pixel",
     "base_effect_id": 1012,
@@ -478,7 +169,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "c34afa192c7d",
+    "preset_id": "6852769dd057",
     "name": "Rock & Roll",
     "kind": "pixel",
     "base_effect_id": 1012,
@@ -498,7 +189,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "62bbe48561e6",
+    "preset_id": "26186b0da0e7",
     "name": "Cielo Estrellado",
     "kind": "pixel",
     "base_effect_id": 1013,
@@ -518,7 +209,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "ad000e7f5ac1",
+    "preset_id": "4429cc494a5b",
     "name": "Nieve",
     "kind": "pixel",
     "base_effect_id": 1013,
@@ -538,7 +229,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "3b55e4acc54e",
+    "preset_id": "a92c5c305fe8",
     "name": "Polvo de Hadas",
     "kind": "pixel",
     "base_effect_id": 1013,
@@ -558,7 +249,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "661f83855df0",
+    "preset_id": "cbb12382381f",
     "name": "Hoguera",
     "kind": "pixel",
     "base_effect_id": 1014,
@@ -575,7 +266,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "b3506b75635c",
+    "preset_id": "382e7b41230f",
     "name": "Llama Intensa",
     "kind": "pixel",
     "base_effect_id": 1014,
@@ -592,7 +283,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "199412807658",
+    "preset_id": "17605af0534f",
     "name": "Fuego Suave",
     "kind": "pixel",
     "base_effect_id": 1014,
@@ -609,7 +300,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "9f4e22d84143",
+    "preset_id": "4de5aa4b3d52",
     "name": "Estrobo Blanco",
     "kind": "pixel",
     "base_effect_id": 1015,
@@ -628,7 +319,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "9c3ae4b1c8c7",
+    "preset_id": "0796261a723a",
     "name": "Pulso Rojo",
     "kind": "pixel",
     "base_effect_id": 1015,
@@ -647,7 +338,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "3b38c709685b",
+    "preset_id": "031444572a2e",
     "name": "Flash Azul",
     "kind": "pixel",
     "base_effect_id": 1015,
@@ -666,7 +357,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "f93106e62aa1",
+    "preset_id": "f844eea4c2ea",
     "name": "VU Verde-Rojo",
     "kind": "pixel",
     "base_effect_id": 1016,
@@ -688,7 +379,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "74dc362b0f12",
+    "preset_id": "a4e17d351edb",
     "name": "VU Azul-Blanco",
     "kind": "pixel",
     "base_effect_id": 1016,
@@ -710,7 +401,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "000090e87be8",
+    "preset_id": "6e7b88b488d9",
     "name": "VU Cian-Magenta",
     "kind": "pixel",
     "base_effect_id": 1016,
@@ -732,7 +423,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "f5bee3578cd1",
+    "preset_id": "ba2a041cf76b",
     "name": "Arcoíris Rápido",
     "kind": "pixel",
     "base_effect_id": 1017,
@@ -750,7 +441,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "3adb0eb4fc74",
+    "preset_id": "f50792a558a7",
     "name": "Arcoíris Suave",
     "kind": "pixel",
     "base_effect_id": 1017,
@@ -768,7 +459,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "99bb4387b850",
+    "preset_id": "835f1784905a",
     "name": "Arcoíris Inverso",
     "kind": "pixel",
     "base_effect_id": 1017,
@@ -786,7 +477,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "8c10748747ed",
+    "preset_id": "27ecde7ed888",
     "name": "Radar Blanco",
     "kind": "pixel",
     "base_effect_id": 1018,
@@ -807,7 +498,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "8c4c5146d98d",
+    "preset_id": "4826649da4d0",
     "name": "Scanner Rojo",
     "kind": "pixel",
     "base_effect_id": 1018,
@@ -828,7 +519,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "f31ce417d29b",
+    "preset_id": "a4630c02391a",
     "name": "Disco Azul",
     "kind": "pixel",
     "base_effect_id": 1018,
@@ -849,7 +540,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "91eeeb2885b8",
+    "preset_id": "2ee5092a722e",
     "name": "Respiro Blanco",
     "kind": "pixel",
     "base_effect_id": 1019,
@@ -870,7 +561,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "adb433741742",
+    "preset_id": "e14be84b18c0",
     "name": "Pulso Ámbar",
     "kind": "pixel",
     "base_effect_id": 1019,
@@ -901,7 +592,7 @@
     "scope": "global"
   },
   {
-    "preset_id": "5d313a3e1410",
+    "preset_id": "63ce745b3989",
     "name": "Respiro Verde",
     "kind": "pixel",
     "base_effect_id": 1019,
@@ -919,6 +610,143 @@
     },
     "param_links": [],
     "color": "#00c850",
+    "scope": "global"
+  },
+  {
+    "preset_id": "ed654f491a0c",
+    "name": "Mover Círculo",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "pos_circle",
+    "category": "position",
+    "family": "position",
+    "params": {
+      "speed": 0.3,
+      "radius": 0.25
+    },
+    "param_links": [],
+    "color": "#a779f0",
+    "scope": "global"
+  },
+  {
+    "preset_id": "6a00fd13cea8",
+    "name": "Mover Ocho",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "pos_figure8",
+    "category": "position",
+    "family": "position",
+    "params": {
+      "speed": 0.3,
+      "radius": 0.25
+    },
+    "param_links": [],
+    "color": "#a779f0",
+    "scope": "global"
+  },
+  {
+    "preset_id": "85a865f89064",
+    "name": "Mover Barrido",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "pos_pan_sweep",
+    "category": "position",
+    "family": "position",
+    "params": {
+      "speed": 0.2
+    },
+    "param_links": [],
+    "color": "#5aa9f0",
+    "scope": "global"
+  },
+  {
+    "preset_id": "2732d1a5fc9c",
+    "name": "Color Arcoíris",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "col_rainbow",
+    "category": "color",
+    "family": "color",
+    "params": {
+      "speed": 0.2
+    },
+    "param_links": [],
+    "color": "#d569e0",
+    "scope": "global"
+  },
+  {
+    "preset_id": "78dfdf406bfe",
+    "name": "Color Cálido-Frío",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "col_warm_cold",
+    "category": "color",
+    "family": "color",
+    "params": {
+      "speed": 0.2
+    },
+    "param_links": [],
+    "color": "#e0c05a",
+    "scope": "global"
+  },
+  {
+    "preset_id": "aa519543c4bb",
+    "name": "Dim Pulso",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "dim_pulse",
+    "category": "intensity",
+    "family": "intensity",
+    "params": {
+      "speed": 0.5
+    },
+    "param_links": [],
+    "color": "#1fe39a",
+    "scope": "global"
+  },
+  {
+    "preset_id": "9582662e0306",
+    "name": "Dim Respiración",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "dim_breath",
+    "category": "intensity",
+    "family": "intensity",
+    "params": {
+      "speed": 0.3
+    },
+    "param_links": [],
+    "color": "#1fe39a",
+    "scope": "global"
+  },
+  {
+    "preset_id": "89b510f30048",
+    "name": "Strobe",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "str_flash",
+    "category": "strobe",
+    "family": "strobe",
+    "params": {
+      "freq_hz": 12
+    },
+    "param_links": [],
+    "color": "#ffffff",
+    "scope": "global"
+  },
+  {
+    "preset_id": "449021c238eb",
+    "name": "Gobo Spin",
+    "kind": "channel",
+    "base_effect_id": 0,
+    "channel_effect_id": "opt_gobo_spin",
+    "category": "optical",
+    "family": "optical",
+    "params": {
+      "speed": 0.4
+    },
+    "param_links": [],
+    "color": "#f0654b",
     "scope": "global"
   }
 ]

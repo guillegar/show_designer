@@ -9,8 +9,17 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > documentación** para que refleje el estado real — este `CLAUDE.md` (arquitectura/estado) y los
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
-Estado a **2026-06-30** · **v2.0 · 1043 tests Python + 36 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1+N2 APLICADAS · BLOQUE N COMPLETO · HARDENING SEGURIDAD APLICADO · PERF PREVIEW/VIEWER3D APLICADO · EDITOR FIXTURE PATCH APLICADO · PATCH UX PRO APLICADO · FASE 2 EDICIÓN DE PROYECTOS APLICADA** — backend headless + frontend React + REST API + webhooks + multiusuario + tap BPM + show generator + historial de gestos + marketplace de plugins + bundle backup/restore + hardening de seguridad (zip slip, marketplace SSRF/RCE, timing-safe tokens, webhook SSRF) + editor completo de fixture desde Patch + Patch UX profesional (mapa DMX, siguiente libre, duplicar, búsqueda, destinos Art-Net).
+Estado a **2026-07-04** · **v2.0 · 1063 tests Python + 36 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 COMPLETO · PROFESIONALIZACIÓN APLICADA · P2 CANVAS PRO APLICADO** — backend headless + frontend React + REST API + webhooks + multiusuario + tap BPM + show generator + historial de gestos + marketplace de plugins + bundle backup/restore + hardening de seguridad (zip slip, marketplace SSRF/RCE, timing-safe tokens, webhook SSRF) + editor completo de fixture desde Patch + Patch UX profesional (mapa DMX, siguiente libre, duplicar, búsqueda, destinos Art-Net).
 **A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1+N2 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger + exportación PDF/CSV + editor de patch visual. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+  - ✅ **P2 — CANVAS PRO EN PATCH (2026-07-04)**: `web/src/views/Patch.tsx` — PatchStage reescrito
+    con zoom (rueda, centrado en cursor), pan (botón medio), multi-select (Shift+clic individual +
+    rubber-band drag desde espacio vacío + Ctrl+A en PatchView + Escape) y menú contextual
+    (clic derecho → Editar/Duplicar/Identify/Borrar). Componentes `CtxMenuItem`+`CtxMenu` a nivel
+    de módulo. Barra multi-select en PatchView: "Duplicar" y "Borrar" sobre la selección.
+    Highlights azules en canvas para fixtures en multiSel. Bug clave resuelto: el parser TSX de
+    TypeScript da TS17008 cascada cuando una `const` fn referencia una `const` declarada después
+    — fixed moviendo `openEditor` ANTES de las funciones P2 que la invocan. Commit:
+    `patch: P2 — canvas pro: multi-select, zoom/pan, menú contextual`.
   - ✅ **PROFESIONALIZACIÓN — ARQUITECTURA (2026-07-01)**: log completo en
     `docs/dev/professionalization.md`. (a) **Tooling**: `pyproject.toml` (deps/extras/entry point
     + config), **ruff verde** (1054 autofixes), mypy gradual, CI Python + pre-commit; **17 tests

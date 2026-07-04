@@ -37,18 +37,85 @@ function useLayout(fixtures: Fixture[]) {
   return { nx, nz, minX, maxX, minZ, maxZ };
 }
 
-function PatchStage({ fixtures, onSelect, dirtyFixtureId }: {
+// ── P2 — Context menu ────────────────────────────────────────────────────────
+
+type CtxMenuState = { x: number; y: number; fixtureId: string } | null;
+
+function CtxMenuItem({ label, danger, onClick }: {
+  label: string; danger?: boolean; onClick: () => void;
+}) {
+  return (
+    <button style={{ display: "block", width: "100%", textAlign: "left", border: "none",
+      padding: "6px 14px", fontSize: 12, cursor: "pointer", background: "transparent",
+      color: danger ? "var(--bad)" : "var(--txt-1)" }} onMouseDown={onClick}>
+      {label}
+    </button>
+  );
+}
+
+function CtxMenu({ menu, onClose, onAction }: {
+  menu: CtxMenuState; onClose: () => void;
+  onAction: (action: string, id: string) => void;
+}) {
+  if (!menu) return null;
+  const id = menu.fixtureId;
+  const act = (a: string) => { onAction(a, id); onClose(); };
+  return (
+    <div style={{ position: "fixed", left: menu.x, top: menu.y, zIndex: 200,
+      background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 6,
+      boxShadow: "0 4px 16px rgba(0,0,0,0.5)", minWidth: 140, padding: "4px 0" }}
+      onMouseLeave={onClose}>
+      <CtxMenuItem label="Editar" onClick={() => act("edit")} />
+      <CtxMenuItem label="Duplicar" onClick={() => act("duplicate")} />
+      <CtxMenuItem label="Identify 2s" onClick={() => act("identify")} />
+      <div style={{ height: 1, background: "var(--line)", margin: "3px 0" }} />
+      <CtxMenuItem label="Borrar" danger onClick={() => act("delete")} />
+    </div>
+  );
+}
+
+// ── P2 — PatchStage con zoom, pan, multi-select, rubber-band, menú contextual ─
+
+function PatchStage({ fixtures, onSelect, dirtyFixtureId, multiSel, onMultiSelToggle, onCtxAction }: {
   fixtures: Fixture[];
   onSelect: (id: string) => void;
   dirtyFixtureId?: string | null;
+  multiSel: Set<string>;
+  onMultiSelToggle: (id: string) => void;
+  onCtxAction: (action: string, id: string) => void;
 }) {
-  const ref = useRef<HTMLCanvasElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const sel = useStore((s) => s.selectedFixtureId);
   const refreshFixtures = useStore((s) => s.refreshFixtures);
   const L = useLayout(fixtures);
   const { nx, nz } = L;
+
   const [patchOverride, setPatchOverride] = useState<Record<string, [number, number]>>({});
+  const [zoom, setZoom] = useState(1);
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
+  const [ctxMenu, setCtxMenu] = useState<CtxMenuState>(null);
+  const [rubber, setRubber] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+
+  // Stale-closure refs for global handlers (avoid re-registering on every render)
+  const zoomRef = useRef(1);
+  const panRef = useRef({ x: 0, y: 0 });
   const dragRef = useRef<{ id: string; moved: boolean } | null>(null);
+  const panDragRef = useRef<{ ox: number; oy: number; sx: number; sy: number } | null>(null);
+  const rubberStartRef = useRef<{ x1: number; y1: number } | null>(null);
+  const fixturesRef = useRef(fixtures);
+  fixturesRef.current = fixtures;
+  const poRef = useRef(patchOverride);
+  poRef.current = patchOverride;
+  const mSelRef = useRef(multiSel);
+  mSelRef.current = multiSel;
+  const onTogRef = useRef(onMultiSelToggle);
+  onTogRef.current = onMultiSelToggle;
+  const refreshRef = useRef(refreshFixtures);
+  refreshRef.current = refreshFixtures;
+  zoomRef.current = zoom;
+  panRef.current = { x: panX, y: panY };
 
   const pxOf = (f: Fixture): [number, number] => {
     const po = patchOverride[f.fixture_id];
@@ -56,7 +123,34 @@ function PatchStage({ fixtures, onSelect, dirtyFixtureId }: {
     if (f.patch_x != null) return [f.patch_x, f.patch_y ?? 0.5];
     return [nx(f.position?.[0] ?? 0), nz(f.position?.[2] ?? f.position?.[1] ?? 0)];
   };
+  const pxOfRef = useRef(pxOf);
+  pxOfRef.current = pxOf;
 
+  // Convert client coords to canvas-space coords (accounting for zoom+pan)
+  const toCanvas = (clientX: number, clientY: number) => {
+    const cr = containerRef.current?.getBoundingClientRect();
+    if (!cr) return { cx: 0, cy: 0 };
+    const z = zoomRef.current, p = panRef.current;
+    return { cx: (clientX - cr.left - p.x) / z, cy: (clientY - cr.top - p.y) / z };
+  };
+
+  // Find nearest fixture within 34px in canvas space
+  const nearestFix = (cx: number, cy: number) => {
+    const cv = canvasRef.current;
+    if (!cv) return null;
+    const m = 60, w = cv.clientWidth, h = cv.clientHeight;
+    let best: Fixture | null = null, bd = 1e9;
+    for (const f of fixturesRef.current) {
+      const [fpx, fpy] = pxOfRef.current(f);
+      const fcx = m + fpx * (w - 2 * m);
+      const fcy = m + fpy * (h - 2 * m);
+      const d = Math.hypot(cx - fcx, cy - fcy);
+      if (d < bd && d < 34) { bd = d; best = f; }
+    }
+    return best;
+  };
+
+  // Canvas draw loop (rAF)
   useEffect(() => {
     let raf = 0;
     const m = 60;
@@ -65,7 +159,7 @@ function PatchStage({ fixtures, onSelect, dirtyFixtureId }: {
       c.arcTo(x + ww, y + hh, x, y + hh, r); c.arcTo(x, y + hh, x, y, r); c.arcTo(x, y, x + ww, y, r); c.closePath();
     };
     const draw = () => {
-      const cv = ref.current;
+      const cv = canvasRef.current;
       if (cv) {
         const dpr = Math.min(2, window.devicePixelRatio || 1);
         const w = cv.clientWidth, h = cv.clientHeight;
@@ -75,30 +169,32 @@ function PatchStage({ fixtures, onSelect, dirtyFixtureId }: {
         ctx.clearRect(0, 0, w, h);
         const step = 42;
         ctx.strokeStyle = "rgba(120,130,160,0.06)"; ctx.lineWidth = 1;
-        for (let x = 0; x < w; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
-        for (let y = 0; y < h; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+        for (let gx = 0; gx < w; gx += step) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke(); }
+        for (let gy = 0; gy < h; gy += step) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke(); }
         ctx.strokeStyle = "rgba(110,120,160,0.35)"; ctx.lineWidth = 1.5;
         ctx.setLineDash([6, 5]); ctx.strokeRect(m, m, w - 2 * m, h - 2 * m); ctx.setLineDash([]);
         ctx.fillStyle = "rgba(150,160,190,0.4)"; ctx.font = "11px 'JetBrains Mono'";
         ctx.fillText("ESCENARIO", m + 8, m + 18);
         ctx.fillText("◇ PÚBLICO", w / 2 - 30, h - m + 24);
-
         for (const f of fixtures) {
           const [fpx, fpy] = pxOf(f);
           const cx = m + fpx * (w - 2 * m);
           const cy = m + fpy * (h - 2 * m);
           const [r, g, b] = fixtureColor(f);
+          const isSel = sel === f.fixture_id;
+          const isMulti = multiSel.has(f.fixture_id);
           ctx.save(); ctx.translate(cx, cy); ctx.rotate(((f.rotation?.[1] ?? 0) * Math.PI) / 180);
           const grd = ctx.createRadialGradient(0, 0, 2, 0, 0, 46);
           grd.addColorStop(0, `rgba(${r},${g},${b},0.5)`); grd.addColorStop(1, `rgba(${r},${g},${b},0)`);
           ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(0, 0, 46, 0, 7); ctx.fill();
           const bw = 10, bh = 46;
-          ctx.fillStyle = "#0a0c10"; ctx.strokeStyle = sel === f.fixture_id ? "#a070ff" : "rgba(150,160,190,0.5)";
-          ctx.lineWidth = sel === f.fixture_id ? 2.5 : 1.2;
+          ctx.fillStyle = "#0a0c10";
+          ctx.strokeStyle = isSel ? "#a070ff" : isMulti ? "#50c0ff" : "rgba(150,160,190,0.5)";
+          ctx.lineWidth = (isSel || isMulti) ? 2.5 : 1.2;
           roundRect(ctx, -bw / 2, -bh / 2, bw, bh, 3); ctx.fill(); ctx.stroke();
           ctx.fillStyle = `rgb(${r},${g},${b})`; roundRect(ctx, -bw / 2 + 2.5, -bh / 2 + 3, bw - 5, bh - 6, 2); ctx.fill();
           ctx.restore();
-          ctx.fillStyle = sel === f.fixture_id ? "#c9a8ff" : "rgba(170,180,200,0.7)";
+          ctx.fillStyle = isSel ? "#c9a8ff" : isMulti ? "#80d0ff" : "rgba(170,180,200,0.7)";
           ctx.font = "600 10px 'Hanken Grotesk'"; ctx.textAlign = "center";
           const lbl = (dirtyFixtureId === f.fixture_id ? "● " : "") + (f.label || f.fixture_id);
           ctx.fillText(lbl, cx, cy + bh / 2 + 15);
@@ -108,52 +204,168 @@ function PatchStage({ fixtures, onSelect, dirtyFixtureId }: {
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, [fixtures, sel, nx, nz, patchOverride]);
+  }, [fixtures, sel, nx, nz, patchOverride, multiSel, dirtyFixtureId]);
 
-  const nearest = (mx: number, my: number, w: number, h: number) => {
-    const m = 60; let best: Fixture | null = null, bd = 1e9;
-    for (const f of fixtures) {
-      const [fpx, fpy] = pxOf(f);
-      const cx = m + fpx * (w - 2 * m);
-      const cy = m + fpy * (h - 2 * m);
-      const d = Math.hypot(mx - cx, my - cy);
-      if (d < bd && d < 34) { bd = d; best = f; }
-    }
-    return best;
-  };
-
-  const onMouseDown = (e: React.MouseEvent) => {
-    const cv = ref.current!, r = cv.getBoundingClientRect();
-    const f = nearest(e.clientX - r.left, e.clientY - r.top, r.width, r.height);
-    if (!f) return;
-    onSelect(f.fixture_id);
-    dragRef.current = { id: f.fixture_id, moved: false };
-  };
+  // Global mousemove/mouseup: fixture drag, pan drag, rubber-band
   useEffect(() => {
-    const m = 60;
     const move = (e: MouseEvent) => {
-      const d = dragRef.current; if (!d) return;
-      const cv = ref.current!, r = cv.getBoundingClientRect();
-      const w = r.width, h = r.height;
-      const px = Math.max(0, Math.min(1, (e.clientX - r.left - m) / (w - 2 * m)));
-      const py = Math.max(0, Math.min(1, (e.clientY - r.top - m) / (h - 2 * m)));
-      d.moved = true;
-      setPatchOverride((o) => ({ ...o, [d.id]: [px, py] }));
+      const d = dragRef.current;
+      if (d) {
+        const cv = canvasRef.current;
+        const cr = containerRef.current?.getBoundingClientRect();
+        if (!cv || !cr) return;
+        const z = zoomRef.current, p = panRef.current;
+        const m = 60, w = cv.clientWidth, h = cv.clientHeight;
+        const cx = (e.clientX - cr.left - p.x) / z;
+        const cy = (e.clientY - cr.top - p.y) / z;
+        const px = Math.max(0, Math.min(1, (cx - m) / (w - 2 * m)));
+        const py = Math.max(0, Math.min(1, (cy - m) / (h - 2 * m)));
+        d.moved = true;
+        setPatchOverride((o) => { const n = Object.assign({}, o); n[d.id] = [px, py]; return n; });
+        return;
+      }
+      const pd = panDragRef.current;
+      if (pd) {
+        const nx2 = pd.ox + (e.clientX - pd.sx);
+        const ny2 = pd.oy + (e.clientY - pd.sy);
+        panRef.current = { x: nx2, y: ny2 };
+        setPanX(nx2); setPanY(ny2);
+        return;
+      }
+      const rb = rubberStartRef.current;
+      if (rb) {
+        const cr = containerRef.current?.getBoundingClientRect();
+        if (!cr) return;
+        const z = zoomRef.current, p = panRef.current;
+        const x2 = (e.clientX - cr.left - p.x) / z;
+        const y2 = (e.clientY - cr.top - p.y) / z;
+        setRubber({ x1: rb.x1, y1: rb.y1, x2, y2 });
+      }
     };
-    const up = () => {
-      const d = dragRef.current; dragRef.current = null;
-      if (!d || !d.moved) return;
-      const po = patchOverride[d.id];
-      if (po) control.call("move_fixture", { fixture_id: d.id, x: po[0], y: po[1] })
-        .then(() => { refreshFixtures(); setPatchOverride((o) => { const n = { ...o }; delete n[d.id]; return n; }); });
+    const up = (e: MouseEvent) => {
+      const d = dragRef.current;
+      if (d) {
+        dragRef.current = null;
+        if (d.moved) {
+          const po = poRef.current[d.id];
+          if (po) {
+            control.call("move_fixture", { fixture_id: d.id, x: po[0], y: po[1] })
+              .then(() => {
+                refreshRef.current();
+                setPatchOverride((o) => { const n = Object.assign({}, o); delete n[d.id]; return n; });
+              }).catch(() => {});
+          }
+        }
+        return;
+      }
+      if (panDragRef.current) { panDragRef.current = null; return; }
+      const rb = rubberStartRef.current;
+      if (rb) {
+        rubberStartRef.current = null;
+        setRubber(null);
+        const cv = canvasRef.current;
+        const cr = containerRef.current?.getBoundingClientRect();
+        if (!cv || !cr) return;
+        const z = zoomRef.current, p = panRef.current;
+        const m = 60, w = cv.clientWidth, h = cv.clientHeight;
+        const x2 = (e.clientX - cr.left - p.x) / z;
+        const y2 = (e.clientY - cr.top - p.y) / z;
+        const rMinX = Math.min(rb.x1, x2), rMaxX = Math.max(rb.x1, x2);
+        const rMinY = Math.min(rb.y1, y2), rMaxY = Math.max(rb.y1, y2);
+        for (const f of fixturesRef.current) {
+          const [fpx, fpy] = pxOfRef.current(f);
+          const fcx = m + fpx * (w - 2 * m);
+          const fcy = m + fpy * (h - 2 * m);
+          if (fcx >= rMinX && fcx <= rMaxX && fcy >= rMinY && fcy <= rMaxY) {
+            onTogRef.current(f.fixture_id);
+          }
+        }
+      }
     };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
     return () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
-  }, [fixtures, patchOverride, refreshFixtures]);
+  }, []);
 
-  return <canvas ref={ref} onMouseDown={onMouseDown} style={{ cursor: "grab" }} />;
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const cr = containerRef.current?.getBoundingClientRect();
+    if (!cr) return;
+    const factor = e.deltaY > 0 ? 0.85 : 1.18;
+    const mx = e.clientX - cr.left, my = e.clientY - cr.top;
+    const z = zoomRef.current, p = panRef.current;
+    const nz2 = Math.max(0.25, Math.min(8, z * factor));
+    const sf = nz2 / z;
+    const np = { x: mx - (mx - p.x) * sf, y: my - (my - p.y) * sf };
+    zoomRef.current = nz2; panRef.current = np;
+    setZoom(nz2); setPanX(np.x); setPanY(np.y);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setCtxMenu(null);
+    if (e.button === 1) {
+      e.preventDefault();
+      panDragRef.current = { ox: panRef.current.x, oy: panRef.current.y, sx: e.clientX, sy: e.clientY };
+      return;
+    }
+    if (e.button !== 0) return;
+    const { cx, cy } = toCanvas(e.clientX, e.clientY);
+    const f = nearestFix(cx, cy);
+    if (f) {
+      if (e.shiftKey) {
+        onMultiSelToggle(f.fixture_id);
+      } else {
+        onSelect(f.fixture_id);
+        dragRef.current = { id: f.fixture_id, moved: false };
+      }
+    } else {
+      rubberStartRef.current = { x1: cx, y1: cy };
+    }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const { cx, cy } = toCanvas(e.clientX, e.clientY);
+    const f = nearestFix(cx, cy);
+    if (f) setCtxMenu({ x: e.clientX, y: e.clientY, fixtureId: f.fixture_id });
+  };
+
+  let rubberStyle: { left: number; top: number; width: number; height: number } | null = null;
+  if (rubber) {
+    rubberStyle = {
+      left: Math.min(rubber.x1, rubber.x2) * zoom + panX,
+      top: Math.min(rubber.y1, rubber.y2) * zoom + panY,
+      width: Math.abs(rubber.x2 - rubber.x1) * zoom,
+      height: Math.abs(rubber.y2 - rubber.y1) * zoom,
+    };
+  }
+
+  return (
+    <div ref={containerRef}
+      style={{ position: "relative", overflow: "hidden", width: "100%", height: "100%", cursor: "default" }}
+      onWheel={handleWheel} onMouseDown={handleMouseDown} onContextMenu={handleContextMenu}>
+      <canvas ref={canvasRef}
+        style={{ display: "block", width: "100%", height: "100%",
+          transform: `translate(${panX}px,${panY}px) scale(${zoom})`,
+          transformOrigin: "0 0" }} />
+      {rubberStyle && (
+        <div style={{ position: "absolute", border: "1px dashed rgba(130,160,255,0.8)",
+          background: "rgba(100,130,255,0.08)", pointerEvents: "none",
+          left: rubberStyle.left, top: rubberStyle.top,
+          width: rubberStyle.width, height: rubberStyle.height }} />
+      )}
+      {zoom !== 1 && (
+        <button className="btn sm ghost"
+          style={{ position: "absolute", bottom: 6, right: 6, fontSize: 10, padding: "2px 6px" }}
+          onClick={() => { setZoom(1); setPanX(0); setPanY(0); zoomRef.current = 1; panRef.current = { x: 0, y: 0 }; }}>
+          1:1
+        </button>
+      )}
+      <CtxMenu menu={ctxMenu} onClose={() => setCtxMenu(null)} onAction={onCtxAction} />
+    </div>
+  );
 }
+
 
 // ── J3 — GDTF Browser ────────────────────────────────────────────────────────
 
@@ -1386,6 +1598,66 @@ export function PatchView() {
   const [gdtfBrowser, setGdtfBrowser] = useState(false);
   const [dirtyInEditor, setDirtyInEditor] = useState(false);
   const [search, setSearch] = useState("");
+  // P2 — multi-select
+  const [multiSel, setMultiSel] = useState<Set<string>>(new Set());
+
+  const openEditor = (id: string) => {
+    selectFixture(id);
+    setEditingFixtureId(id);
+    setDirtyInEditor(false);
+  };
+
+  // Keyboard: Ctrl+A selects all, Escape clears multi-sel
+  useEffect(function() {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "a") {
+        e.preventDefault();
+        setMultiSel(new Set(fixtures.map(function(f) { return f.fixture_id; })));
+      } else if (e.key === "Escape") {
+        setMultiSel(new Set());
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return function() { window.removeEventListener("keydown", onKey); };
+  }, [fixtures]);
+
+  const handleMultiSelToggle = (id: string) => {
+    setMultiSel((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleCtxAction = (action: string, id: string) => {
+    if (action === "edit") { openEditor(id); return; }
+    if (action === "identify") { control.call("identify_fixture", { fixture_id: id }).catch(() => {}); return; }
+    if (action === "duplicate") {
+      control.call("duplicate_fixture", { fixture_id: id }).then(() => refreshFixtures()).catch(() => {});
+      return;
+    }
+    if (action === "delete") {
+      control.call("delete_fixture", { fixture_id: id })
+        .then(() => { refreshFixtures(); setEditingFixtureId((cur) => cur === id ? null : cur); })
+        .catch(() => {});
+    }
+  };
+
+  const multiDuplicate = () => {
+    Array.from(multiSel).forEach((id) => control.call("duplicate_fixture", { fixture_id: id }).catch(() => {}));
+    setTimeout(refreshFixtures, 400);
+    setMultiSel(new Set());
+  };
+
+  const multiDelete = () => {
+    const toDelete = Array.from(multiSel);
+    toDelete.forEach((id) => control.call("delete_fixture", { fixture_id: id }).catch(() => {}));
+    setTimeout(() => {
+      refreshFixtures();
+      setEditingFixtureId((cur) => cur && toDelete.includes(cur) ? null : cur);
+    }, 400);
+    setMultiSel(new Set());
+  };
 
   useEffect(() => { control.call("list_fixture_profiles").then((r) => setProfiles(r.profiles || [])).catch(() => {}); }, []);
 
@@ -1393,12 +1665,6 @@ export function PatchView() {
   const universeIpMap = Object.fromEntries(
     fixtures.filter((f) => f.target_ip).map((f) => [f.universe, f.target_ip!])
   ) as Record<number, string>;
-
-  const openEditor = (id: string) => {
-    selectFixture(id);
-    setEditingFixtureId(id);
-    setDirtyInEditor(false);
-  };
 
   // Si el fixture editado fue borrado, volver a la lista
   useEffect(() => {
@@ -1414,9 +1680,20 @@ export function PatchView() {
           <button className="btn sm" onClick={() => setAdding(true)}>+ Fixture</button>
           <button className="btn sm ghost" onClick={() => setGdtfBrowser(true)} title="Añadir fixture desde perfil GDTF">GDTF</button>
         </div>
-        <PatchStage fixtures={fixtures} onSelect={openEditor} dirtyFixtureId={dirtyInEditor ? editingFixtureId : null} />
+        <PatchStage fixtures={fixtures} onSelect={openEditor}
+          dirtyFixtureId={dirtyInEditor ? editingFixtureId : null}
+          multiSel={multiSel} onMultiSelToggle={handleMultiSelToggle}
+          onCtxAction={handleCtxAction} />
+        {multiSel.size > 0 && (
+          <div className="patch-toolbar" style={{ borderTop: "1px solid var(--line)", paddingTop: 4 }}>
+            <span style={{ fontSize: 11, color: "var(--txt-2)" }}>{multiSel.size} sel.</span>
+            <button className="btn sm ghost" onClick={multiDuplicate}>Duplicar</button>
+            <button className="btn sm ghost" style={{ color: "var(--bad)" }} onClick={multiDelete}>Borrar</button>
+            <button className="btn sm ghost" onClick={() => setMultiSel(new Set())}>✕</button>
+          </div>
+        )}
         <div className="patch-legend">
-          <div className="lg"><i style={{ border: "2px solid var(--acc-2)", background: "none" }} />Seleccionada · arrastra para mover</div>
+          <div className="lg">Shift+click=multi · Ctrl+A=todo · Esc=limpiar · Rueda=zoom · Btn-medio=pan · Clic-der=menú</div>
         </div>
       </div>
 

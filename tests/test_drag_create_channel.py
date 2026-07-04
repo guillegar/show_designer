@@ -148,9 +148,9 @@ def test_fixture_lane_index_to_fixture_id():
     """El primer fixture lane corresponde al primer fixture non-LED del rig."""
     from core.fixtures import DEFAULT_RIG_FILE, FixtureRig
     # Cargar rig real si existe; sino crear uno mínimo
-    if DEFAULT_RIG_FILE.is_file():
-        rig = FixtureRig.load()
-    else:
+    try:
+        rig = FixtureRig.load() if DEFAULT_RIG_FILE.is_file() else FixtureRig(fixtures=[])
+    except (FileNotFoundError, OSError):
         rig = FixtureRig(fixtures=[])
     non_led = [fx for fx in rig.fixtures if fx.profile_id != 'wled_strip_93']
     # Si hay non-LED, el primer fixture_id debe ser válido

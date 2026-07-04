@@ -207,9 +207,9 @@ def test_export_qlc_with_rig(tmp_path):
     tl = _make_timeline()
     # Usar el rig real si existe
     rig_file = Path(__file__).parent.parent / 'fixtures.json'
-    if rig_file.is_file():
-        rig = FixtureRig.load(rig_file)
-    else:
+    try:
+        rig = FixtureRig.load(rig_file) if rig_file.is_file() else None
+    except (FileNotFoundError, OSError):
         rig = None
 
     out = tmp_path / 'withrig.qxw'
