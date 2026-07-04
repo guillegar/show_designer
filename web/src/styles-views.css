@@ -165,7 +165,9 @@
 .bar-label { font-family: var(--mono); font-size: 9.5px; color: var(--txt-4); }
 .bar-glow { position: absolute; bottom: 6%; height: 30%; width: 100%; filter: blur(26px); opacity: 0.5; pointer-events: none; }
 
-.live-side { width: 340px; flex: none; background: var(--bg-1); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+/* overflow-y auto: la columna apila ~16 paneles (mixer, cues, MIDI, sync, …) que
+   superan el alto de la ventana — sin scroll quedaban inaccesibles (fix usabilidad). */
+.live-side { width: 340px; flex: none; background: var(--bg-1); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
 .fb-cats { padding: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .fb-cat {
   display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px;
@@ -300,7 +302,9 @@
 .patch-legend .lg { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--txt-2); }
 .patch-legend .lg i { width: 12px; height: 12px; border-radius: 3px; }
 
-.patch-side { width: 320px; flex: none; border-left: 1px solid var(--line); background: var(--bg-1); display: flex; flex-direction: column; min-height: 0; }
+/* overflow-y auto: lista de fixtures + paneles (webhooks, bundle, OSC, DMX USB, 3D)
+   superan el alto de la ventana — sin scroll quedaban inaccesibles (fix usabilidad). */
+.patch-side { width: 320px; flex: none; border-left: 1px solid var(--line); background: var(--bg-1); display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
 .fix-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line-soft); cursor: pointer; }
 .fix-item:hover { background: var(--bg-2); }
 .fix-item.sel { background: var(--acc-dim); box-shadow: inset 3px 0 0 var(--acc); }

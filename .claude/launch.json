@@ -2,11 +2,17 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "web-dev",
+      "name": "luces-web",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5173,
       "cwd": "web"
+    },
+    {
+      "name": "luces-backend",
+      "runtimeExecutable": "venv311\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "server.main"],
+      "port": 8000
     }
   ]
 }

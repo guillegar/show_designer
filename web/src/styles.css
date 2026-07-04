@@ -67,7 +67,10 @@ html, body {
   font-family: var(--font);
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
-  overflow: hidden;
+  /* x: auto — .app tiene min-width 1100px; con overflow hidden total, en ventanas
+     más estrechas la parte derecha de la UI quedaba inalcanzable (fix usabilidad). */
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 #root { height: 100%; }

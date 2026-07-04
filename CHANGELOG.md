@@ -27,6 +27,10 @@ El detalle profundo (por fases del roadmap) está en [`CLAUDE.md`](CLAUDE.md) y
   movidos a `docs/roadmap/`.
 
 ### Fixed
+- **Usabilidad/scroll:** las columnas de paneles de **Live** (`.live-side`, ~16 paneles, 1229 px
+  ocultos) y **Patch** (`.patch-side`, 631 px ocultos) no tenían scroll y dejaban paneles
+  inaccesibles; ahora `overflow-y: auto`. El `body` permite scroll horizontal cuando la ventana
+  es más estrecha que el mínimo de la app (1100 px). Verificado en navegador real.
 - La forma de onda del timeline ya no bloquea el event loop (cálculo en executor + evento
   `waveform_ready`; precalentado en el arranque).
 - 17 tests pre-existentes en rojo → verde (`pytest-asyncio`, `Pillow`, bug del bench). **1063
