@@ -188,7 +188,8 @@
 }
 .fb-note textarea::placeholder { color: var(--txt-4); }
 
-.fb-log { flex: 1; overflow: auto; padding: 4px 10px 10px; display: flex; flex-direction: column; gap: 7px; }
+/* min-height: el flex:1 colapsaba el log a ~14px dentro de la columna scrollable. */
+.fb-log { flex: 1; min-height: 120px; overflow: auto; padding: 4px 10px 10px; display: flex; flex-direction: column; gap: 7px; }
 .fb-entry { border: 1px solid var(--line-soft); border-radius: var(--r); padding: 9px 11px; background: var(--bg-0); }
 .fb-entry .er { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .fb-entry .et { font-family: var(--mono); font-size: 10.5px; color: var(--acc); cursor: pointer; }
