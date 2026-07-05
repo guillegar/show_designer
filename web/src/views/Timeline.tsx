@@ -34,8 +34,26 @@ type Lane =
 // A1 (Timeline v2 — perf): el playhead es el ÚNICO suscriptor de `t`. Antes
 // TimelineView entero se suscribía → ~10 re-renders/s del árbol completo
 // (~1.3k clips) durante el playback. Ahora solo se re-renderiza este div.
-function TimelinePlayhead({ zoom }: { zoom: number }) {
+// C2: si follow=true y suena, auto-scroll estilo DAW — cuando el playhead sale
+// del viewport salta a dejarlo al 20% (sin scroll continuo, que marea).
+function TimelinePlayhead({ zoom, follow, scrollRef }: {
+  zoom: number; follow: boolean;
+  scrollRef: React.RefObject<HTMLDivElement>;
+}) {
   const t = useStore((s) => s.t);
+  const playing = useStore((s) => s.playing);
+  useEffect(() => {
+    if (!follow || !playing) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const phX = t * zoom;                       // px dentro de tl-lanes
+    const viewW = el.clientWidth - HEAD_W;      // ancho útil (heads sticky)
+    if (viewW <= 0) return;
+    const visX = phX - el.scrollLeft;           // posición relativa al viewport
+    if (visX < 0 || visX > viewW - 40) {
+      el.scrollLeft = Math.max(0, phX - viewW * 0.2);
+    }
+  }, [t, zoom, follow, playing, scrollRef]);
   return (
     <div className="tl-playhead" style={{ left: t * zoom }}>
       <div className="ph-flag mono">{fmtTime(t)}</div>
@@ -101,6 +119,11 @@ export function TimelineView() {
   const [ghostMode, setGhostMode] = useState(false);
   const [shiftHeld, setShiftHeld] = useState(false);
   const [showWaveform, setShowWaveform] = useState(false);
+  // C2: seguir al playhead durante el playback (persistido)
+  const [followPlayhead, setFollowPlayhead] = useState(() => localStorage.getItem("sd_follow") === "1");
+  const toggleFollow = () => {
+    setFollowPlayhead((f) => { localStorage.setItem("sd_follow", f ? "0" : "1"); return !f; });
+  };
   // I2: marcadores — edición inline y menú contextual
   const [editMarker, setEditMarker] = useState<{ t_ms: number; name: string } | null>(null);
   const [markerMenu, setMarkerMenu] = useState<{ t_ms: number; x: number; y: number; color: string; category: string } | null>(null);
@@ -430,6 +453,10 @@ export function TimelineView() {
 
   // Draw-to-create (efecto base / preset píxel en barras; preset de canal en fixture lanes)
   const draw = useRef<{ lane: Lane; startMs: number } | null>(null);
+  // C1: feedback visual — rect fantasma mientras dibujas + línea de tijera en cut.
+  // Imperativos (style directo, sin state) para no re-renderizar 1.3k clips por mousemove.
+  const drawGhostRef = useRef<HTMLDivElement>(null);
+  const cutLineRef = useRef<HTMLDivElement>(null);
   const isChannelPreset = !!(activePreset && activePreset.kind === "channel");
   const hasDrawTarget = !!(activePreset || activeFx);
   // ¿La lane acepta el target de dibujo activo?
@@ -441,6 +468,20 @@ export function TimelineView() {
     const r = lanesRef.current!.getBoundingClientRect();
     const startMs = snapMs(((e.clientX - r.left) / zoom) * 1000);
     draw.current = { lane, startMs };
+    // C1: colocar el rect fantasma en la fila de destino
+    const g = drawGhostRef.current;
+    const rowEl = rowRefs.current.get(lane.key);
+    if (g && rowEl && lanesRef.current) {
+      const top = rowEl.getBoundingClientRect().top - lanesRef.current.getBoundingClientRect().top + 7;
+      const col = activePreset?.color || (activeFx ? famColor(activeFx.family) : "var(--acc)");
+      g.style.top = `${top}px`;
+      g.style.height = `${LANE_H - 4}px`;
+      g.style.left = `${msToX(startMs, zoom)}px`;
+      g.style.width = "2px";
+      g.style.borderColor = col;
+      g.style.background = `color-mix(in oklab, ${col} 18%, transparent)`;
+      g.style.display = "block";
+    }
     e.preventDefault();
   };
 
@@ -510,7 +551,19 @@ export function TimelineView() {
     }
   };
   useEffect(() => {
+    // C1: el fantasma sigue al cursor mientras dibujas (update imperativo)
+    const move = (e: MouseEvent) => {
+      const d = draw.current;
+      const g = drawGhostRef.current;
+      if (!d || !g || !lanesRef.current) return;
+      const r = lanesRef.current.getBoundingClientRect();
+      const curMs = snapMs(((e.clientX - r.left) / zoom) * 1000);
+      const a = Math.min(d.startMs, curMs), b = Math.max(d.startMs, curMs);
+      g.style.left = `${msToX(a, zoom)}px`;
+      g.style.width = `${Math.max(2, msToX(b - a, zoom))}px`;
+    };
     const up = async (e: MouseEvent) => {
+      if (drawGhostRef.current) drawGhostRef.current.style.display = "none"; // C1
       const d = draw.current; draw.current = null;
       if (!d) return;
       const r = lanesRef.current!.getBoundingClientRect();
@@ -546,8 +599,9 @@ export function TimelineView() {
       }
       refreshClips();
     };
+    window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
-    return () => window.removeEventListener("mouseup", up);
+    return () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
   }, [activeFx, activePreset, isChannelPreset, zoom, snap, beatSec, refreshClips]);
 
   // ── Interacción de clips: Moveable (mover/redimensionar) + Selecto (multi-sel) ──
@@ -572,10 +626,20 @@ export function TimelineView() {
   const [clipboardClips, setClipboardClips] = useState<Clip[]>([]); // portapapeles multi-clip
 
   // Líneas-guía de snap para Moveable. Shift = bypass del snap durante el arrastre.
-  const verticalGuidelines = useMemo(
-    () => (snap && !shiftHeld ? gridlines.map((g) => msToX(g.t * 1000, zoom)) : []),
-    [snap, shiftHeld, gridlines, zoom]
-  );
+  // C3 (Timeline v2): además de la rejilla BPM, snap a los BORDES de los demás
+  // clips (estándar DAW). Son solo números (px) — barato incluso con ~1.3k clips.
+  const verticalGuidelines = useMemo(() => {
+    if (!snap || shiftHeld) return [];
+    const px = gridlines.map((g) => msToX(g.t * 1000, zoom));
+    const sel = selectedClipIds.size > 0
+      ? selectedClipIds
+      : new Set(selectedClipId != null ? [selectedClipId] : []);
+    for (const c of clips) {
+      if (sel.has(c.id)) continue; // no snapear contra uno mismo
+      px.push(msToX(c.start_ms, zoom), msToX(c.end_ms, zoom));
+    }
+    return px;
+  }, [snap, shiftHeld, gridlines, zoom, clips, selectedClipIds, selectedClipId]);
 
   // Hit-test: clientY → { bar, layer } usando rects MEDIDOS (las filas tienen
   // altura variable según nº de layers). El layer se deduce de la Y dentro de la
@@ -914,6 +978,32 @@ export function TimelineView() {
         }
       } else if (e.ctrlKey || e.metaKey) {
         return; // no pisar atajos con Ctrl (undo/save los gestiona App)
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        // C4: nudge de la selección ±1 paso de rejilla (Shift = ±1 compás)
+        const ids = selectedClipIds.size > 0 ? [...selectedClipIds] : (selectedClipId != null ? [selectedClipId] : []);
+        if (!ids.length) return;
+        e.preventDefault();
+        const div = snapGrid === "half" ? 0.5 : snapGrid === "quarter" ? 0.25 : 1;
+        const stepMs = e.shiftKey ? barSec * 1000
+          : (snap && snapGrid !== "off" ? beatSec * div * 1000 : 10);
+        const delta = e.key === "ArrowRight" ? stepMs : -stepMs;
+        const calls = ids
+          .map((id) => clips.find((c) => c.id === id))
+          .filter((c): c is Clip => !!c && !c.locked)
+          .map((c) => ({ clip_id: c.id, new_start_ms: Math.max(0, Math.round(c.start_ms + delta)) }));
+        if (calls.length) commitMoves(calls);
+      } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        // C4: cambiar de capa la selección (↑ sube, ↓ baja)
+        const ids = selectedClipIds.size > 0 ? [...selectedClipIds] : (selectedClipId != null ? [selectedClipId] : []);
+        if (!ids.length) return;
+        e.preventDefault();
+        const dl = e.key === "ArrowDown" ? 1 : -1;
+        const calls = ids
+          .map((id) => clips.find((c) => c.id === id))
+          .filter((c): c is Clip => !!c && !c.locked)
+          .map((c) => ({ clip_id: c.id, new_start_ms: c.start_ms, new_layer: Math.max(0, c.layer + dl) }))
+          .filter((p) => { const c = clips.find((x) => x.id === p.clip_id)!; return p.new_layer !== c.layer; });
+        if (calls.length) commitMoves(calls);
       } else if (e.key === "?") {
         e.preventDefault();
         setShowHelp((s) => !s);
@@ -924,7 +1014,8 @@ export function TimelineView() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedClipId, selectedClipIds, clips, clipboard, clipboardClips, selectClip, refreshClips]);
+  }, [selectedClipId, selectedClipIds, clips, clipboard, clipboardClips, selectClip, refreshClips,
+      snap, snapGrid, beatSec, barSec]);
 
   const download = (filename: string, content: string, mime: string) => {
     const blob = new Blob([content], { type: mime });
@@ -1110,6 +1201,7 @@ export function TimelineView() {
           <button className="btn sm ghost" onClick={() => setGhostMode((g) => !g)} style={ghostMode ? { color: "var(--acc)" } : undefined} title="Ghost: mostrar clips de otras pistas en la pista activa">◈ Ghost</button>
           <button className="btn sm ghost" onClick={quantize} title="Cuantizar clips seleccionados al beat más cercano (requiere selección)">⊹ Q</button>
           <button className="btn sm ghost" onClick={() => setShowWaveform((w) => !w)} style={showWaveform ? { color: "var(--acc)" } : undefined} title="Mostrar/ocultar forma de onda del audio en el ruler">≋ WF</button>
+          <button className="btn sm ghost" onClick={toggleFollow} style={followPlayhead ? { color: "var(--acc)" } : undefined} title="Seguir al playhead durante el playback (C2)">⇥ Follow</button>
           {/* I2: filtro de categoría de marcadores */}
           <select className="field" style={{ height: 26, width: 92, fontSize: 10 }} value={markerCatFilter}
             onChange={(e) => setMarkerCatFilter(e.target.value)} title="Filtrar marcadores por categoría">
@@ -1318,7 +1410,13 @@ export function TimelineView() {
               })}
             </div>
 
-            <div className="tl-lanes" style={{ width: W }} ref={lanesRef}>
+            <div className="tl-lanes" style={{ width: W }} ref={lanesRef}
+              onMouseMove={tool === "cut" ? (e) => {
+                // C1: línea de tijera siguiendo al cursor (imperativo)
+                const el = cutLineRef.current;
+                if (!el || !lanesRef.current) return;
+                el.style.left = `${e.clientX - lanesRef.current.getBoundingClientRect().left}px`;
+              } : undefined}>
               <div className="tl-gridlines">
                 {gridlines.map(({ t, kind }, i) => (
                   <div
@@ -1554,7 +1652,20 @@ export function TimelineView() {
                 <div key={"m" + i} className="lane-marker" style={{ left: m.time_ms / 1000 * zoom, background: m.color || "var(--warn)" }} />
               ))}
 
-              <TimelinePlayhead zoom={zoom} />
+              <TimelinePlayhead zoom={zoom} follow={followPlayhead} scrollRef={tlScrollRef} />
+
+              {/* C1: rect fantasma del draw (imperativo, oculto por defecto) */}
+              <div ref={drawGhostRef} style={{
+                position: "absolute", display: "none", pointerEvents: "none", zIndex: 15,
+                border: "1.5px dashed var(--acc)", borderRadius: 2, boxSizing: "border-box",
+              }} />
+              {/* C1: línea de tijera en modo cut */}
+              {tool === "cut" && (
+                <div ref={cutLineRef} style={{
+                  position: "absolute", top: 0, bottom: 0, width: 0, left: -10,
+                  borderLeft: "1px dashed var(--bad)", pointerEvents: "none", zIndex: 15,
+                }} />
+              )}
 
               {/* Multi-selección por rubber-band (solo en modo select) */}
               {tool === "select" && (
