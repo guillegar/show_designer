@@ -209,6 +209,9 @@ class ShowSession:
 
         # ── Estado de transporte / render ────────────────────────────────────
         self.loop = False
+        # D (Timeline v2): loop de región A/B en ms, runtime-only (no persiste
+        # en show.json, como los macros). None = sin región; el tick hace wrap.
+        self.loop_range: tuple[int, int] | None = None
         self.rec = False
         self.muted_tracks: set[int] = set()
         self.solo_tracks: set[int] = set()

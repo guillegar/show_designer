@@ -68,6 +68,9 @@ export function TimelineView() {
   // en playback. El playhead vive en <TimelinePlayhead/>; las acciones puntuales
   // leen useStore.getState().t en el momento del gesto.
   const clips = useStore((s) => s.clips);
+  // D: región de loop A/B (cambia solo al definir/limpiar; el store preserva la
+  // referencia entre mensajes de estado)
+  const loopRange = useStore((s) => s.loopRange);
   const effects = useStore((s) => s.effects);
   const sections = useStore((s) => s.sections);
   const markers = useStore((s) => s.markers);
@@ -457,6 +460,63 @@ export function TimelineView() {
   // Imperativos (style directo, sin state) para no re-renderizar 1.3k clips por mousemove.
   const drawGhostRef = useRef<HTMLDivElement>(null);
   const cutLineRef = useRef<HTMLDivElement>(null);
+
+  // D: definir región de loop arrastrando en la regla (preview imperativo,
+  // commit set_loop_range al soltar). Clic simple dentro de la región = quitarla.
+  const loopDragRef = useRef<{ x0: number; moved: boolean } | null>(null);
+  const loopGhostRef = useRef<HTMLDivElement>(null);
+  const setLoopRange = async (startMs: number | null, endMs?: number) => {
+    if (startMs == null) {
+      useStore.setState({ loopRange: null }); // optimista
+      await control.call("set_loop_range", { clear: true }).catch(() => {});
+    } else {
+      useStore.setState({ loopRange: [startMs, endMs!] });
+      const r = await control.call("set_loop_range", { start_ms: startMs, end_ms: endMs }).catch(() => null);
+      if (!r?.ok) useStore.setState({ loopRange: null });
+    }
+  };
+  const onRulerMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    if ((e.target as Element).closest?.(".ruler-marker")) return; // no pisar los marcadores
+    const ruler = rulerRef.current;
+    if (!ruler) return;
+    loopDragRef.current = { x0: e.clientX - ruler.getBoundingClientRect().left, moved: false };
+  };
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      const d = loopDragRef.current;
+      const ruler = rulerRef.current, g = loopGhostRef.current;
+      if (!d || !ruler || !g) return;
+      const x = e.clientX - ruler.getBoundingClientRect().left;
+      if (!d.moved && Math.abs(x - d.x0) < 6) return;
+      d.moved = true;
+      const a = Math.min(d.x0, x), b = Math.max(d.x0, x);
+      g.style.left = `${a}px`;
+      g.style.width = `${b - a}px`;
+      g.style.display = "block";
+    };
+    const up = (e: MouseEvent) => {
+      const d = loopDragRef.current;
+      loopDragRef.current = null;
+      const ruler = rulerRef.current, g = loopGhostRef.current;
+      if (g) g.style.display = "none";
+      if (!d || !ruler) return;
+      const x = e.clientX - ruler.getBoundingClientRect().left;
+      if (d.moved) {
+        const aMs = Math.max(0, Math.round(snapMs(Math.min(d.x0, x) / zoom * 1000)));
+        const bMs = Math.round(snapMs(Math.max(d.x0, x) / zoom * 1000));
+        if (bMs - aMs >= 100) setLoopRange(aMs, bMs);
+      } else {
+        // clic simple: dentro de la región activa → quitarla
+        const lr = useStore.getState().loopRange;
+        const ms = (x / zoom) * 1000;
+        if (lr && ms >= lr[0] && ms <= lr[1]) setLoopRange(null);
+      }
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
+  }, [zoom, snap, snapGrid, beatSec]);
   const isChannelPreset = !!(activePreset && activePreset.kind === "channel");
   const hasDrawTarget = !!(activePreset || activeFx);
   // ¿La lane acepta el target de dibujo activo?
@@ -1012,11 +1072,23 @@ export function TimelineView() {
       else if (e.key === "d" || e.key === "D" || e.key === "b" || e.key === "B") setTool("draw");
       else if (e.key === "c" || e.key === "C") setTool("cut");
       else if (e.key === "q" || e.key === "Q") setSnap((s) => !s);
+      else if (e.key === "l" || e.key === "L") {
+        // D: loop de la sección bajo el playhead (toggle)
+        const tNow = useStore.getState().t;
+        const idx = sections.findIndex((s2, i2) =>
+          tNow >= s2.start && tNow < (sections[i2 + 1]?.start ?? duration));
+        if (idx < 0) return;
+        const aMs = Math.round(sections[idx].start * 1000);
+        const bMs = Math.round((sections[idx + 1]?.start ?? duration) * 1000);
+        const lr = useStore.getState().loopRange;
+        if (lr && lr[0] === aMs && lr[1] === bMs) setLoopRange(null);
+        else setLoopRange(aMs, bMs);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedClipId, selectedClipIds, clips, clipboard, clipboardClips, selectClip, refreshClips,
-      snap, snapGrid, beatSec, barSec]);
+      snap, snapGrid, beatSec, barSec, sections, duration]);
 
   const download = (filename: string, content: string, mime: string) => {
     const blob = new Blob([content], { type: mime });
@@ -1271,7 +1343,8 @@ export function TimelineView() {
           <div className="tl-corner" style={{ width: HEAD_W }}><span className="mono" style={{ fontSize: 10, color: "var(--txt-4)" }}>BAR · BEAT</span></div>
           <div className="tl-rulerclip">
             <div className="tl-ruler" ref={rulerRef} style={{ width: W }}
-              title="Doble-clic: añadir marcador · Clic derecho: duplicar sección"
+              title="Arrastrar: región de loop A/B (clic dentro = quitar) · Doble-clic: marcador · Clic derecho: menú"
+              onMouseDown={onRulerMouseDown}
               onContextMenu={(e) => {
                 e.preventDefault();
                 const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -1313,6 +1386,24 @@ export function TimelineView() {
                 });
               }}>
               <WaveformCanvas show={showWaveform} zoom={zoom} duration={duration} width={W} />
+              {/* D: preview del drag de región (imperativo) */}
+              <div ref={loopGhostRef} style={{
+                position: "absolute", top: 0, bottom: 0, display: "none",
+                background: "color-mix(in oklab, var(--acc) 22%, transparent)",
+                borderLeft: "1px solid var(--acc)", borderRight: "1px solid var(--acc)",
+                pointerEvents: "none", zIndex: 4,
+              }} />
+              {/* D: región de loop activa */}
+              {loopRange && (
+                <div title="Loop A/B — clic para quitar" style={{
+                  position: "absolute", top: 0, bottom: 0,
+                  left: msToX(loopRange[0], zoom),
+                  width: Math.max(2, msToX(loopRange[1] - loopRange[0], zoom)),
+                  background: "color-mix(in oklab, var(--acc) 28%, transparent)",
+                  borderLeft: "2px solid var(--acc)", borderRight: "2px solid var(--acc)",
+                  pointerEvents: "none", zIndex: 3,
+                }} />
+              )}
               {sections.map((s, i) => {
                 const next = sections[i + 1]?.start ?? duration;
                 return (
@@ -1695,6 +1786,19 @@ export function TimelineView() {
               {markers.map((m, i) => (
                 <div key={"m" + i} className="lane-marker" style={{ left: m.time_ms / 1000 * zoom, background: m.color || "var(--warn)" }} />
               ))}
+
+              {/* D: región de loop sobre las lanes (sutil) */}
+              {loopRange && (
+                <div style={{
+                  position: "absolute", top: 0, bottom: 0,
+                  left: msToX(loopRange[0], zoom),
+                  width: Math.max(2, msToX(loopRange[1] - loopRange[0], zoom)),
+                  background: "color-mix(in oklab, var(--acc) 7%, transparent)",
+                  borderLeft: "1px dashed color-mix(in oklab, var(--acc) 55%, transparent)",
+                  borderRight: "1px dashed color-mix(in oklab, var(--acc) 55%, transparent)",
+                  pointerEvents: "none", zIndex: 2,
+                }} />
+              )}
 
               <TimelinePlayhead zoom={zoom} follow={followPlayhead} scrollRef={tlScrollRef} />
 

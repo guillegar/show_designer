@@ -59,6 +59,33 @@ def _h_set_loop(session, params):
     return {"ok": True, "loop": session.loop}
 
 
+def _h_set_loop_range(session, params):
+    """set_loop_range(start_ms, end_ms) | set_loop_range(clear=True) → {ok, loop_range}.
+
+    D (Timeline v2): región de loop A/B. Runtime-only (no persiste). El tick
+    hace wrap del reloj de audio al llegar a end_ms mientras suena.
+    """
+    if params.get("clear") or (params.get("start_ms") is None and params.get("end_ms") is None):
+        session.loop_range = None
+        return {"ok": True, "loop_range": None}
+    try:
+        start_ms = int(params["start_ms"])
+        end_ms = int(params["end_ms"])
+    except (KeyError, TypeError, ValueError):
+        return {"ok": False, "error": "start_ms y end_ms enteros requeridos (o clear=true)"}
+    dur_ms = int(session.duration * 1000)
+    if start_ms < 0 or end_ms <= start_ms:
+        return {"ok": False, "error": "rango inválido: 0 <= start_ms < end_ms"}
+    if dur_ms > 0:
+        end_ms = min(end_ms, dur_ms)
+        if end_ms <= start_ms:
+            return {"ok": False, "error": "rango fuera de la canción"}
+    if end_ms - start_ms < 100:
+        return {"ok": False, "error": "región demasiado corta (mínimo 100 ms)"}
+    session.loop_range = (start_ms, end_ms)
+    return {"ok": True, "loop_range": [start_ms, end_ms]}
+
+
 def _h_set_rec(session, params):
     session.rec = bool(params.get("on", not session.rec))
     return {"ok": True, "rec": session.rec}
@@ -243,6 +270,7 @@ _LOCAL = {
     "undo": _h_undo,
     "redo": _h_redo,
     "set_loop": _h_set_loop,
+    "set_loop_range": _h_set_loop_range,
     "set_rec": _h_set_rec,
     "set_volume": _h_set_volume,
     "set_track_mute": _h_set_track_mute,

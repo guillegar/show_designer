@@ -23,6 +23,7 @@ export type TransportState = {
   playing: boolean;
   duration: number;
   loop: boolean;
+  loop_range?: [number, number] | null; // D: región A/B en ms
   rec: boolean;
   section: string;
   bar: number;

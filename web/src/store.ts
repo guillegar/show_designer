@@ -72,6 +72,7 @@ export function famColor(fam: string): string {
 type Store = {
   // transport
   t: number; playing: boolean; duration: number; loop: boolean; rec: boolean;
+  loopRange: [number, number] | null; // D: región de loop A/B (ms)
   section: string; bar: number; beat: number; fps: number; rev: number; clipCount: number;
   // ui
   tab: Tab;
@@ -120,7 +121,7 @@ type Store = {
 };
 
 export const useStore = create<Store>((set, get) => ({
-  t: 0, playing: false, duration: 0, loop: false, rec: false,
+  t: 0, playing: false, duration: 0, loop: false, rec: false, loopRange: null,
   section: "—", bar: 1, beat: 1, fps: 0, rev: -1, clipCount: 0,
   tab: "timeline",
   song: { title: "—", bpm: 120, key: "", duration: 0 },
@@ -135,8 +136,16 @@ export const useStore = create<Store>((set, get) => ({
 
   setTransport: (s) => {
     const prevRev = get().rev;
+    // loop_range llega como array nuevo en cada state (~10/s): conservar la
+    // referencia anterior si los valores no cambian, o los suscriptores de
+    // loopRange se re-renderizarían en cada mensaje (misma lección que A1).
+    const prevLR = get().loopRange;
+    const nextLR = s.loop_range ?? null;
+    const lrEqual = prevLR === nextLR ||
+      (prevLR != null && nextLR != null && prevLR[0] === nextLR[0] && prevLR[1] === nextLR[1]);
     set({
       t: s.t, playing: s.playing, duration: s.duration, loop: s.loop, rec: s.rec,
+      loopRange: lrEqual ? prevLR : nextLR,
       section: s.section, bar: s.bar, beat: s.beat, fps: s.fps, clipCount: s.clip_count,
     });
     if (s.rev !== prevRev) {

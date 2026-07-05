@@ -75,6 +75,14 @@ export function HelpOverlay({ onClose }: HelpOverlayProps) {
                 <span className="key">[, ]</span>
                 <span>Duration ±50ms</span>
               </div>
+              <div className="shortcut">
+                <span className="key">L</span>
+                <span>Loop A/B de la sección actual (toggle)</span>
+              </div>
+              <div className="shortcut">
+                <span className="key">Drag en regla</span>
+                <span>Definir región de loop (clic dentro = quitar)</span>
+              </div>
             </div>
           </div>
 

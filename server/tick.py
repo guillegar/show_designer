@@ -86,8 +86,14 @@ class TickLoop:
                 t = s.time
                 playing = s.playing
 
+                # D (Timeline v2): loop de región A/B — wrap al llegar al final
+                # de la región. Prioridad sobre el loop de canción entera.
+                lr = getattr(s, "loop_range", None)
+                if playing and lr is not None and t >= lr[1] / 1000.0 - 0.02:
+                    s.play(at=lr[0] / 1000.0)
+                    t = lr[0] / 1000.0
                 # Fin de pista: loop o stop
-                if playing and s.duration > 0 and t >= s.duration - 0.02:
+                elif playing and s.duration > 0 and t >= s.duration - 0.02:
                     if s.loop:
                         s.play(at=0.0)
                         t = 0.0
@@ -115,7 +121,7 @@ class TickLoop:
                     # (~10 FPS) o cuando cambia algo relevante (play/section/bar/rev).
                     bar, beat = s.bar_beat(t)
                     section = s.section_name_at(t)
-                    sig = (playing, section, bar, beat, s.loop, s.rec, s._rev)
+                    sig = (playing, section, bar, beat, s.loop, s.rec, s._rev, lr)
                     if self._n % 3 == 0 or sig != self._last_state_sig:
                         self._last_state_sig = sig
                         ts = getattr(s, "tempo_sync", None)
@@ -125,6 +131,7 @@ class TickLoop:
                             "playing": playing,
                             "duration": round(s.duration, 3),
                             "loop": s.loop,
+                            "loop_range": list(lr) if lr else None,
                             "rec": s.rec,
                             "section": section,
                             "bar": bar,
