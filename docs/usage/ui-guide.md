@@ -73,10 +73,21 @@ Live preview of what's being sent to hardware.
 
 2D top-down view of your rig.
 
-- **Click to select fixtures**
-- **Right-click to edit** DMX channels
-- **Drag to move** fixtures around
-- **Channel sliders** for manual testing
+- **Click to select fixtures** · **Drag to move** · **Right-click** for context menu
+  (Edit / Duplicate / Identify / Delete)
+- **Icons by type**: bars = rectangles, moving heads = circle with crosshair,
+  pars/dimmers = circles
+- **Zoom** (wheel) · **Pan** (middle button) · **⊡ Fit** button frames all fixtures
+- **Multi-select**: Shift+click, rubber-band drag, or Ctrl+A. Bulk toolbar appears:
+  Duplicate, Re-patch…, Align H/V, Distribute, Rename…, Delete
+- **Keyboard**: arrows nudge selected fixture (Shift = bigger step), Ctrl+D duplicate,
+  Delete remove, Esc clear selection
+- **Fixture list filters**: universe chips (U1, U2…) + "📍 Sin pos" (unpositioned)
+- **📥 Rig** button imports the rig from another project
+- **▶ Test** runs a sequential identify on every fixture (click again to stop)
+- **DMX map**: 512-channel bar per universe; free gaps shown with tooltips
+- **Fixture editor**: full properties (label, universe/address, IP, rotation, notes,
+  channel map) with live conflict detection
 
 ## Tab 4: Analyzer
 

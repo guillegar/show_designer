@@ -30,34 +30,41 @@ Estado a **2026-07-05** · **v2.0 · 982 tests Python + 36 Vitest · ROADMAP v2+
     Gaps calculados automáticamente entre slots ordenados. Frontend-only, sin cambios backend.
     Tests actualizados para nuevas respuestas (fixtures list vs. fixture single). **982 verdes.**
   - ✅ **FASE D — CANVAS PROFESIONAL (2026-07-05, ROADMAP v4)**: Canvas mejorado con
-    visualización profesional.
-    - **D1** (Iconos por tipo): `PatchStage.draw()` renderiza formas según `fixture.kind`:
-      moving_head → círculo con cruz (símbolo para cabezas móviles), rgb_par/dimmer → círculo
-      simple, otros → rectángulo redondeado. `Fixture` en `store.ts` añade campo opcional `kind`.
-    - **D2** (Fit-to-view): Botón "⊡ Fit" en toolbar. Calcula bbox de todos los fixtures,
-      aplica padding 15%, calcula zoom factors (zx, zy) para ajustar en 0.9 del viewport,
-      limita max 3x, ajusta pan. Muestra ratio de zoom (1:Z).
-    - **D3** (Keyboard shortcuts): Mejora UX de edición. Flechas arriba/abajo/izq/der nudejan
-      el fixture seleccionado ±0.01 (±0.05 con Shift). Ctrl+D duplica, Delete borra, Ctrl+A
-      selecciona todo, Escape desselecciona. Detección de input field para no interferir.
-    - **Refactor crítico:** zoom/pan state movido de PatchStage a PatchView props (Fit button
-      necesita acceso). PatchStage es ahora stateless para zoom/pan (lo recibe como props).
-    No hay D4 (snap/guías) — deferred.
+    visualización profesional. **Verificado en vivo** (preview :8000, rig el_taser 26 fixtures).
+    - **D1** (Iconos por tipo): `PatchStage.draw()` renderiza según `kind_override || kind`:
+      moving_head → círculo con cruz, rgb_par/dimmer → círculo simple, otros → rectángulo
+      redondeado. **Backend**: `_h_list_fixtures` (mcp_bridge.py) ahora enriquece cada fixture
+      con `kind` efectivo (kind_override > profile.kind, memo por profile_id en la llamada) —
+      sin esto todos caían al fallback led_strip. `Fixture` en `store.ts` añade `kind?`.
+    - **D2** (Fit-to-view): Botón "⊡ Fit". El cálculo vive DENTRO de `PatchStage` (necesita
+      el tamaño px del canvas; pan es en píxeles con transformOrigin 0 0) y se expone a
+      PatchView vía `fitRef` (MutableRefObject). Bbox en px de canvas + pad 70px (glow+label),
+      zoom clamp [0.25, 3], pan centra el bbox en el viewport. Muestra ratio (1:Z).
+    - **D3** (Keyboard shortcuts): Flechas nudgean el fixture seleccionado ±0.01 (±0.05 con
+      Shift) vía `move_fixture`. Ctrl+D duplica, Delete borra, Ctrl+A todo, Escape limpia.
+      Detección de input field para no interferir. Verificado: nudge exacto +0.01 y restore.
+    - **Refactor:** zoom/pan state movido de PatchStage a PatchView (props); PatchStage
+      los recibe y mantiene sus refs para los handlers globales.
+    D4 (snap/guías) — deferred.
   - ✅ **FASE E — WORKFLOW AVANZADO (2026-07-05, ROADMAP v4)**: Filtros e importación.
-    - **E1** (Filtros): Nuevo UI en fixture list sidebar — chips por universo (universos únicos
-      detectados) + toggle "📍 Sin pos" para fixtures sin posicionar (patch_x==null).
-      Frontend-only, no backend changes. Filtra la lista en tiempo real.
-    - **E2** (Import rig): Botón "📥 Rig" en toolbar → modal que lista otros proyectos.
-      Handlers existentes: `list_projects_detailed` + `apply_rig`. Estado: `importRigModal`,
-      `otherProjects`, `selectedRigSlug`. Funciones: `loadOtherProjects()`, `doImportRig()`.
-      Aplicable desde Patch sin ir a Projects tab.
-    - E3 (CSV export) y más deferred.
+    - **E1** (Filtros): chips por universo + toggle "📍 Sin pos" (patch_x==null) en el
+      sidebar de fixtures. Frontend-only. Verificado: U1 filtra 26→1 y restaura.
+    - **E2** (Import rig): Botón "📥 Rig" → modal que lista otros proyectos (excluye el
+      actual vía `is_current`; muestra `rig.fixture_count` y `song.title` del payload de
+      `list_projects_detailed`) y llama `apply_rig(from_slug)`. Importar deshabilitado sin
+      selección. Verificado en vivo (modal con los 4 proyectos correctos).
+    - E3 (CSV export) deferred.
   - ✅ **FASE F — DIAGNÓSTICO (2026-07-05, ROADMAP v4)**: Testing y monitoreo.
-    - **F1** (Sequential rig test): Botón "▶ Test" en toolbar. Ejecuta `identify_fixture` en
-      cada fixture secuencialmente (1s por fixture, 1.2s delay total entre ellas). Estado:
-      `seqTestActive`, `seqTestCanceled`. Botón toggle a "⏹ Stop" cuando activo. Toast al
-      completar. Cancelable por el usuario.
+    - **F1** (Sequential rig test): Botón "▶ Test" → recorre los fixtures con
+      `identify_fixture` (1 s cada uno, 1.2 s de paso). El botón cambia a "⏹ Stop"; la
+      cancelación usa **`seqCancelRef` (useRef), NO state** — el bucle async no ve state
+      actualizado (stale closure). Toast al completar/cancelar. Verificado en vivo.
     - F2 (Output log) deferred.
+  - 🐛 **BUGFIX C2 (2026-07-05)**: en `UniverseChannelMap` quedó un IIFE muerto que devolvía
+    el array de gaps `{start,end,size}` directamente como hijos JSX → **React error #31,
+    crasheaba TODA la pestaña Patch** en producción. Eliminado (el render real de los gaps
+    está en la barra 512ch). Moraleja: verificar la pestaña en el navegador tras cada fase,
+    tsc no caza objetos-como-children.
   - ✅ **P2 — CANVAS PRO EN PATCH (2026-07-04)**: `web/src/views/Patch.tsx` — PatchStage reescrito
     con zoom (rueda, centrado en cursor), pan (botón medio), multi-select (Shift+clic individual +
     rubber-band drag desde espacio vacío + Ctrl+A en PatchView + Escape) y menú contextual

@@ -78,7 +78,7 @@ function CtxMenu({ menu, onClose, onAction }: {
 
 // ── P2 — PatchStage con zoom, pan, multi-select, rubber-band, menú contextual ─
 
-function PatchStage({ fixtures, onSelect, dirtyFixtureId, multiSel, onMultiSelToggle, onCtxAction, zoom, setZoom, panX, setPanX, panY, setPanY }: {
+function PatchStage({ fixtures, onSelect, dirtyFixtureId, multiSel, onMultiSelToggle, onCtxAction, zoom, setZoom, panX, setPanX, panY, setPanY, fitRef }: {
   fixtures: Fixture[];
   onSelect: (id: string) => void;
   dirtyFixtureId?: string | null;
@@ -91,6 +91,7 @@ function PatchStage({ fixtures, onSelect, dirtyFixtureId, multiSel, onMultiSelTo
   setPanX: (x: number) => void;
   panY: number;
   setPanY: (y: number) => void;
+  fitRef?: React.MutableRefObject<(() => void) | null>;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -304,6 +305,28 @@ function PatchStage({ fixtures, onSelect, dirtyFixtureId, multiSel, onMultiSelTo
     window.addEventListener("mouseup", up);
     return () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
   }, []);
+
+  // D2 — Fit-to-view: bbox de los fixtures en px de canvas → zoom+pan centrados.
+  // Expuesto vía fitRef porque el tamaño del canvas solo se conoce aquí.
+  if (fitRef) {
+    fitRef.current = () => {
+      const cv = canvasRef.current;
+      const fxs = fixturesRef.current;
+      if (!cv || fxs.length === 0) return;
+      const m = 60, w = cv.clientWidth, h = cv.clientHeight;
+      const pts = fxs.map((f) => pxOfRef.current(f));
+      const xs = pts.map(([px]) => m + px * (w - 2 * m));
+      const ys = pts.map(([, py]) => m + py * (h - 2 * m));
+      const pad = 70; // margen extra alrededor del bbox (glow 46px + label)
+      const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad;
+      const minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad;
+      const z = Math.max(0.25, Math.min(w / Math.max(1, maxX - minX), h / Math.max(1, maxY - minY), 3));
+      const px2 = w / 2 - ((minX + maxX) / 2) * z;
+      const py2 = h / 2 - ((minY + maxY) / 2) * z;
+      zoomRef.current = z; panRef.current = { x: px2, y: py2 };
+      setZoom(z); setPanX(px2); setPanY(py2);
+    };
+  }
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -737,31 +760,6 @@ function UniverseChannelMap({ fixtures, onSelectFixture }: {
                     onClick={() => setActiveU(u)}>U{u}</button>
                 ))}
               </div>
-
-              {/* Calcular huecos entre slots (Phase C2) */}
-              {(() => {
-                const gaps: Array<{ start: number; end: number; size: number }> = [];
-                if (slots.length === 0) {
-                  gaps.push({ start: 1, end: 512, size: 512 });
-                } else {
-                  const sorted = [...slots].sort((a, b) => a.start - b.start);
-                  if (sorted[0].start > 1) {
-                    gaps.push({ start: 1, end: sorted[0].start - 1, size: sorted[0].start - 1 });
-                  }
-                  for (let i = 0; i < sorted.length - 1; i++) {
-                    const gapStart = sorted[i].end + 1;
-                    const gapEnd = sorted[i + 1].start - 1;
-                    if (gapEnd >= gapStart) {
-                      gaps.push({ start: gapStart, end: gapEnd, size: gapEnd - gapStart + 1 });
-                    }
-                  }
-                  const lastEnd = sorted[sorted.length - 1].end;
-                  if (lastEnd < 512) {
-                    gaps.push({ start: lastEnd + 1, end: 512, size: 512 - lastEnd });
-                  }
-                }
-                return gaps;
-              })()}
 
               {/* Barra 512 canales */}
               <div style={{
@@ -1794,6 +1792,7 @@ export function PatchView() {
   const [zoom, setZoom] = useState(1);
   const [panX, setPanX] = useState(0);
   const [panY, setPanY] = useState(0);
+  const fitRef = useRef<(() => void) | null>(null);
 
   // Phase B — bulk operations
   const [bulkRepatchModal, setBulkRepatchModal] = useState(false);
@@ -1807,9 +1806,9 @@ export function PatchView() {
   const [otherProjects, setOtherProjects] = useState<any[]>([]);
   const [selectedRigSlug, setSelectedRigSlug] = useState<string | null>(null);
 
-  // F1 — Sequential rig test
+  // F1 — Sequential rig test (cancel via ref: el bucle async no ve state actualizado)
   const [seqTestActive, setSeqTestActive] = useState(false);
-  const [seqTestCanceled, setSeqTestCanceled] = useState(false);
+  const seqCancelRef = useRef(false);
 
   const openEditor = (id: string) => {
     selectFixture(id);
@@ -1979,7 +1978,7 @@ export function PatchView() {
   // E2 — Import rig from another project
   const loadOtherProjects = () => {
     control.call("list_projects_detailed", {}).then((r) => {
-      setOtherProjects((r.projects || []).filter((p: any) => p.slug !== (fixtures.length > 0 ? "current" : null)));
+      setOtherProjects((r.projects || []).filter((p: any) => !p.is_current));
       setImportRigModal(true);
     }).catch(() => {});
   };
@@ -2002,16 +2001,17 @@ export function PatchView() {
   // F1 — Sequential rig test (identify each fixture in sequence)
   const doSequentialTest = async () => {
     setSeqTestActive(true);
-    setSeqTestCanceled(false);
+    seqCancelRef.current = false;
     const testFixtures = fixtures.filter(f => f.universe != null);
+    let canceled = false;
     for (let i = 0; i < testFixtures.length; i++) {
-      if (seqTestCanceled) break;
+      if (seqCancelRef.current) { canceled = true; break; }
       const f = testFixtures[i];
       control.call("identify_fixture", { fixture_id: f.fixture_id, duration_ms: 1000 }).catch(() => {});
       await new Promise(r => setTimeout(r, 1200));
     }
     setSeqTestActive(false);
-    setToast("✓ Sequential test complete");
+    setToast(canceled ? "⏹ Test cancelado" : "✓ Test secuencial completo");
     setTimeout(() => setToast(null), 2500);
   };
 
@@ -2035,32 +2035,19 @@ export function PatchView() {
         <div className="patch-toolbar">
           <button className="btn sm" onClick={() => setAdding(true)}>+ Fixture</button>
           <button className="btn sm ghost" onClick={() => setGdtfBrowser(true)} title="Añadir fixture desde perfil GDTF">GDTF</button>
-          <button className="btn sm ghost" onClick={() => {
-            if (fixtures.length === 0) return;
-            const xs = fixtures.map(f => f.patch_x ?? 0.5);
-            const ys = fixtures.map(f => f.patch_y ?? 0.5);
-            const minX = Math.min(...xs), maxX = Math.max(...xs);
-            const minY = Math.min(...ys), maxY = Math.max(...ys);
-            const padX = (maxX - minX) * 0.15 || 0.2;
-            const padY = (maxY - minY) * 0.15 || 0.2;
-            const zx = 0.9 / (maxX - minX + padX * 2);
-            const zy = 0.9 / (maxY - minY + padY * 2);
-            const newZoom = Math.min(zx, zy, 3);
-            setPanX(-((minX - padX) * newZoom - 0.05));
-            setPanY(-((minY - padY) * newZoom - 0.05));
-            setZoom(newZoom);
-          }} title="Ajustar zoom y pan a todos los fixtures">⊡ Fit</button>
+          <button className="btn sm ghost" onClick={() => fitRef.current?.()}
+            title="Ajustar zoom y pan a todos los fixtures">⊡ Fit</button>
           <button className="btn sm ghost" onClick={loadOtherProjects} title="Importar rig de otro proyecto">📥 Rig</button>
           <button className={`btn sm ghost${seqTestActive ? " on" : ""}`}
-            onClick={() => { if (seqTestActive) setSeqTestCanceled(true); else doSequentialTest(); }}
-            title="Test secuencial de todos los fixtures">▶ Test</button>
+            onClick={() => { if (seqTestActive) seqCancelRef.current = true; else doSequentialTest(); }}
+            title="Test secuencial de todos los fixtures">{seqTestActive ? "⏹ Stop" : "▶ Test"}</button>
           <span style={{ flex: 1 }} />
           <span className="mono" style={{ fontSize: 10, color: "var(--txt-3)" }}>1:{(1/zoom).toFixed(1)}</span>
         </div>
         <PatchStage fixtures={fixtures} onSelect={openEditor}
           dirtyFixtureId={dirtyInEditor ? editingFixtureId : null}
           multiSel={multiSel} onMultiSelToggle={handleMultiSelToggle}
-          onCtxAction={handleCtxAction}
+          onCtxAction={handleCtxAction} fitRef={fitRef}
           zoom={zoom} setZoom={setZoom} panX={panX} setPanX={setPanX} panY={panY} setPanY={setPanY} />
         {multiSel.size > 0 && (
           <div className="patch-toolbar" style={{ borderTop: "1px solid var(--line)", paddingTop: 4 }}>
@@ -2182,7 +2169,7 @@ export function PatchView() {
                           onClick={() => setSelectedRigSlug(p.slug)}>
                           <div style={{ fontWeight: 600, fontSize: 12 }}>{p.name || p.slug}</div>
                           <div style={{ fontSize: 10, color: "var(--txt-3)", marginTop: 2 }}>
-                            {p.fixtures_count || 0} fixtures · {p.song_title || "sin canción"}
+                            {p.rig?.fixture_count ?? 0} fixtures · {p.song?.title || "sin canción"}
                           </div>
                         </div>
                       ))}

@@ -132,12 +132,26 @@ def _h_open_3d_viewer(app, params):
 # ─── Fixtures (Fase 3) ─────────────────────────────────────────
 
 def _h_list_fixtures(app, params):
-    """Lista los fixtures del rig configurado."""
+    """Lista los fixtures del rig configurado.
+
+    Cada fixture incluye `kind` efectivo (kind_override > profile.kind), que el
+    frontend usa para el icono en el canvas del Patch (D1).
+    """
+    from src.core.fixtures import load_profile
     rig = getattr(app, 'fixture_rig', None)
     if rig is None:
         return {"fixtures": [], "rig_loaded": False}
+    kind_by_profile: dict = {}
+    out = []
+    for f in rig.fixtures:
+        d = f.to_dict()
+        if f.profile_id not in kind_by_profile:
+            p = load_profile(f.profile_id)
+            kind_by_profile[f.profile_id] = getattr(p, "kind", None) if p else None
+        d["kind"] = f.kind_override or kind_by_profile[f.profile_id]
+        out.append(d)
     return {
-        "fixtures": [f.to_dict() for f in rig.fixtures],
+        "fixtures": out,
         "universes": rig.universes(),
         "count": len(rig.fixtures),
         "rig_loaded": True,
