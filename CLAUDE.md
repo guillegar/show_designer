@@ -11,6 +11,21 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 
 Estado a **2026-07-05** · **v2.0 · 982 tests Python + 36 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 COMPLETA (A-H)** — backend headless + frontend React + REST API + webhooks + multiusuario + tap BPM + show generator + historial de gestos + marketplace de plugins + bundle backup/restore + hardening de seguridad (zip slip, marketplace SSRF/RCE, timing-safe tokens, webhook SSRF) + editor completo de fixture desde Patch + Patch UX profesional (mapa DMX, siguiente libre, duplicar, búsqueda, destinos Art-Net) + **edición masiva en lote** (bulk repatch, alinear, distribuir, renombrar) + **auto-patch al añadir múltiples** (count parameter) + **huecos visibles en mapa DMX** + **canvas profesional** (iconos/fit/atajos) + **filtros avanzados** + **import rig** + **test secuencial**.
 **A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+D3+E1+E2+F1+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1+N2 APLICADAS (2026-06-12/14 + 2026-07-05)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger + exportación PDF/CSV + editor de patch visual + **canvas pro** (iconos, fit, shortcuts) + **filtros en patch** + **import rig de proyecto** + **test secuencial fixtures**. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+  - ✅ **FASE A — EDITOR: IP + ROTACIÓN + PROTOCOLO INLINE (2026-07-05, ROADMAP v4)**:
+    lo pedido explícitamente por el usuario. **Verificado en vivo completo (2026-07-05).**
+    - **A1** (IP editable por fixture): `_h_update_fixture` acepta `target_ip` (string vacío
+      → None). Editor: sección **RED / SALIDA** con input "IP fixture" (placeholder
+      `192.168.x.x (vacío = universo)`), mismo autosave con debounce 400 ms. `get_fixture_detail`
+      lo devuelve vía `to_dict()`. Test `test_update_fixture_target_ip`. Verificado E2E en vivo:
+      escribir IP → persiste en el rig → vaciar → None.
+    - **A2** (Rotación editable): `rotation_y` en grados actualiza `fx.rotation[1]`
+      preservando rx/rz; input "Rotación (Y)" en POSICIÓN; el canvas la aplica al instante
+      (`ctx.rotate`). Test `test_update_fixture_rotation_y`. Verificado: 45° → (0,45,0) → reset.
+    - **A3** (Protocolo del universo inline): componente `UniverseOutputInline` bajo el
+      selector de universo del editor — resumen `"U1: WLED (Art-Net) → 192.168.1.201"` +
+      botón "Cambiar" que despliega select (wled/artnet_node/sacn/dmx_usb/sim_only) + campo
+      IP (o puerto COM) + ✓. Aplica con el handler existente `set_output_target`. `onChanged`
+      recarga `get_output_targets` para refrescar el resumen sin reabrir el editor.
   - ✅ **FASE B — EDICIÓN MASIVA (2026-07-05, ROADMAP v4)**: Bulk editing multi-select.
     `server/handlers/patch.py`: 4 handlers nuevos — `_h_bulk_repatch` (re-asigna direcciones
     DMX consecutivas a múltiples fixtures con detección de conflictos), `_h_bulk_move` (mueve

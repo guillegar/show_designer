@@ -1656,7 +1656,12 @@ function FixtureEditorPanel({ fixtureId, onBack, onRefresh, universeIpMap, fixtu
         {universeIpMap && (
           <>
             <div className="ci-sub" style={{ margin: "10px 0 4px" }}>RED / SALIDA</div>
-            {targets && <UniverseOutputInline universe={form.universe ?? 1} targets={targets} onChanged={() => {}} />}
+            {targets && <UniverseOutputInline universe={form.universe ?? 1} targets={targets}
+              onChanged={() => {
+                control.call("get_output_targets")
+                  .then((r: any) => { if (r?.ok) setTargets(r.targets ?? {}); })
+                  .catch(() => {});
+              }} />}
             <div className="form-row">
               <span className="fl">IP fixture</span>
               <div className="fv" style={{ gap: 6, alignItems: "center" }}>
