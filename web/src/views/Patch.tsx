@@ -12,9 +12,11 @@ type FixtureDetail = {
   height_m?: number | null; notes?: string | null;
   channel_map?: Array<{ch: number; role: string}> | null;
   kind_override?: string | null; legacy_bar_idx?: number | null; target_ip?: string | null;
+  rotation?: number[] | null;
 };
 type FixtureType = { id: string; name: string; modes: Array<{name: string; channels: number}> };
 type ConflictInfo = { fixture_id: string; name: string; address_range: string };
+type OutputTarget = { type: string; ip?: string; port?: string };
 
 function barAvg(barIdx: number): [number, number, number] {
   let r = 0, g = 0, b = 0;
@@ -779,9 +781,80 @@ function UniverseChannelMap({ fixtures, onSelectFixture }: {
   );
 }
 
-// ── Patch UX: Destinos Art-Net / WLED ────────────────────────────────────────
+// ── A3: Protocolo del universo editable inline en el editor de fixture ────────
 
-type OutputTarget = { type: string; ip?: string };
+const OUTPUT_TYPE_LABEL: Record<string, string> = {
+  wled: "WLED (Art-Net)", artnet_node: "Nodo Art-Net", sacn: "sACN E1.31",
+  dmx_usb: "DMX USB", sim_only: "Simulación",
+};
+
+function UniverseOutputInline({ universe, targets, onChanged }: {
+  universe: number; targets: Record<string, OutputTarget>; onChanged: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [type, setType] = useState("wled");
+  const [ip, setIp] = useState("");
+  const [port, setPort] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+
+  const cur = targets[String(universe)];
+
+  useEffect(() => {
+    setEditing(false);
+    setType(cur?.type ?? "wled");
+    setIp(cur?.ip ?? "");
+    setPort(cur?.port ?? "");
+    setStatus(null);
+  }, [universe, cur?.type, cur?.ip, cur?.port]);
+
+  const summary = !cur
+    ? "sin configurar"
+    : cur.type === "dmx_usb"
+      ? `DMX USB · ${cur.port ?? "?"}`
+      : cur.type === "sim_only"
+        ? "simulación"
+        : `${OUTPUT_TYPE_LABEL[cur.type] ?? cur.type}${cur.ip ? " → " + cur.ip : ""}`;
+
+  const apply = () => {
+    const params: any = { universe, type };
+    if (type === "dmx_usb") params.port = port || "COM3";
+    else if (type !== "sim_only") params.ip = ip;
+    control.call("set_output_target", params).then((r: any) => {
+      if (r?.ok) { setStatus("✓"); setEditing(false); onChanged(); }
+      else setStatus("⚠");
+      setTimeout(() => setStatus(null), 1500);
+    }).catch(() => { setStatus("⚠"); setTimeout(() => setStatus(null), 1500); });
+  };
+
+  return (
+    <div style={{ fontSize: 11, margin: "4px 0 6px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <span style={{ color: "var(--txt-3)" }}>U{universe}: {summary}</span>
+        <button className="btn sm ghost" style={{ fontSize: 10, padding: "1px 5px" }}
+          onClick={() => setEditing((v) => !v)}>{editing ? "✕" : "Cambiar"}</button>
+      </div>
+      {editing && (
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3, flexWrap: "wrap" }}>
+          <select className="field" style={{ fontSize: 10, padding: "2px 4px" }}
+            value={type} onChange={(e) => setType(e.target.value)}>
+            {Object.entries(OUTPUT_TYPE_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+          {type === "dmx_usb" ? (
+            <input className="field" placeholder="COM3" value={port}
+              onChange={(e) => setPort(e.target.value)} style={{ width: 60, fontSize: 10 }} />
+          ) : type !== "sim_only" ? (
+            <input className="field" placeholder="IP" value={ip}
+              onChange={(e) => setIp(e.target.value)} style={{ width: 90, fontSize: 10 }} />
+          ) : null}
+          <button className="btn sm primary" style={{ fontSize: 10, padding: "1px 6px" }} onClick={apply}>✓</button>
+          {status && <span style={{ fontSize: 9, color: status === "✓" ? "var(--good)" : "var(--bad)" }}>{status}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Patch UX: Destinos Art-Net / WLED ────────────────────────────────────────
 
 function OutputTargetsPanel() {
   const [open, setOpen] = useState(false);
@@ -1282,6 +1355,7 @@ function FixtureEditorPanel({ fixtureId, onBack, onRefresh, universeIpMap, fixtu
   const [toast, setToast] = useState<string | null>(null);
   const [identifying, setIdentifying] = useState(false);
   const [testColor, setTestColor] = useState("#ffffff");
+  const [targets, setTargets] = useState<Record<string, OutputTarget>>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectFixture = useStore((s) => s.selectFixture);
 
@@ -1307,6 +1381,9 @@ function FixtureEditorPanel({ fixtureId, onBack, onRefresh, universeIpMap, fixtu
       });
     control.call("list_fixture_types")
       .then((r: any) => { if (!cancelled && r?.ok) setTypes(r.types ?? []); })
+      .catch(() => {});
+    control.call("get_output_targets")
+      .then((r: any) => { if (!cancelled && r?.ok) setTargets(r.targets ?? {}); })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [fixtureId]);
@@ -1349,6 +1426,8 @@ function FixtureEditorPanel({ fixtureId, onBack, onRefresh, universeIpMap, fixtu
       patch_y: cur.patch_y,
       height_m: cur.height_m,
       channel_map: cur.channel_map,
+      target_ip: cur.target_ip,
+      rotation_y: cur.rotation?.[1],
     }).catch(() => null);
     if (r?.ok) { setDirty(false); setConflicts([]); onRefresh(); }
     else if (r?.conflicts?.length > 0) setConflicts(r.conflicts);
@@ -1499,6 +1578,23 @@ function FixtureEditorPanel({ fixtureId, onBack, onRefresh, universeIpMap, fixtu
           </div>
         )}
 
+        {/* RED / SALIDA — IP + protocolo del universo */}
+        {universeIpMap && (
+          <>
+            <div className="ci-sub" style={{ margin: "10px 0 4px" }}>RED / SALIDA</div>
+            {targets && <UniverseOutputInline universe={form.universe ?? 1} targets={targets} onChanged={() => {}} />}
+            <div className="form-row">
+              <span className="fl">IP fixture</span>
+              <div className="fv" style={{ gap: 6, alignItems: "center" }}>
+                <input className="field" type="text" placeholder="192.168.x.x (vacío = universo)"
+                  value={form.target_ip ?? ""} style={{ flex: 1 }}
+                  onChange={(e) => update({ target_ip: e.target.value || null })} />
+                <span style={{ fontSize: 10, color: "var(--txt-3)" }}>opcional</span>
+              </div>
+            </div>
+          </>
+        )}
+
         {/* CANALES — solo si modo custom */}
         {isCustomMode && (
           <>
@@ -1557,6 +1653,19 @@ function FixtureEditorPanel({ fixtureId, onBack, onRefresh, universeIpMap, fixtu
               placeholder="2.5" style={{ width: 68 }}
               onChange={(e) => update({ height_m: e.target.value !== "" ? parseFloat(e.target.value) : null })} />
             <span style={{ fontSize: 10, color: "var(--txt-3)" }}>m</span>
+          </div>
+        </div>
+        <div className="form-row">
+          <span className="fl">Rotación (Y)</span>
+          <div className="fv" style={{ gap: 6, alignItems: "center" }}>
+            <input className="field" type="number" step={1} min={0} max={360}
+              value={form.rotation?.[1] != null ? Math.round(form.rotation[1]) : ""}
+              placeholder="0" style={{ width: 68 }}
+              onChange={(e) => {
+                const ry = e.target.value !== "" ? parseFloat(e.target.value) : 0;
+                update({ rotation: [form.rotation?.[0] ?? 0, ry, form.rotation?.[2] ?? 0] });
+              }} />
+            <span style={{ fontSize: 10, color: "var(--txt-3)" }}>°</span>
           </div>
         </div>
 

@@ -139,3 +139,27 @@ def test_get_fixture_detail_artnet_ip_from_universe(tmp_path):
     assert res["ok"] is True
     assert res["fixture"]["artnet_ip"] == "192.168.1.201"
     mock_ip.assert_called_once_with(1)
+
+
+def test_update_fixture_target_ip(tmp_path):
+    """update_fixture cambia target_ip; vacío → None."""
+    session = _make_session(tmp_path)
+    # Asignar IP
+    res = _h_update_fixture(session, {"fixture_id": "bar_0", "target_ip": "192.168.10.100"})
+    assert res["ok"] is True
+    assert session.fixture_rig.by_id("bar_0").target_ip == "192.168.10.100"
+    # Vaciar IP
+    res = _h_update_fixture(session, {"fixture_id": "bar_0", "target_ip": ""})
+    assert res["ok"] is True
+    assert session.fixture_rig.by_id("bar_0").target_ip is None
+
+
+def test_update_fixture_rotation_y(tmp_path):
+    """update_fixture cambia rotation[1] y preserva rx/rz."""
+    session = _make_session(tmp_path)
+    fx = session.fixture_rig.by_id("bar_0")
+    assert fx.rotation == (0.0, 0.0, 0.0)
+    # Cambiar rotation_y a 45°
+    res = _h_update_fixture(session, {"fixture_id": "bar_0", "rotation_y": 45.0})
+    assert res["ok"] is True
+    assert session.fixture_rig.by_id("bar_0").rotation == (0.0, 45.0, 0.0)

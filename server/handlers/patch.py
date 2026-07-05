@@ -66,7 +66,7 @@ def _h_update_fixture(session, params):
     """update_fixture(fixture_id, **fields, dry_run=False) → {ok, fixture?, conflicts}.
 
     Acepta: name, start_address, universe, mode, kind_override, channel_map,
-    notes, patch_x, patch_y, height_m, dry_run.
+    notes, patch_x, patch_y, height_m, target_ip, rotation_y, dry_run.
     dry_run=True: valida conflictos y devuelve {ok, conflicts} SIN persistir.
     dry_run=False con conflicto: devuelve {ok: False, error, conflicts}.
     dry_run=False sin conflicto: persiste, sync_rig_layout si cambia pos/altura,
@@ -133,6 +133,12 @@ def _h_update_fixture(session, params):
         fx.channel_map = params["channel_map"]
     if "notes" in params:
         fx.notes = params["notes"]
+    if "target_ip" in params:
+        ip = (params["target_ip"] or "").strip() or None
+        fx.target_ip = ip
+    if "rotation_y" in params and params["rotation_y"] is not None:
+        rx, _ry, rz = fx.rotation
+        fx.rotation = (rx, float(params["rotation_y"]), rz)
     if "patch_x" in params and params["patch_x"] is not None:
         fx.patch_x = float(params["patch_x"])
         pos_height_changed = True
