@@ -9,7 +9,7 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 > documentación** para que refleje el estado real — este `CLAUDE.md` (arquitectura/estado) y los
 > docs de `docs/` que apliquen. No dejar la doc desfasada.
 
-Estado a **2026-07-05** · **v2.0 · 982 tests Python + 36 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 COMPLETO · PROFESIONALIZACIÓN APLICADA · P2 CANVAS PRO APLICADO · FASE B COMPLETA** — backend headless + frontend React + REST API + webhooks + multiusuario + tap BPM + show generator + historial de gestos + marketplace de plugins + bundle backup/restore + hardening de seguridad (zip slip, marketplace SSRF/RCE, timing-safe tokens, webhook SSRF) + editor completo de fixture desde Patch + Patch UX profesional (mapa DMX, siguiente libre, duplicar, búsqueda, destinos Art-Net) + edición masiva (bulk repatch, alinear, distribuir, renombrar).
+Estado a **2026-07-05** · **v2.0 · 982 tests Python + 36 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 FASE B+C COMPLETA** — backend headless + frontend React + REST API + webhooks + multiusuario + tap BPM + show generator + historial de gestos + marketplace de plugins + bundle backup/restore + hardening de seguridad (zip slip, marketplace SSRF/RCE, timing-safe tokens, webhook SSRF) + editor completo de fixture desde Patch + Patch UX profesional (mapa DMX, siguiente libre, duplicar, búsqueda, destinos Art-Net) + **edición masiva en lote** (bulk repatch, alinear, distribuir, renombrar) + **auto-patch al añadir múltiples** (count parameter) + **huecos visibles en mapa DMX**.
 **A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+E1+E2+E3+E4+F1+F2+F3+F4+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1+N2 APLICADAS (2026-06-12/14)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger + exportación PDF/CSV + editor de patch visual. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
   - ✅ **FASE B — EDICIÓN MASIVA (2026-07-05, ROADMAP v4)**: Bulk editing multi-select.
     `server/handlers/patch.py`: 4 handlers nuevos — `_h_bulk_repatch` (re-asigna direcciones
@@ -20,6 +20,17 @@ Estado a **2026-07-05** · **v2.0 · 982 tests Python + 36 Vitest · ROADMAP v2+
     "Re-patch…", "Alin.H", "Alin.V", "Dist.", "Renombrar…" + modales para Re-patch y Renombrar.
     Frontend calcula alineaciones: H→minX, V→minY, distribuye con step uniforme. Toast
     notifications en PatchView. 6 tests nuevos en `test_fixture_editor.py`. **982 Python verdes.**
+  - ✅ **FASE C — AUTO-PATCH AL AÑADIR (2026-07-05, ROADMAP v4)**: Agregar N fixtures en lote.
+    `src/mcp/mcp_bridge.py`: `_h_add_fixture` amplificado con parámetro `count` (default 1);
+    auto-calcula `next_free_address` para cada fixture, genera IDs/labels únicos con sufijos,
+    devuelve lista de fixtures creados. `server/handlers/gdtf.py`: `_h_add_fixture_from_gdtf`
+    también soporta `count`. `web/src/views/Patch.tsx`: `AddFixtureModal` y `GdtfBrowserModal`
+    con campo "Cantidad"; muestra count en títulos. **C2** (gaps visibles en DMX map):
+    `UniverseChannelMap` renderiza espacios libres con tono tenue + tooltips "Libre: ch X–Y (Zch)".
+    Gaps calculados automáticamente entre slots ordenados. Frontend-only, sin cambios backend.
+    Tests actualizados para nuevas respuestas (fixtures list vs. fixture single). **982 verdes.**
+    **Roadmap D-F delineado:** D (canvas icons/fit/shortcuts/snap), E (filtros/import rig/CSV),
+    F (test rig/output log). Estimado 4h para D+E.
   - ✅ **P2 — CANVAS PRO EN PATCH (2026-07-04)**: `web/src/views/Patch.tsx` — PatchStage reescrito
     con zoom (rueda, centrado en cursor), pan (botón medio), multi-select (Shift+clic individual +
     rubber-band drag desde espacio vacío + Ctrl+A en PatchView + Escape) y menú contextual
