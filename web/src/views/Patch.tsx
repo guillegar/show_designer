@@ -722,11 +722,67 @@ function UniverseChannelMap({ fixtures, onSelectFixture }: {
                 ))}
               </div>
 
+              {/* Calcular huecos entre slots (Phase C2) */}
+              {(() => {
+                const gaps: Array<{ start: number; end: number; size: number }> = [];
+                if (slots.length === 0) {
+                  gaps.push({ start: 1, end: 512, size: 512 });
+                } else {
+                  const sorted = [...slots].sort((a, b) => a.start - b.start);
+                  if (sorted[0].start > 1) {
+                    gaps.push({ start: 1, end: sorted[0].start - 1, size: sorted[0].start - 1 });
+                  }
+                  for (let i = 0; i < sorted.length - 1; i++) {
+                    const gapStart = sorted[i].end + 1;
+                    const gapEnd = sorted[i + 1].start - 1;
+                    if (gapEnd >= gapStart) {
+                      gaps.push({ start: gapStart, end: gapEnd, size: gapEnd - gapStart + 1 });
+                    }
+                  }
+                  const lastEnd = sorted[sorted.length - 1].end;
+                  if (lastEnd < 512) {
+                    gaps.push({ start: lastEnd + 1, end: 512, size: 512 - lastEnd });
+                  }
+                }
+                return gaps;
+              })()}
+
               {/* Barra 512 canales */}
               <div style={{
                 position: "relative", height: 30, borderRadius: 4, overflow: "hidden",
                 background: "var(--bg-1)", border: "1px solid var(--line)", marginBottom: 4,
               }}>
+                {/* Mostrar gaps primero (background) */}
+                {(() => {
+                  const sorted = [...slots].sort((a, b) => a.start - b.start);
+                  const gaps: Array<{ start: number; end: number; size: number }> = [];
+                  if (sorted.length === 0) {
+                    gaps.push({ start: 1, end: 512, size: 512 });
+                  } else {
+                    if (sorted[0].start > 1) gaps.push({ start: 1, end: sorted[0].start - 1, size: sorted[0].start - 1 });
+                    for (let i = 0; i < sorted.length - 1; i++) {
+                      const gapStart = sorted[i].end + 1;
+                      const gapEnd = sorted[i + 1].start - 1;
+                      if (gapEnd >= gapStart) gaps.push({ start: gapStart, end: gapEnd, size: gapEnd - gapStart + 1 });
+                    }
+                    const lastEnd = sorted[sorted.length - 1].end;
+                    if (lastEnd < 512) gaps.push({ start: lastEnd + 1, end: 512, size: 512 - lastEnd });
+                  }
+                  return gaps.map((gap) => {
+                    const left = ((gap.start - 1) / 512) * 100;
+                    const width = (gap.size / 512) * 100;
+                    return (
+                      <div key={`gap-${gap.start}`}
+                        title={`Libre: ch ${gap.start}–${gap.end} (${gap.size}ch)`}
+                        style={{
+                          position: "absolute", left: `${left}%`, width: `${Math.max(width, 0.2)}%`,
+                          top: 0, bottom: 0, background: "rgba(255,255,255,0.06)", cursor: "default",
+                        }} />
+                    );
+                  });
+                })()}
+
+                {/* Mostrar slots usados */}
                 {slots.map((slot, i) => {
                   const left = ((slot.start - 1) / 512) * 100;
                   const width = (slot.num_channels / 512) * 100;
@@ -738,7 +794,7 @@ function UniverseChannelMap({ fixtures, onSelectFixture }: {
                         position: "absolute", left: `${left}%`, width: `${Math.max(width, 0.15)}%`,
                         top: 0, bottom: 0, background: PATCH_PALETTE[i % PATCH_PALETTE.length],
                         opacity: 0.88, cursor: "pointer", borderRight: "1px solid rgba(0,0,0,0.25)",
-                        display: "flex", alignItems: "center", paddingLeft: 3, overflow: "hidden",
+                        display: "flex", alignItems: "center", paddingLeft: 3, overflow: "hidden", zIndex: 1,
                       }}>
                       {width > 4 && (
                         <span style={{ fontSize: 8, color: "#fff", fontWeight: 700,
