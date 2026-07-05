@@ -145,8 +145,15 @@ export function TimelineView() {
     setDragSecIdx(null);
     setDragInsertMs(null);
     if (insertMs >= sec.start_ms && insertMs < sec.end_ms) return;
-    await control.call("duplicate_range", { t0_ms: sec.start_ms, t1_ms: sec.end_ms, dest_ms: Math.max(0, insertMs) });
-    await control.call("delete_range", { start_ms: sec.start_ms, end_ms: sec.end_ms });
+    // B3: move_range atómico (antes duplicate+delete: podía dejar duplicados si
+    // fallaba la segunda llamada). Fallback al combo para servers antiguos.
+    const r = await control.call("move_range", {
+      t0_ms: sec.start_ms, t1_ms: sec.end_ms, dest_ms: Math.max(0, insertMs),
+    }).catch(() => null);
+    if (!r?.ok) {
+      await control.call("duplicate_range", { t0_ms: sec.start_ms, t1_ms: sec.end_ms, dest_ms: Math.max(0, insertMs) });
+      await control.call("delete_range", { start_ms: sec.start_ms, end_ms: sec.end_ms });
+    }
     refreshClips();
     refreshMarkers();
   };
@@ -637,11 +644,16 @@ export function TimelineView() {
     if (!calls.length) { moveableRef.current?.updateRect(); return; }
     applyMovesOptimistic(calls); // el clip se queda YA en su sitio
     try {
-      for (const params of calls) await control.call("move_clip", params);
-      try { await control.call("snapshot"); } catch {}
+      // B2: una sola llamada atómica (1 snapshot de undo + 1 bump de rev).
+      // Fallback al bucle si el handler bulk no existe (server antiguo).
+      const bulk = await control.call("bulk_move_clips", { moves: calls }).catch(() => null);
+      if (!bulk?.ok) {
+        for (const params of calls) await control.call("move_clip", params);
+        try { await control.call("snapshot"); } catch {}
+      }
       await refreshClips(); // reconcilia con el backend (clamps/redondeos)
     } catch (err) {
-      console.error("[Timeline] move_clip failed:", err);
+      console.error("[Timeline] move failed:", err);
       await refreshClips(); // ante fallo, vuelve a la verdad del servidor
     }
   };
@@ -810,12 +822,16 @@ export function TimelineView() {
         e.preventDefault();
         const ids = selectedClipIds.size > 0 ? [...selectedClipIds] : [selectedClipId as string];
         (async () => {
-          for (const id of ids) await control.call("delete_clip", { clip_id: id });
+          // B2: borrado atómico en una llamada (fallback al bucle)
+          const bulk = await control.call("bulk_delete_clips", { clip_ids: ids }).catch(() => null);
+          if (!bulk?.ok) {
+            for (const id of ids) await control.call("delete_clip", { clip_id: id });
+            try { await control.call("snapshot"); } catch {}
+          }
           setSelectedClipIds(new Set());
           setMoveTargets([]);
           selectClip(null);
           await refreshClips();
-          try { await control.call("snapshot"); } catch {}
         })();
       } else if (e.key === "0" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
@@ -864,24 +880,28 @@ export function TimelineView() {
         if (src.length) {
           const minStart = Math.min(...src.map((cl) => cl.start_ms));
           const anchor = Math.round(useStore.getState().t * 1000); // playhead actual
+          const specs = src.map((cl) => {
+            const dur = cl.end_ms - cl.start_ms;
+            const start = anchor + (cl.start_ms - minStart);
+            return {
+              track: cl.track, start_ms: Math.round(start), end_ms: Math.round(start + dur),
+              effect_id: cl.effect_id, scope: cl.scope, color: cl.color,
+              label: cl.label, layer: cl.layer, params: cl.params,
+            };
+          });
           (async () => {
-            const newIds: string[] = [];
-            for (const cl of src) {
-              const dur = cl.end_ms - cl.start_ms;
-              const start = anchor + (cl.start_ms - minStart);
-              const res = await control.call("add_clip", {
-                track: cl.track,
-                start_ms: Math.round(start),
-                end_ms: Math.round(start + dur),
-                effect_id: cl.effect_id,
-                scope: cl.scope,
-                color: cl.color,
-                label: cl.label,
-                layer: cl.layer,
-                params: cl.params,
-              });
-              const id = res?.clip?.id;
-              if (id != null) newIds.push(id);
+            let newIds: string[] = [];
+            // B2: alta atómica en una llamada (fallback al bucle)
+            const bulk = await control.call("bulk_add_clips", { clips: specs }).catch(() => null);
+            if (bulk?.ok) {
+              newIds = (bulk.clips ?? []).map((c: any) => c.id).filter(Boolean);
+            } else {
+              for (const spec of specs) {
+                const res = await control.call("add_clip", spec);
+                const id = res?.clip?.id;
+                if (id != null) newIds.push(id);
+              }
+              try { await control.call("snapshot"); } catch {}
             }
             addToast(`✓ ${src.length} clip(s) pegado(s)`, "success");
             await refreshClips();
@@ -890,7 +910,6 @@ export function TimelineView() {
               setSelectedClipIds(new Set(newIds));
               selectClip(newIds.length === 1 ? newIds[0] : null);
             }
-            try { await control.call("snapshot"); } catch {}
           })();
         }
       } else if (e.ctrlKey || e.metaKey) {
@@ -965,10 +984,7 @@ export function TimelineView() {
       if (qStart !== c.start_ms) calls.push({ clip_id: id, new_start_ms: qStart });
     }
     if (!calls.length) { addToast("Clips ya están en la rejilla", "info"); return; }
-    applyMovesOptimistic(calls);
-    for (const params of calls) await control.call("move_clip", params);
-    try { await control.call("snapshot"); } catch {}
-    await refreshClips();
+    await commitMoves(calls); // B2: optimista + bulk + reconcilia
     addToast(`✓ ${calls.length} clip(s) cuantizados`, "success");
   };
 
