@@ -65,23 +65,27 @@ def _h_list_gdtf_profiles(session, params):
 
 
 def _h_add_fixture_from_gdtf(session, params):
-    """add_fixture_from_gdtf(profile_path, universe, start_channel, name="") → {ok, fixture}.
+    """add_fixture_from_gdtf(profile_path, universe, start_channel, name="", count=1) → {ok, fixtures}.
 
-    Carga el GDTF en profile_path, crea un Fixture en el rig y lo persiste.
+    Carga el GDTF en profile_path, crea uno o más Fixtures en el rig y los persiste.
+    Phase C: si count>1, calcula automáticamente next_free_address para cada uno.
     profile_path: ruta al .gdtf (relativa a PROFILES_DIR o absoluta).
-    Invariante I3: devuelve el fixture creado.
+    Devuelve: {ok, fixtures: [...]} (lista de fixtures creados)
     """
     from pathlib import Path as _Path
 
     from src._paths import PROFILES_DIR
     from src.core.fixtures import Fixture
     from src.io.loaders.gdtf_profile import load_gdtf_profile
+    import re as _re
+    import time as _time
 
     profile_path = params.get("profile_path")
     universe = int(params.get("universe", 1))
     start_channel = int(params.get("start_channel", 1))
     name = str(params.get("name", "")).strip()
     mode_name = params.get("mode_name")
+    count = max(1, int(params.get("count", 1)))
 
     if not profile_path:
         return {"ok": False, "error": "profile_path requerido"}
@@ -101,28 +105,44 @@ def _h_add_fixture_from_gdtf(session, params):
     except Exception as e:
         return {"ok": False, "error": f"Error cargando GDTF: {e}"}
 
-    # Generar fixture_id único
+    # Generar base del fixture_id
     base = (name or profile.name or p.stem).lower().replace(" ", "_").replace("/", "_")
-    import re as _re
     base = _re.sub(r"[^a-z0-9_]", "", base)[:30] or "fixture"
     existing_ids = {fx.fixture_id for fx in rig.fixtures}
-    fixture_id = base
-    counter = 1
-    while fixture_id in existing_ids:
-        fixture_id = f"{base}_{counter}"
-        counter += 1
 
-    fx = Fixture(
-        fixture_id=fixture_id,
-        profile_id=profile.profile_id,
-        universe=universe,
-        dmx_start=start_channel,
-        label=name or profile.name,
-    )
-    rig.fixtures.append(fx)
+    created = []
+    addr = start_channel
+    num_channels = profile.num_channels
+
+    for i in range(count):
+        # Generar fixture_id único
+        fixture_id = base
+        counter = 1
+        while fixture_id in existing_ids:
+            fixture_id = f"{base}_{counter}"
+            counter += 1
+        existing_ids.add(fixture_id)
+
+        # Generar label único
+        if count == 1:
+            label = name or profile.name
+        else:
+            label = f"{name or profile.name} {i+1}"
+
+        fx = Fixture(
+            fixture_id=fixture_id,
+            profile_id=profile.profile_id,
+            universe=universe,
+            dmx_start=addr,
+            label=label,
+        )
+        rig.fixtures.append(fx)
+        created.append(fx.to_dict())
+        addr += num_channels
+
     rig.save(session.project.rig_file)
 
-    return {"ok": True, "fixture": fx.to_dict()}
+    return {"ok": True, "fixtures": created}
 
 
 HANDLERS = {

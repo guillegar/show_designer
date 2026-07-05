@@ -77,7 +77,9 @@ def test_add_fixture_from_gdtf_valid(tmp_path):
         "name": "Test Wash",
     })
     assert res["ok"] is True
-    fx = res["fixture"]
+    assert "fixtures" in res
+    assert len(res["fixtures"]) == 1
+    fx = res["fixtures"][0]
     assert fx["universe"] == 12
     assert fx["dmx_start"] == 1
     assert fx["label"] == "Test Wash"
@@ -111,12 +113,13 @@ def test_add_fixture_persists_rig(tmp_path):
         "name": "Wash Persist",
     })
     assert res["ok"] is True
+    assert len(res["fixtures"]) == 1
 
     rig_path = tmp_path / "rig.json"
     assert rig_path.is_file()
     data = json.loads(rig_path.read_text())
     fids = [f["fixture_id"] for f in data["fixtures"]]
-    new_fid = res["fixture"]["fixture_id"]
+    new_fid = res["fixtures"][0]["fixture_id"]
     assert new_fid in fids
     saved = next(f for f in data["fixtures"] if f["fixture_id"] == new_fid)
     assert saved["universe"] == 15

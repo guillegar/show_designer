@@ -184,30 +184,79 @@ def _h_save_rig(app, params):
 
 
 def _h_add_fixture(app, params):
-    """Añade un fixture al rig."""
+    """Añade uno o más fixtures al rig (Phase C — auto-patch).
+
+    Parámetros:
+      fixture_id: ID del primer fixture (si count>1, añade sufijos numéricos)
+      count: cantidad de fixtures a añadir (default 1)
+      (resto: profile_id, universe, dmx_start, position, rotation, label, target_ip)
+
+    Si count>1: calcula automáticamente next_free_address para cada uno.
+    Devuelve: {ok, fixtures: [...]} (lista de fixtures creados)
+    """
     rig = getattr(app, 'fixture_rig', None)
     if rig is None:
         return {"ok": False, "error": "no hay rig cargado"}
     try:
         from src.core.fixtures import Fixture
-        fid = params["fixture_id"]
-        if rig.by_id(fid):
-            return {"ok": False, "error": f"ya existe fixture_id={fid}"}
-        fx = Fixture(
-            fixture_id=fid,
-            profile_id=params["profile_id"],
-            universe=int(params.get("universe", 1)),
-            dmx_start=int(params.get("dmx_start", 1)),
-            position=tuple(params.get("position", (0.0, 1.0, 0.0))),
-            rotation=tuple(params.get("rotation", (0.0, 0.0, 0.0))),
-            label=params.get("label", fid),
-            target_ip=params.get("target_ip"),
-            legacy_bar_idx=params.get("legacy_bar_idx"),
-        )
-        rig.fixtures.append(fx)
+        import time
+
+        count = max(1, int(params.get("count", 1)))
+        fid_base = params["fixture_id"]
+        profile_id = params["profile_id"]
+        universe = int(params.get("universe", 1))
+        dmx_start = int(params.get("dmx_start", 1))
+        position = tuple(params.get("position", (0.0, 1.0, 0.0)))
+        rotation = tuple(params.get("rotation", (0.0, 0.0, 0.0)))
+        label_base = params.get("label", fid_base)
+        target_ip = params.get("target_ip")
+        legacy_bar_idx = params.get("legacy_bar_idx")
+
+        created = []
+        addr = dmx_start
+        profile = rig.get_profile(profile_id)
+        num_channels = profile.num_channels if profile else 1
+
+        for i in range(count):
+            # Generar fixture_id único
+            if count == 1:
+                fid = fid_base
+            else:
+                # Añadir sufijo numérico (timestamp para evitar colisiones)
+                ts_suffix = int(time.time() * 1000 + i) % 100000
+                fid = f"{fid_base}_{ts_suffix}"
+                # Si la ID base ya existe, asegurar unicidad
+                while rig.by_id(fid):
+                    ts_suffix += 1
+                    fid = f"{fid_base}_{ts_suffix}"
+
+            if rig.by_id(fid):
+                return {"ok": False, "error": f"ya existe fixture_id={fid}"}
+
+            # Generar label único
+            if count == 1:
+                lbl = label_base
+            else:
+                lbl = f"{label_base} {i+1}"
+
+            fx = Fixture(
+                fixture_id=fid,
+                profile_id=profile_id,
+                universe=universe,
+                dmx_start=addr,
+                position=position,
+                rotation=rotation,
+                label=lbl,
+                target_ip=target_ip,
+                legacy_bar_idx=legacy_bar_idx,
+            )
+            rig.fixtures.append(fx)
+            created.append(fx.to_dict())
+            addr += num_channels
+
         # Refrescar patch panel si está
         _qt_call_dual(app, "_refresh_patch")
-        return {"ok": True, "fixture": fx.to_dict()}
+        return {"ok": True, "fixtures": created}
     except KeyError as e:
         return {"ok": False, "error": f"falta parámetro {e}"}
     except Exception as e:

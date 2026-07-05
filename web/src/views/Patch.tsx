@@ -381,6 +381,7 @@ function GdtfBrowserModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
   const [dmxStart, setDmxStart] = useState(1);
   const [customName, setCustomName] = useState("");
   const [mode, setMode] = useState("");
+  const [quantity, setQuantity] = useState(1);
   const [status, setStatus] = useState<string | null>(null);
 
   useEffect(() => {
@@ -403,7 +404,7 @@ function GdtfBrowserModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
     try {
       const r: any = await control.call("add_fixture_from_gdtf", {
         profile_path: sel.path, universe, start_channel: dmxStart,
-        name: customName || sel.name, mode_name: mode || undefined,
+        name: customName || sel.name, mode_name: mode || undefined, count: quantity,
       });
       if (r?.ok) { setStatus("✓ Añadido"); setTimeout(() => { onAdded(); }, 800); }
       else setStatus("Error: " + (r?.error ?? "desconocido"));
@@ -446,6 +447,7 @@ function GdtfBrowserModal({ onClose, onAdded }: { onClose: () => void; onAdded: 
               </div>
             )}
             <div className="ci-row"><label>Nombre</label><input value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder={sel.name} /></div>
+            <div className="ci-row"><label>Cantidad</label><input type="number" min={1} value={quantity} onChange={(e) => setQuantity(+e.target.value)} style={{ width: 80 }} /></div>
             <div className="ci-row"><label>Universo</label><input type="number" value={universe} onChange={(e) => setUniverse(+e.target.value)} style={{ width: 60 }} /></div>
             <div className="ci-row"><label>DMX start</label><input type="number" value={dmxStart} onChange={(e) => setDmxStart(+e.target.value)} style={{ width: 60 }} /></div>
             <div className="ci-row" style={{ marginTop: 6 }}>
@@ -466,24 +468,26 @@ function AddFixtureModal({ profiles, onClose, onAdded }: {
   const [name, setName] = useState("");
   const [universe, setUniverse] = useState(11);
   const [dmxStart, setDmxStart] = useState(1);
+  const [quantity, setQuantity] = useState(1);
   const create = async () => {
     const fid = (name || profileId || "fixture").toLowerCase().replace(/[^a-z0-9]+/g, "_") + "_" + Date.now().toString().slice(-4);
     await control.call("add_fixture", {
       fixture_id: fid, profile_id: profileId, universe, dmx_start: dmxStart,
-      position: [0, 1, 0], label: name || fid,
+      position: [0, 1, 0], label: name || fid, count: quantity,
     });
     onAdded();
   };
   return (
     <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="preset-editor">
-        <div className="ci-head"><h4>Añadir fixture</h4><button className="x" onClick={onClose}>×</button></div>
+        <div className="ci-head"><h4>Añadir fixture{quantity > 1 ? ` (${quantity})` : ""}</h4><button className="x" onClick={onClose}>×</button></div>
         <div className="ci-body">
           <div className="ci-row"><label>Perfil</label>
             <select value={profileId} onChange={(e) => setProfileId(e.target.value)}>
               {profiles.map((p) => <option key={p.profile_id} value={p.profile_id}>{p.name} ({p.kind}, {p.num_channels}ch)</option>)}
             </select></div>
           <div className="ci-row"><label>Nombre</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder="(auto)" /></div>
+          <div className="ci-row"><label>Cantidad</label><input type="number" min={1} value={quantity} onChange={(e) => setQuantity(+e.target.value)} style={{ width: 80 }} /></div>
           <div className="ci-row"><label>Universo</label><input type="number" value={universe} onChange={(e) => setUniverse(+e.target.value)} /></div>
           <div className="ci-row"><label>DMX start</label><input type="number" value={dmxStart} onChange={(e) => setDmxStart(+e.target.value)} /></div>
           <div className="ci-row" style={{ marginTop: 6 }}><button className="btn primary sm" style={{ flex: 1 }} onClick={create}>Añadir</button></div>
