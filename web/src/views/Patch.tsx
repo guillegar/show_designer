@@ -1707,8 +1707,16 @@ export function PatchView() {
   const [gdtfBrowser, setGdtfBrowser] = useState(false);
   const [dirtyInEditor, setDirtyInEditor] = useState(false);
   const [search, setSearch] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
   // P2 — multi-select
   const [multiSel, setMultiSel] = useState<Set<string>>(new Set());
+
+  // Phase B — bulk operations
+  const [bulkRepatchModal, setBulkRepatchModal] = useState(false);
+  const [bulkAlignModal, setBulkAlignModal] = useState(false);
+  const [bulkRenameModal, setBulkRenameModal] = useState(false);
+  const [bulkRepatchForm, setBulkRepatchForm] = useState({ universe: 1, startAddress: 1 });
+  const [bulkRenameForm, setBulkRenameForm] = useState({ pattern: "Fixture {n}", startNum: 1 });
 
   const openEditor = (id: string) => {
     selectFixture(id);
@@ -1768,6 +1776,87 @@ export function PatchView() {
     setMultiSel(new Set());
   };
 
+  const doBulkRepatch = async () => {
+    const res = await control.call("bulk_repatch", {
+      fixture_ids: Array.from(multiSel),
+      universe: bulkRepatchForm.universe,
+      start_address: bulkRepatchForm.startAddress,
+    }).catch(() => null);
+    if (res?.ok) {
+      setToast("✓ Re-patched");
+      setTimeout(() => setToast(null), 2500);
+      setBulkRepatchModal(false);
+      setMultiSel(new Set());
+      refreshFixtures();
+    } else if (res?.error) {
+      setToast("⚠ " + res.error);
+      setTimeout(() => setToast(null), 3000);
+    }
+  };
+
+  const doBulkAlignH = async () => {
+    const sorted = Array.from(multiSel)
+      .map((id) => ({ id, pos: fixtures.find((f) => f.fixture_id === id)?.patch_x ?? 0 }))
+      .sort((a, b) => a.pos - b.pos);
+    const minX = Math.min(...sorted.map((s) => s.pos));
+    const moves = sorted.map((s) => ({ fixture_id: s.id, x: minX }));
+    const res = await control.call("bulk_move", { moves }).catch(() => null);
+    if (res?.ok) {
+      setToast("✓ Aligned H");
+      setTimeout(() => setToast(null), 2500);
+      setMultiSel(new Set());
+      refreshFixtures();
+    }
+  };
+
+  const doBulkAlignV = async () => {
+    const sorted = Array.from(multiSel)
+      .map((id) => ({ id, pos: fixtures.find((f) => f.fixture_id === id)?.patch_y ?? 0 }))
+      .sort((a, b) => a.pos - b.pos);
+    const minY = Math.min(...sorted.map((s) => s.pos));
+    const moves = sorted.map((s) => ({ fixture_id: s.id, y: minY }));
+    const res = await control.call("bulk_move", { moves }).catch(() => null);
+    if (res?.ok) {
+      setToast("✓ Aligned V");
+      setTimeout(() => setToast(null), 2500);
+      setMultiSel(new Set());
+      refreshFixtures();
+    }
+  };
+
+  const doBulkDistribute = async () => {
+    const sorted = Array.from(multiSel)
+      .map((id) => ({ id, pos: fixtures.find((f) => f.fixture_id === id)?.patch_x ?? 0 }))
+      .sort((a, b) => a.pos - b.pos);
+    if (sorted.length < 2) return;
+    const minX = sorted[0].pos;
+    const maxX = sorted[sorted.length - 1].pos;
+    const step = (maxX - minX) / (sorted.length - 1);
+    const moves = sorted.map((s, i) => ({ fixture_id: s.id, x: minX + i * step }));
+    const res = await control.call("bulk_move", { moves }).catch(() => null);
+    if (res?.ok) {
+      setToast("✓ Distributed");
+      setTimeout(() => setToast(null), 2500);
+      setMultiSel(new Set());
+      refreshFixtures();
+    }
+  };
+
+  const doBulkRename = async () => {
+    const res = await control.call("bulk_rename", {
+      fixture_ids: Array.from(multiSel),
+      pattern: bulkRenameForm.pattern,
+      start_num: bulkRenameForm.startNum,
+    }).catch(() => null);
+    if (res?.ok) {
+      setToast("✓ Renamed");
+      setTimeout(() => setToast(null), 2500);
+      setBulkRenameModal(false);
+      setMultiSel(new Set());
+      refreshFixtures();
+    }
+  };
+
   useEffect(() => { control.call("list_fixture_profiles").then((r) => setProfiles(r.profiles || [])).catch(() => {}); }, []);
 
   // Mapa universo → IP derivado de los fixtures del rig
@@ -1797,6 +1886,11 @@ export function PatchView() {
           <div className="patch-toolbar" style={{ borderTop: "1px solid var(--line)", paddingTop: 4 }}>
             <span style={{ fontSize: 11, color: "var(--txt-2)" }}>{multiSel.size} sel.</span>
             <button className="btn sm ghost" onClick={multiDuplicate}>Duplicar</button>
+            <button className="btn sm ghost" onClick={() => setBulkRepatchModal(true)}>Re-patch…</button>
+            <button className="btn sm ghost" onClick={doBulkAlignH} title="Alinear horizontalmente">Alin.H</button>
+            <button className="btn sm ghost" onClick={doBulkAlignV} title="Alinear verticalmente">Alin.V</button>
+            <button className="btn sm ghost" onClick={doBulkDistribute} title="Distribuir espaciado">Dist.</button>
+            <button className="btn sm ghost" onClick={() => setBulkRenameModal(true)}>Renombrar…</button>
             <button className="btn sm ghost" style={{ color: "var(--bad)" }} onClick={multiDelete}>Borrar</button>
             <button className="btn sm ghost" onClick={() => setMultiSel(new Set())}>✕</button>
           </div>
@@ -1804,6 +1898,78 @@ export function PatchView() {
         <div className="patch-legend">
           <div className="lg">Shift+click=multi · Ctrl+A=todo · Esc=limpiar · Rueda=zoom · Btn-medio=pan · Clic-der=menú</div>
         </div>
+
+        {/* Phase B — Bulk Repatch Modal */}
+        {bulkRepatchModal && (
+          <div className="modal-overlay" onClick={() => setBulkRepatchModal(false)}>
+            <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-head">
+                <h3>Re-patch en lote</h3>
+                <button className="btn sm ghost" onClick={() => setBulkRepatchModal(false)}>✕</button>
+              </div>
+              <div className="modal-body" style={{ gap: 10, display: "flex", flexDirection: "column" }}>
+                <div className="form-row" style={{ padding: "6px 10px" }}>
+                  <span className="fl">Universo</span>
+                  <div className="fv">
+                    <select className="field" value={bulkRepatchForm.universe}
+                      onChange={(e) => setBulkRepatchForm((p) => ({ ...p, universe: parseInt(e.target.value, 10) }))}>
+                      {Array.from({ length: 15 }, (_, i) => i + 1).map((u) => (
+                        <option key={u} value={u}>{u}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="form-row" style={{ padding: "6px 10px" }}>
+                  <span className="fl">Dirección inicial</span>
+                  <div className="fv">
+                    <input className="field" type="number" min={1} max={512}
+                      value={bulkRepatchForm.startAddress}
+                      onChange={(e) => setBulkRepatchForm((p) => ({ ...p, startAddress: parseInt(e.target.value, 10) || 1 }))} />
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", padding: "10px" }}>
+                  <button className="btn sm ghost" onClick={() => setBulkRepatchModal(false)}>Cancelar</button>
+                  <button className="btn sm" onClick={doBulkRepatch}>Re-patch</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Phase B — Bulk Rename Modal */}
+        {bulkRenameModal && (
+          <div className="modal-overlay" onClick={() => setBulkRenameModal(false)}>
+            <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-head">
+                <h3>Renombrar en lote</h3>
+                <button className="btn sm ghost" onClick={() => setBulkRenameModal(false)}>✕</button>
+              </div>
+              <div className="modal-body" style={{ gap: 10, display: "flex", flexDirection: "column" }}>
+                <div className="form-row" style={{ padding: "6px 10px" }}>
+                  <span className="fl">Patrón</span>
+                  <div className="fv">
+                    <input className="field" value={bulkRenameForm.pattern}
+                      placeholder="Ej: Barra {n}" style={{ flex: 1 }}
+                      onChange={(e) => setBulkRenameForm((p) => ({ ...p, pattern: e.target.value }))} />
+                    <span style={{ fontSize: 10, color: "var(--txt-3)" }}>use {"{n}"} para número</span>
+                  </div>
+                </div>
+                <div className="form-row" style={{ padding: "6px 10px" }}>
+                  <span className="fl">Empezar en</span>
+                  <div className="fv">
+                    <input className="field" type="number" min={1}
+                      value={bulkRenameForm.startNum}
+                      onChange={(e) => setBulkRenameForm((p) => ({ ...p, startNum: parseInt(e.target.value, 10) || 1 }))} />
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", padding: "10px" }}>
+                  <button className="btn sm ghost" onClick={() => setBulkRenameModal(false)}>Cancelar</button>
+                  <button className="btn sm" onClick={doBulkRename}>Renombrar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="patch-side">
@@ -1862,6 +2028,17 @@ export function PatchView() {
         onAdded={() => { setAdding(false); refreshFixtures(); }} />}
       {gdtfBrowser && <GdtfBrowserModal onClose={() => setGdtfBrowser(false)}
         onAdded={() => { setGdtfBrowser(false); refreshFixtures(); }} />}
+
+      {/* Toast notification */}
+      {toast && (
+        <div style={{
+          position: "fixed", bottom: 20, right: 20, background: "var(--bg-2)",
+          color: "var(--txt)", padding: "10px 14px", borderRadius: 6,
+          fontSize: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.3)", zIndex: 1000,
+        }}>
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

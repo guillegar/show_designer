@@ -163,3 +163,129 @@ def test_update_fixture_rotation_y(tmp_path):
     res = _h_update_fixture(session, {"fixture_id": "bar_0", "rotation_y": 45.0})
     assert res["ok"] is True
     assert session.fixture_rig.by_id("bar_0").rotation == (0.0, 45.0, 0.0)
+
+
+# ── Phase B — Bulk Editing ────────────────────────────────────────────────────
+
+def test_bulk_repatch(tmp_path):
+    """bulk_repatch asigna direcciones consecutivas a múltiples fixtures."""
+    from server.handlers.patch import _h_bulk_repatch
+    session = _make_session(tmp_path)
+    # bar_0..bar_2 están en universos 1..3; vamos a reparcharlos juntos
+    # wled_strip_93 tiene 279 canales (93 LEDs × 3 RGB)
+    res = _h_bulk_repatch(session, {
+        "fixture_ids": ["bar_0", "bar_1", "bar_2"],
+        "universe": 2,
+        "start_address": 1,
+    })
+    assert res["ok"] is True
+    assert len(res["fixtures"]) == 3
+    # bar_0 (279 ch) → U2:1-279, bar_1 → U2:280-558, bar_2 → U2:559-837 (overflow pero ok)
+    b0 = session.fixture_rig.by_id("bar_0")
+    b1 = session.fixture_rig.by_id("bar_1")
+    b2 = session.fixture_rig.by_id("bar_2")
+    assert b0.universe == 2 and b0.dmx_start == 1
+    assert b1.universe == 2 and b1.dmx_start == 280
+    assert b2.universe == 2 and b2.dmx_start == 559
+
+
+def test_bulk_repatch_conflict_dry_run(tmp_path):
+    """bulk_repatch dry_run=True detecta conflicto sin persistir."""
+    from server.handlers.patch import _h_bulk_repatch
+    session = _make_session(tmp_path)
+    extra = Fixture(
+        fixture_id="extra_bar", profile_id="wled_strip_93",
+        universe=2, dmx_start=100,
+    )
+    session.fixture_rig.fixtures.append(extra)
+
+    res = _h_bulk_repatch(session, {
+        "fixture_ids": ["bar_0"],
+        "universe": 2,
+        "start_address": 1,
+        "dry_run": True,
+    })
+    assert res["ok"] is True
+    # bar_0 (279 ch) en 2:1-279 conflictúa con extra_bar en 2:100
+    assert len(res["conflicts"]) > 0
+    # NO se persistió
+    assert session.fixture_rig.by_id("bar_0").universe == 1
+
+
+def test_bulk_repatch_conflict_not_persisted(tmp_path):
+    """bulk_repatch sin dry_run bloquea si hay conflicto."""
+    from server.handlers.patch import _h_bulk_repatch
+    session = _make_session(tmp_path)
+    extra = Fixture(
+        fixture_id="extra_bar", profile_id="wled_strip_93",
+        universe=2, dmx_start=100,
+    )
+    session.fixture_rig.fixtures.append(extra)
+
+    res = _h_bulk_repatch(session, {
+        "fixture_ids": ["bar_0"],
+        "universe": 2,
+        "start_address": 1,
+    })
+    assert res["ok"] is False
+    assert "conflicto" in res.get("error", "").lower()
+    assert len(res.get("conflicts", [])) > 0
+    assert session.fixture_rig.by_id("bar_0").universe == 1
+
+
+def test_bulk_move(tmp_path):
+    """bulk_move actualiza patch_x/patch_y para múltiples fixtures."""
+    from server.handlers.patch import _h_bulk_move
+    session = _make_session(tmp_path)
+    res = _h_bulk_move(session, {
+        "moves": [
+            {"fixture_id": "bar_0", "x": 0.1, "y": 0.2},
+            {"fixture_id": "bar_1", "x": 0.3, "y": 0.4},
+        ]
+    })
+    assert res["ok"] is True
+    assert len(res["fixtures"]) == 2
+    assert session.fixture_rig.by_id("bar_0").patch_x == pytest.approx(0.1)
+    assert session.fixture_rig.by_id("bar_0").patch_y == pytest.approx(0.2)
+    assert session.fixture_rig.by_id("bar_1").patch_x == pytest.approx(0.3)
+    assert session.fixture_rig.by_id("bar_1").patch_y == pytest.approx(0.4)
+
+
+def test_bulk_rename(tmp_path):
+    """bulk_rename aplica patrón con {n}."""
+    from server.handlers.patch import _h_bulk_rename
+    session = _make_session(tmp_path)
+    res = _h_bulk_rename(session, {
+        "fixture_ids": ["bar_0", "bar_1", "bar_2"],
+        "pattern": "Barra {n}",
+        "start_num": 1,
+    })
+    assert res["ok"] is True
+    assert len(res["fixtures"]) == 3
+    assert session.fixture_rig.by_id("bar_0").label == "Barra 1"
+    assert session.fixture_rig.by_id("bar_1").label == "Barra 2"
+    assert session.fixture_rig.by_id("bar_2").label == "Barra 3"
+
+
+def test_bulk_copy_properties(tmp_path):
+    """bulk_copy_properties copia height_m, notes, kind_override."""
+    from server.handlers.patch import _h_bulk_copy_properties
+    session = _make_session(tmp_path)
+    # Configurar source
+    src = session.fixture_rig.by_id("bar_0")
+    src.height_m = 2.5
+    src.notes = "Fuente"
+    src.kind_override = "custom"
+
+    res = _h_bulk_copy_properties(session, {
+        "from_fixture_id": "bar_0",
+        "to_fixture_ids": ["bar_1", "bar_2"],
+        "properties": ["height_m", "notes", "kind_override"],
+    })
+    assert res["ok"] is True
+    assert len(res["fixtures"]) == 2
+    for fid in ["bar_1", "bar_2"]:
+        fx = session.fixture_rig.by_id(fid)
+        assert fx.height_m == pytest.approx(2.5)
+        assert fx.notes == "Fuente"
+        assert fx.kind_override == "custom"

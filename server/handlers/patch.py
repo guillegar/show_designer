@@ -376,6 +376,227 @@ def _h_get_output_targets(session, params):
         pass
     return {"ok": True, "targets": {}}
 
+
+# ── Phase B — Edición masiva (bulk editing) ──────────────────────────────────
+
+def _h_bulk_repatch(session, params):
+    """bulk_repatch(fixture_ids, universe, start_address) → {ok, fixtures, conflicts}.
+
+    Re-asigna múltiples fixtures a nuevas direcciones consecutivas en un universo.
+    Valida conflictos contra los fixtures NO seleccionados.
+    dry_run=True devuelve {ok, conflicts} sin persistir.
+    """
+    fixture_ids = params.get("fixture_ids", [])
+    new_universe = int(params.get("universe", 1))
+    start_addr = int(params.get("start_address", 1))
+    dry_run = bool(params.get("dry_run", False))
+
+    if not fixture_ids:
+        return {"ok": False, "error": "fixture_ids requerido"}
+    rig = getattr(session, "fixture_rig", None)
+    if rig is None:
+        return {"ok": False, "error": "No hay rig cargado"}
+
+    # Ordenar fixtures seleccionadas por dirección actual para asignarlas consecutivamente
+    selected_fxs = [rig.by_id(fid) for fid in fixture_ids]
+    selected_fxs = [fx for fx in selected_fxs if fx is not None]
+    selected_fxs.sort(key=lambda f: f.dmx_start)
+
+    # Calcular nuevas direcciones
+    assignments = []
+    addr = start_addr
+    for fx in selected_fxs:
+        prof = rig.get_profile(fx.profile_id)
+        nch = prof.num_channels if prof else 1
+        assignments.append((fx.fixture_id, addr))
+        addr += nch
+
+    # Validar conflictos contra fixtures NO seleccionados
+    selected_ids = set(fixture_ids)
+    conflicts = []
+    for new_id, new_start in assignments:
+        prof = rig.get_profile(rig.by_id(new_id).profile_id)
+        nch = prof.num_channels if prof else 1
+        for other in rig.fixtures:
+            if other.fixture_id in selected_ids or other.fixture_id == new_id:
+                continue
+            if other.universe != new_universe:
+                continue
+            other_prof = rig.get_profile(other.profile_id)
+            other_channels = other_prof.num_channels if other_prof else 1
+            if (new_start <= other.dmx_start + other_channels - 1
+                    and other.dmx_start <= new_start + nch - 1):
+                conflicts.append({
+                    "fixture_id": other.fixture_id,
+                    "name": other.label or other.fixture_id,
+                    "address_range": f"ch {other.dmx_start}-{other.dmx_start + other_channels - 1}",
+                })
+
+    if dry_run:
+        return {"ok": True, "conflicts": conflicts}
+
+    if conflicts:
+        return {"ok": False, "error": "Conflicto DMX detectado", "conflicts": conflicts}
+
+    # I1 — snapshot
+    try:
+        session.snapshot()
+    except Exception:
+        pass
+
+    # Aplicar cambios
+    for fixture_id, new_addr in assignments:
+        fx = rig.by_id(fixture_id)
+        if fx:
+            fx.universe = new_universe
+            fx.dmx_start = new_addr
+
+    rig.save(session.project.rig_file)
+    try:
+        session.notify_changed("rig")
+    except Exception:
+        pass
+
+    result_fixtures = [rig.by_id(fid).to_dict() for fid in fixture_ids if rig.by_id(fid)]
+    return {"ok": True, "fixtures": result_fixtures, "conflicts": []}
+
+
+def _h_bulk_move(session, params):
+    """bulk_move(moves: [{fixture_id, x, y}]) → {ok, fixtures}.
+
+    Mueve múltiples fixtures a nuevas posiciones (patch_x/patch_y).
+    Atómico: un snapshot + un save.
+    """
+    moves = params.get("moves", [])
+    if not moves:
+        return {"ok": False, "error": "moves requerido"}
+
+    rig = getattr(session, "fixture_rig", None)
+    if rig is None:
+        return {"ok": False, "error": "No hay rig cargado"}
+
+    # I1 — snapshot
+    try:
+        session.snapshot()
+    except Exception:
+        pass
+
+    result_fixtures = []
+    for move in moves:
+        fixture_id = move.get("fixture_id")
+        x = move.get("x")
+        y = move.get("y")
+        fx = rig.by_id(fixture_id)
+        if not fx:
+            continue
+        if x is not None:
+            fx.patch_x = float(x)
+        if y is not None:
+            fx.patch_y = float(y)
+        result_fixtures.append(fx.to_dict())
+
+    rig.save(session.project.rig_file)
+    try:
+        session.sync_rig_layout()
+    except Exception:
+        pass
+    try:
+        session.notify_changed("rig")
+    except Exception:
+        pass
+
+    return {"ok": True, "fixtures": result_fixtures}
+
+
+def _h_bulk_rename(session, params):
+    """bulk_rename(fixture_ids, pattern, start_num) → {ok, fixtures}.
+
+    Renombra múltiples fixtures según patrón (ej. "Bar {n}").
+    {n} se reemplaza con start_num + índice.
+    """
+    fixture_ids = params.get("fixture_ids", [])
+    pattern = params.get("pattern", "{name}")
+    start_num = int(params.get("start_num", 1))
+
+    if not fixture_ids:
+        return {"ok": False, "error": "fixture_ids requerido"}
+
+    rig = getattr(session, "fixture_rig", None)
+    if rig is None:
+        return {"ok": False, "error": "No hay rig cargado"}
+
+    # I1 — snapshot
+    try:
+        session.snapshot()
+    except Exception:
+        pass
+
+    result_fixtures = []
+    for idx, fixture_id in enumerate(fixture_ids):
+        fx = rig.by_id(fixture_id)
+        if not fx:
+            continue
+        n = start_num + idx
+        new_label = pattern.replace("{n}", str(n))
+        fx.label = new_label
+        result_fixtures.append(fx.to_dict())
+
+    rig.save(session.project.rig_file)
+    try:
+        session.notify_changed("rig")
+    except Exception:
+        pass
+
+    return {"ok": True, "fixtures": result_fixtures}
+
+
+def _h_bulk_copy_properties(session, params):
+    """bulk_copy_properties(from_fixture_id, to_fixture_ids, props) → {ok, fixtures}.
+
+    Copia propiedades de un fixture a otros.
+    props: lista de propiedades a copiar (height_m, notes, kind_override).
+    """
+    from_id = params.get("from_fixture_id")
+    to_ids = params.get("to_fixture_ids", [])
+    props = params.get("properties", [])
+
+    if not from_id or not to_ids:
+        return {"ok": False, "error": "from_fixture_id y to_fixture_ids requeridos"}
+
+    rig = getattr(session, "fixture_rig", None)
+    if rig is None:
+        return {"ok": False, "error": "No hay rig cargado"}
+
+    source = rig.by_id(from_id)
+    if not source:
+        return {"ok": False, "error": f"Fixture origen no encontrado: {from_id}"}
+
+    # I1 — snapshot
+    try:
+        session.snapshot()
+    except Exception:
+        pass
+
+    result_fixtures = []
+    valid_props = {"height_m", "notes", "kind_override"}
+    props_to_copy = [p for p in props if p in valid_props]
+
+    for to_id in to_ids:
+        dest = rig.by_id(to_id)
+        if not dest:
+            continue
+        for prop in props_to_copy:
+            setattr(dest, prop, getattr(source, prop))
+        result_fixtures.append(dest.to_dict())
+
+    rig.save(session.project.rig_file)
+    try:
+        session.notify_changed("rig")
+    except Exception:
+        pass
+
+    return {"ok": True, "fixtures": result_fixtures}
+
 HANDLERS = {
     "update_fixture": _h_update_fixture,
     "get_fixture_detail": _h_get_fixture_detail,
@@ -384,5 +605,9 @@ HANDLERS = {
     "duplicate_fixture": _h_duplicate_fixture,
     "get_universe_channel_map": _h_get_universe_channel_map,
     "get_output_targets": _h_get_output_targets,
+    "bulk_repatch": _h_bulk_repatch,
+    "bulk_move": _h_bulk_move,
+    "bulk_rename": _h_bulk_rename,
+    "bulk_copy_properties": _h_bulk_copy_properties,
 }
-RIG_MUTATORS = {"update_fixture", "duplicate_fixture"}
+RIG_MUTATORS = {"update_fixture", "duplicate_fixture", "bulk_repatch", "bulk_move", "bulk_rename", "bulk_copy_properties"}
