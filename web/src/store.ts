@@ -27,6 +27,7 @@ export type Fixture = {
   manual_channels: Record<string, number>;
   patch_x?: number | null; patch_y?: number | null;
   kind_override?: string | null;
+  kind?: string | null; // D1: icon by type (from profile or kind_override)
   notes?: string | null;
   channel_map?: Array<{ch: number; role: string}> | null;
   height_m?: number | null;
