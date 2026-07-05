@@ -536,10 +536,7 @@ export function TimelineView() {
 
       selectClip(c.id);
       setLastEffectDuration(c.end_ms - c.start_ms);
-      addToast(
-        `✓ ${targets.length} clip(s) painted`,
-        "success"
-      );
+      addToast(`✓ ${targets.length} clip(s) pintado(s)`, "success");
       await refreshClips();
       // Create undo snapshot
       try {
@@ -594,7 +591,7 @@ export function TimelineView() {
         await control.call("add_clip", {
           track: d.lane.bar, start_ms: Math.round(a), end_ms: Math.round(a + dur),
           effect_id: activeFx.id, scope: "per_bar",
-          color: cssColorToHex(famColor(activeFx.family)), label: activeFx.name,
+          color: famHex(activeFx.family), label: activeFx.name,
         });
       }
       refreshClips();
@@ -900,6 +897,10 @@ export function TimelineView() {
       } else if (e.key === "0" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         setZoom(DEFAULT_ZOOM);
+      } else if ((e.key === "e" || e.key === "E") && (e.ctrlKey || e.metaKey)) {
+        // E: zoom a la selección
+        e.preventDefault();
+        zoomToSelection();
       } else if (e.key === "[") {
         e.preventDefault();
         setLastEffectDuration(d => Math.max(100, d - 50));
@@ -927,7 +928,7 @@ export function TimelineView() {
             const trackClips = clips.filter(x => x.track === c.track);
             const ids = new Set(trackClips.map(x => x.id));
             setSelectedClipIds(ids);
-            addToast(`✓ ${ids.size} clips selected (track)`, "info");
+            addToast(`✓ ${ids.size} clips seleccionados (pista)`, "info");
           }
         }
       } else if ((e.key === "a" || e.key === "A") && e.shiftKey && (e.ctrlKey || e.metaKey)) {
@@ -935,7 +936,7 @@ export function TimelineView() {
         e.preventDefault();
         const ids = new Set(clips.map(x => x.id));
         setSelectedClipIds(ids);
-        addToast(`✓ ${ids.size} clips selected (all)`, "info");
+        addToast(`✓ ${ids.size} clips seleccionados (todos)`, "info");
       } else if ((e.key === "v" || e.key === "V") && (e.ctrlKey || e.metaKey)) {
         // Paste: pega el grupo (o clip único) anclado al playhead, manteniendo
         // los offsets relativos de tiempo y los track/layer originales.
@@ -1079,12 +1080,46 @@ export function TimelineView() {
     addToast(`✓ ${calls.length} clip(s) cuantizados`, "success");
   };
 
+  // E: dividir TODOS los clips que cruzan el playhead (todas las pistas)
+  const splitAllAtPlayhead = async () => {
+    const tMs = Math.round(useStore.getState().t * 1000);
+    const targets = clips.filter((c) => !c.locked && c.start_ms + 20 < tMs && tMs < c.end_ms - 20);
+    if (!targets.length) { addToast("Ningún clip bajo el playhead", "info"); return; }
+    for (const c of targets) await control.call("split_clip", { clip_id: c.id, t_ms: tMs });
+    await refreshClips();
+    addToast(`✂ ${targets.length} clip(s) divididos en ${fmtTime(tMs / 1000)}`, "success");
+  };
+
+  // E: zoom a la selección (Ctrl+E) — encuadra los clips seleccionados
+  const zoomToSelection = () => {
+    const ids = selectedClipIds.size > 0 ? [...selectedClipIds] : (selectedClipId != null ? [selectedClipId] : []);
+    const sel = ids.map((id) => clips.find((c) => c.id === id)).filter((c): c is Clip => !!c);
+    if (!sel.length || !tlScrollRef.current) return;
+    const minMs = Math.min(...sel.map((c) => c.start_ms));
+    const maxMs = Math.max(...sel.map((c) => c.end_ms));
+    const spanS = Math.max(0.5, (maxMs - minMs) / 1000);
+    const el = tlScrollRef.current;
+    const viewW = el.clientWidth - HEAD_W;
+    const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, (viewW * 0.8) / spanS));
+    setZoom(newZoom);
+    requestAnimationFrame(() => {
+      el.scrollLeft = Math.max(0, (minMs / 1000) * newZoom - viewW * 0.1);
+    });
+  };
+
+  // E: mini-modal en vez de window.prompt
+  const [patternNameModal, setPatternNameModal] = useState<{ clipIds: string[] } | null>(null);
+  const [patternName, setPatternName] = useState("Pattern");
   const createPatternFromSelection = (anchorClip: Clip) => {
     const ids = selectedClipIds.size > 1 ? [...selectedClipIds] : [anchorClip.id];
-    const name = window.prompt("Nombre del pattern:", "Pattern") ?? "";
-    if (!name) return;
-    control.call("create_pattern_from_clips", { clip_ids: ids, name })
+    setPatternName("Pattern");
+    setPatternNameModal({ clipIds: ids });
+  };
+  const confirmCreatePattern = () => {
+    if (!patternNameModal || !patternName.trim()) return;
+    control.call("create_pattern_from_clips", { clip_ids: patternNameModal.clipIds, name: patternName.trim() })
       .then(() => { refreshClips(); refreshPatterns(); refreshPatternInstances(); });
+    setPatternNameModal(null);
   };
 
   const openClipMenu = (e: React.MouseEvent, c: Clip) => {
@@ -1260,13 +1295,22 @@ export function TimelineView() {
                   };
                 });
                 if (!menuItems.length) menuItems.push({ label: "Sin secciones definidas", disabled: true, onClick: () => {} });
+                menuItems.unshift(
+                  { label: "✂ Dividir todos los clips en el playhead", onClick: splitAllAtPlayhead },
+                  { type: "sep" } as any,
+                );
                 setMenu({ x: e.clientX, y: e.clientY, items: menuItems });
               }}
               onDoubleClick={(e) => {
+                // E: sin window.prompt — crea con nombre por defecto y abre la
+                // edición inline del marcador (mismo input que al hacer clic).
                 const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
                 const ms = Math.round(((e.clientX - r.left) / zoom) * 1000);
-                const name = window.prompt("Nombre del marcador:", fmtTime(ms / 1000));
-                if (name != null) control.call("add_marker", { time_ms: ms, name }).then(refreshMarkers);
+                const name = fmtTime(ms / 1000);
+                control.call("add_marker", { time_ms: ms, name }).then(async () => {
+                  await refreshMarkers();
+                  setEditMarker({ t_ms: ms, name });
+                });
               }}>
               <WaveformCanvas show={showWaveform} zoom={zoom} duration={duration} width={W} />
               {sections.map((s, i) => {
@@ -1718,6 +1762,11 @@ export function TimelineView() {
         <div className="tl-status">
           <span className="chip acc"><span className="d" />{clips.length} clips</span>
           <span className="muted">{NUM_BARS} tracks</span>
+          {selectedClipIds.size > 1 && (() => {
+            const sel = clips.filter((c) => selectedClipIds.has(c.id));
+            const tot = sel.reduce((a, c) => a + (c.end_ms - c.start_ms), 0);
+            return <span className="chip">{sel.length} sel · {(tot / 1000).toFixed(1)}s</span>;
+          })()}
           <span className="ph-spacer" style={{ flex: 1 }} />
           {selClip && (
             <span className="mono muted">
@@ -1773,6 +1822,27 @@ export function TimelineView() {
         <GenerateShowModal onClose={() => setGenShowOpen(false)} onGenerated={refreshClips} />
       )}
 
+      {/* E: mini-modal para nombrar el pattern (antes window.prompt) */}
+      {patternNameModal && (
+        <div className="modal-overlay" onClick={() => setPatternNameModal(null)}>
+          <div className="modal-box" style={{ maxWidth: 320 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>Crear pattern ({patternNameModal.clipIds.length} clips)</h3>
+              <button className="btn sm ghost" onClick={() => setPatternNameModal(null)}>✕</button>
+            </div>
+            <div className="modal-body" style={{ padding: 12, display: "flex", gap: 8 }}>
+              <input className="field" autoFocus value={patternName} style={{ flex: 1 }}
+                onChange={(e) => setPatternName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") confirmCreatePattern();
+                  if (e.key === "Escape") setPatternNameModal(null);
+                }} />
+              <button className="btn sm" onClick={confirmCreatePattern} disabled={!patternName.trim()}>Crear</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       {showHelp && <HelpOverlay onClose={() => setShowHelp(false)} />}
@@ -1780,8 +1850,14 @@ export function TimelineView() {
   );
 }
 
-// color CSS var → hex aproximado para guardar en el clip (el backend espera #hex).
-// Como los colores se derivan de la familia en render, basta un hex neutro.
-function cssColorToHex(_v: string): string {
-  return "#3a7acc";
+// E (Timeline v2): hex real por familia para persistir en el clip (antes era un
+// stub que guardaba SIEMPRE #3a7acc). Aproximaciones de los tokens oklch de
+// styles.css (--fam-*): el render sigue usando el token CSS, esto es lo que
+// queda guardado en show.json (export CSV/QLC+, otros clientes).
+const FAM_HEX: Record<string, string> = {
+  flash: "#e26a4f", wave: "#55a8e0", gradient: "#c56ad9",
+  pattern: "#52ce8a", spectral: "#d9b04a", color: "#d9b04a", ring: "#55a8e0",
+};
+function famHex(family: string): string {
+  return FAM_HEX[family] ?? "#3a7acc";
 }

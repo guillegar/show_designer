@@ -61,6 +61,10 @@ export function HelpOverlay({ onClose }: HelpOverlayProps) {
                 <span className="key">+, −</span>
                 <span>Zoom in/out</span>
               </div>
+              <div className="shortcut">
+                <span className="key">Ctrl+E</span>
+                <span>Zoom a la selección</span>
+              </div>
             </div>
           </div>
 
@@ -77,6 +81,14 @@ export function HelpOverlay({ onClose }: HelpOverlayProps) {
           <div className="help-section">
             <h3>📋 Editing</h3>
             <div className="shortcuts">
+              <div className="shortcut">
+                <span className="key">←, →</span>
+                <span>Nudge selección ±1 paso (Shift = ±1 compás)</span>
+              </div>
+              <div className="shortcut">
+                <span className="key">↑, ↓</span>
+                <span>Cambiar capa de la selección</span>
+              </div>
               <div className="shortcut">
                 <span className="key">Ctrl+C</span>
                 <span>Copy clip</span>
