@@ -78,13 +78,19 @@ function CtxMenu({ menu, onClose, onAction }: {
 
 // ── P2 — PatchStage con zoom, pan, multi-select, rubber-band, menú contextual ─
 
-function PatchStage({ fixtures, onSelect, dirtyFixtureId, multiSel, onMultiSelToggle, onCtxAction }: {
+function PatchStage({ fixtures, onSelect, dirtyFixtureId, multiSel, onMultiSelToggle, onCtxAction, zoom, setZoom, panX, setPanX, panY, setPanY }: {
   fixtures: Fixture[];
   onSelect: (id: string) => void;
   dirtyFixtureId?: string | null;
   multiSel: Set<string>;
   onMultiSelToggle: (id: string) => void;
   onCtxAction: (action: string, id: string) => void;
+  zoom: number;
+  setZoom: (z: number) => void;
+  panX: number;
+  setPanX: (x: number) => void;
+  panY: number;
+  setPanY: (y: number) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -94,9 +100,6 @@ function PatchStage({ fixtures, onSelect, dirtyFixtureId, multiSel, onMultiSelTo
   const { nx, nz } = L;
 
   const [patchOverride, setPatchOverride] = useState<Record<string, [number, number]>>({});
-  const [zoom, setZoom] = useState(1);
-  const [panX, setPanX] = useState(0);
-  const [panY, setPanY] = useState(0);
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState>(null);
   const [rubber, setRubber] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
 
@@ -185,21 +188,34 @@ function PatchStage({ fixtures, onSelect, dirtyFixtureId, multiSel, onMultiSelTo
           const [r, g, b] = fixtureColor(f);
           const isSel = sel === f.fixture_id;
           const isMulti = multiSel.has(f.fixture_id);
+          const kind = f.kind_override || f.kind || "led_strip";
+
           ctx.save(); ctx.translate(cx, cy); ctx.rotate(((f.rotation?.[1] ?? 0) * Math.PI) / 180);
           const grd = ctx.createRadialGradient(0, 0, 2, 0, 0, 46);
           grd.addColorStop(0, `rgba(${r},${g},${b},0.5)`); grd.addColorStop(1, `rgba(${r},${g},${b},0)`);
           ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(0, 0, 46, 0, 7); ctx.fill();
-          const bw = 10, bh = 46;
+
           ctx.fillStyle = "#0a0c10";
           ctx.strokeStyle = isSel ? "#a070ff" : isMulti ? "#50c0ff" : "rgba(150,160,190,0.5)";
           ctx.lineWidth = (isSel || isMulti) ? 2.5 : 1.2;
-          roundRect(ctx, -bw / 2, -bh / 2, bw, bh, 3); ctx.fill(); ctx.stroke();
-          ctx.fillStyle = `rgb(${r},${g},${b})`; roundRect(ctx, -bw / 2 + 2.5, -bh / 2 + 3, bw - 5, bh - 6, 2); ctx.fill();
+
+          // D1: Shape por tipo
+          if (kind === "moving_head") {
+            ctx.beginPath(); ctx.arc(0, 0, 12, 0, 7); ctx.fill(); ctx.stroke();
+            ctx.strokeStyle = `rgb(${r},${g},${b})`; ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(8, 0);
+            ctx.moveTo(0, -8); ctx.lineTo(0, 8); ctx.stroke();
+          } else if (kind === "rgb_par" || kind === "dimmer") {
+            ctx.beginPath(); ctx.arc(0, 0, 10, 0, 7); ctx.fill(); ctx.stroke();
+          } else {
+            const bw = 10, bh = 46;
+            roundRect(ctx, -bw / 2, -bh / 2, bw, bh, 3); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = `rgb(${r},${g},${b})`; roundRect(ctx, -bw / 2 + 2.5, -bh / 2 + 3, bw - 5, bh - 6, 2); ctx.fill();
+          }
           ctx.restore();
           ctx.fillStyle = isSel ? "#c9a8ff" : isMulti ? "#80d0ff" : "rgba(170,180,200,0.7)";
           ctx.font = "600 10px 'Hanken Grotesk'"; ctx.textAlign = "center";
           const lbl = (dirtyFixtureId === f.fixture_id ? "● " : "") + (f.label || f.fixture_id);
-          ctx.fillText(lbl, cx, cy + bh / 2 + 15);
+          ctx.fillText(lbl, cx, cy + 35);
         }
       }
       raf = requestAnimationFrame(draw);
@@ -1768,8 +1784,16 @@ export function PatchView() {
   const [dirtyInEditor, setDirtyInEditor] = useState(false);
   const [search, setSearch] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  // E1 — filters
+  const [filterUniverse, setFilterUniverse] = useState<number | null>(null);
+  const [filterUnpositioned, setFilterUnpositioned] = useState(false);
   // P2 — multi-select
   const [multiSel, setMultiSel] = useState<Set<string>>(new Set());
+
+  // D2 — Canvas zoom/pan (moved from PatchStage for Fit button access)
+  const [zoom, setZoom] = useState(1);
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
 
   // Phase B — bulk operations
   const [bulkRepatchModal, setBulkRepatchModal] = useState(false);
@@ -1778,25 +1802,60 @@ export function PatchView() {
   const [bulkRepatchForm, setBulkRepatchForm] = useState({ universe: 1, startAddress: 1 });
   const [bulkRenameForm, setBulkRenameForm] = useState({ pattern: "Fixture {n}", startNum: 1 });
 
+  // E2 — Import rig modal
+  const [importRigModal, setImportRigModal] = useState(false);
+  const [otherProjects, setOtherProjects] = useState<any[]>([]);
+  const [selectedRigSlug, setSelectedRigSlug] = useState<string | null>(null);
+
+  // F1 — Sequential rig test
+  const [seqTestActive, setSeqTestActive] = useState(false);
+  const [seqTestCanceled, setSeqTestCanceled] = useState(false);
+
   const openEditor = (id: string) => {
     selectFixture(id);
     setEditingFixtureId(id);
     setDirtyInEditor(false);
   };
 
-  // Keyboard: Ctrl+A selects all, Escape clears multi-sel
+  // D3: Keyboard shortcuts — Ctrl+A, Esc, arrows (nudge), Del (delete), Ctrl+D (dup)
   useEffect(function() {
     function onKey(e: KeyboardEvent) {
+      const isInput = (e.target as any)?.tagName === "INPUT" || (e.target as any)?.tagName === "TEXTAREA";
       if ((e.ctrlKey || e.metaKey) && e.key === "a") {
         e.preventDefault();
         setMultiSel(new Set(fixtures.map(function(f) { return f.fixture_id; })));
       } else if (e.key === "Escape") {
         setMultiSel(new Set());
+      } else if (!isInput && (e.ctrlKey || e.metaKey) && e.key === "d") {
+        e.preventDefault();
+        if (multiSel.size > 0) multiDuplicate();
+        else if (sel) control.call("duplicate_fixture", { fixture_id: sel }).then(() => refreshFixtures()).catch(() => {});
+      } else if (!isInput && e.key === "Delete") {
+        e.preventDefault();
+        if (multiSel.size > 0) multiDelete();
+        else if (sel) {
+          control.call("delete_fixture", { fixture_id: sel })
+            .then(() => { refreshFixtures(); setEditingFixtureId((cur) => cur === sel ? null : cur); })
+            .catch(() => {});
+        }
+      } else if (!isInput && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+        e.preventDefault();
+        const target = sel || (multiSel.size > 0 ? Array.from(multiSel)[0] : null);
+        if (target) {
+          const f = fixtures.find((fx) => fx.fixture_id === target);
+          if (f) {
+            const step = e.shiftKey ? 0.05 : 0.01;
+            const delta = { ArrowUp: [0, -step], ArrowDown: [0, step], ArrowLeft: [-step, 0], ArrowRight: [step, 0] }[e.key] || [0, 0];
+            const newX = Math.max(0, Math.min(1, (f.patch_x ?? 0.5) + delta[0]));
+            const newY = Math.max(0, Math.min(1, (f.patch_y ?? 0.5) + delta[1]));
+            control.call("move_fixture", { fixture_id: target, x: newX, y: newY }).then(() => refreshFixtures()).catch(() => {});
+          }
+        }
       }
     }
     window.addEventListener("keydown", onKey);
     return function() { window.removeEventListener("keydown", onKey); };
-  }, [fixtures]);
+  }, [fixtures, sel, multiSel]);
 
   const handleMultiSelToggle = (id: string) => {
     setMultiSel((prev) => {
@@ -1917,6 +1976,45 @@ export function PatchView() {
     }
   };
 
+  // E2 — Import rig from another project
+  const loadOtherProjects = () => {
+    control.call("list_projects_detailed", {}).then((r) => {
+      setOtherProjects((r.projects || []).filter((p: any) => p.slug !== (fixtures.length > 0 ? "current" : null)));
+      setImportRigModal(true);
+    }).catch(() => {});
+  };
+
+  const doImportRig = async () => {
+    if (!selectedRigSlug) return;
+    const res = await control.call("apply_rig", { from_slug: selectedRigSlug }).catch(() => null);
+    if (res?.ok) {
+      setToast("✓ Rig imported");
+      setTimeout(() => setToast(null), 2500);
+      setImportRigModal(false);
+      setSelectedRigSlug(null);
+      refreshFixtures();
+    } else if (res?.error) {
+      setToast("⚠ " + res.error);
+      setTimeout(() => setToast(null), 3000);
+    }
+  };
+
+  // F1 — Sequential rig test (identify each fixture in sequence)
+  const doSequentialTest = async () => {
+    setSeqTestActive(true);
+    setSeqTestCanceled(false);
+    const testFixtures = fixtures.filter(f => f.universe != null);
+    for (let i = 0; i < testFixtures.length; i++) {
+      if (seqTestCanceled) break;
+      const f = testFixtures[i];
+      control.call("identify_fixture", { fixture_id: f.fixture_id, duration_ms: 1000 }).catch(() => {});
+      await new Promise(r => setTimeout(r, 1200));
+    }
+    setSeqTestActive(false);
+    setToast("✓ Sequential test complete");
+    setTimeout(() => setToast(null), 2500);
+  };
+
   useEffect(() => { control.call("list_fixture_profiles").then((r) => setProfiles(r.profiles || [])).catch(() => {}); }, []);
 
   // Mapa universo → IP derivado de los fixtures del rig
@@ -1937,11 +2035,33 @@ export function PatchView() {
         <div className="patch-toolbar">
           <button className="btn sm" onClick={() => setAdding(true)}>+ Fixture</button>
           <button className="btn sm ghost" onClick={() => setGdtfBrowser(true)} title="Añadir fixture desde perfil GDTF">GDTF</button>
+          <button className="btn sm ghost" onClick={() => {
+            if (fixtures.length === 0) return;
+            const xs = fixtures.map(f => f.patch_x ?? 0.5);
+            const ys = fixtures.map(f => f.patch_y ?? 0.5);
+            const minX = Math.min(...xs), maxX = Math.max(...xs);
+            const minY = Math.min(...ys), maxY = Math.max(...ys);
+            const padX = (maxX - minX) * 0.15 || 0.2;
+            const padY = (maxY - minY) * 0.15 || 0.2;
+            const zx = 0.9 / (maxX - minX + padX * 2);
+            const zy = 0.9 / (maxY - minY + padY * 2);
+            const newZoom = Math.min(zx, zy, 3);
+            setPanX(-((minX - padX) * newZoom - 0.05));
+            setPanY(-((minY - padY) * newZoom - 0.05));
+            setZoom(newZoom);
+          }} title="Ajustar zoom y pan a todos los fixtures">⊡ Fit</button>
+          <button className="btn sm ghost" onClick={loadOtherProjects} title="Importar rig de otro proyecto">📥 Rig</button>
+          <button className={`btn sm ghost${seqTestActive ? " on" : ""}`}
+            onClick={() => { if (seqTestActive) setSeqTestCanceled(true); else doSequentialTest(); }}
+            title="Test secuencial de todos los fixtures">▶ Test</button>
+          <span style={{ flex: 1 }} />
+          <span className="mono" style={{ fontSize: 10, color: "var(--txt-3)" }}>1:{(1/zoom).toFixed(1)}</span>
         </div>
         <PatchStage fixtures={fixtures} onSelect={openEditor}
           dirtyFixtureId={dirtyInEditor ? editingFixtureId : null}
           multiSel={multiSel} onMultiSelToggle={handleMultiSelToggle}
-          onCtxAction={handleCtxAction} />
+          onCtxAction={handleCtxAction}
+          zoom={zoom} setZoom={setZoom} panX={panX} setPanX={setPanX} panY={panY} setPanY={setPanY} />
         {multiSel.size > 0 && (
           <div className="patch-toolbar" style={{ borderTop: "1px solid var(--line)", paddingTop: 4 }}>
             <span style={{ fontSize: 11, color: "var(--txt-2)" }}>{multiSel.size} sel.</span>
@@ -2030,6 +2150,53 @@ export function PatchView() {
             </div>
           </div>
         )}
+
+        {/* E2 — Import Rig Modal */}
+        {importRigModal && (
+          <div className="modal-overlay" onClick={() => setImportRigModal(false)}>
+            <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-head">
+                <h3>Importar rig de otro proyecto</h3>
+                <button className="btn sm ghost" onClick={() => setImportRigModal(false)}>✕</button>
+              </div>
+              <div className="modal-body" style={{ gap: 10, display: "flex", flexDirection: "column" }}>
+                {otherProjects.length === 0 ? (
+                  <div style={{ fontSize: 12, color: "var(--txt-3)", padding: "10px" }}>
+                    No hay otros proyectos disponibles
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 11, color: "var(--txt-2)", padding: "6px 10px" }}>
+                      Selecciona un proyecto para importar su rig:
+                    </div>
+                    <div style={{ maxHeight: "300px", overflow: "auto", border: "1px solid var(--line)", borderRadius: 4 }}>
+                      {otherProjects.map((p: any) => (
+                        <div key={p.slug}
+                          style={{
+                            padding: "8px 10px",
+                            cursor: "pointer",
+                            background: selectedRigSlug === p.slug ? "var(--acc-1)" : "transparent",
+                            borderLeft: selectedRigSlug === p.slug ? "3px solid var(--acc-2)" : "none",
+                            color: selectedRigSlug === p.slug ? "var(--txt)" : "var(--txt-2)",
+                          }}
+                          onClick={() => setSelectedRigSlug(p.slug)}>
+                          <div style={{ fontWeight: 600, fontSize: 12 }}>{p.name || p.slug}</div>
+                          <div style={{ fontSize: 10, color: "var(--txt-3)", marginTop: 2 }}>
+                            {p.fixtures_count || 0} fixtures · {p.song_title || "sin canción"}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", padding: "10px" }}>
+                  <button className="btn sm ghost" onClick={() => setImportRigModal(false)}>Cancelar</button>
+                  <button className="btn sm" onClick={doImportRig} disabled={!selectedRigSlug}>Importar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="patch-side">
@@ -2045,15 +2212,27 @@ export function PatchView() {
         ) : (
           <>
             <div className="panel-head"><h3>Fixtures</h3><span className="ph-spacer" /><span className="chip">{fixtures.length}</span></div>
-            {/* Buscador */}
+            {/* Buscador y filtros E1 */}
             <div style={{ padding: "5px 10px 3px", borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
               <input className="field" placeholder="Buscar fixture…" value={search}
                 onChange={e => setSearch(e.target.value)}
-                style={{ width: "100%", fontSize: 11, padding: "3px 7px" }} />
+                style={{ width: "100%", fontSize: 11, padding: "3px 7px", marginBottom: 4 }} />
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap", fontSize: 10 }}>
+                {Array.from(new Set(fixtures.map(f => f.universe))).sort((a, b) => a - b).map(u => (
+                  <button key={u} className={`btn xs ${filterUniverse === u ? "" : "ghost"}`}
+                    style={{ padding: "2px 6px", fontSize: 9 }}
+                    onClick={() => setFilterUniverse(filterUniverse === u ? null : u)}>U{u}</button>
+                ))}
+                <button className={`btn xs ${filterUnpositioned ? "" : "ghost"}`}
+                  style={{ padding: "2px 6px", fontSize: 9 }}
+                  onClick={() => setFilterUnpositioned(!filterUnpositioned)}>📍 Sin pos</button>
+              </div>
             </div>
             <div style={{ flex: "0 0 auto", maxHeight: "30%", overflow: "auto" }}>
               {fixtures
                 .filter(f => !search || (f.label || f.fixture_id).toLowerCase().includes(search.toLowerCase()))
+                .filter(f => !filterUniverse || f.universe === filterUniverse)
+                .filter(f => !filterUnpositioned || f.patch_x == null)
                 .map((f) => {
                   const [r, g, b] = fixtureColor(f);
                   return (
