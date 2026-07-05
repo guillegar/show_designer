@@ -31,10 +31,24 @@ type Lane =
   | { key: string; kind: "group-header"; groupName: string; groupBars: number[]; color: string }
   | { key: string; kind: "group-collapsed"; groupName: string; groupBars: number[]; color: string };
 
+// A1 (Timeline v2 — perf): el playhead es el ÚNICO suscriptor de `t`. Antes
+// TimelineView entero se suscribía → ~10 re-renders/s del árbol completo
+// (~1.3k clips) durante el playback. Ahora solo se re-renderiza este div.
+function TimelinePlayhead({ zoom }: { zoom: number }) {
+  const t = useStore((s) => s.t);
+  return (
+    <div className="tl-playhead" style={{ left: t * zoom }}>
+      <div className="ph-flag mono">{fmtTime(t)}</div>
+    </div>
+  );
+}
+
 export function TimelineView() {
   const { toasts, addToast, dismissToast } = useToast();
 
-  const t = useStore((s) => s.t);
+  // OJO (A1): NO suscribirse a s.t aquí — re-renderizaría todo el árbol ~10×/s
+  // en playback. El playhead vive en <TimelinePlayhead/>; las acciones puntuales
+  // leen useStore.getState().t en el momento del gesto.
   const clips = useStore((s) => s.clips);
   const effects = useStore((s) => s.effects);
   const sections = useStore((s) => s.sections);
@@ -230,8 +244,36 @@ export function TimelineView() {
   const ipOf = (bar: number) =>
     fixtures.find((f) => f.legacy_bar_idx === bar)?.target_ip ?? "";
 
-  const laneCount = (bar: number) =>
-    Math.max(1, 1 + Math.max(0, ...clips.filter((c) => c.track === bar).map((c) => c.layer)));
+  // A2 (Timeline v2 — perf): un solo pase sobre clips por render en vez de un
+  // filter O(clips) por lane y por consulta (laneCount/rowHeight/hit-test).
+  const clipsByTrack = useMemo(() => {
+    const m = new Map<number, Clip[]>();
+    for (const c of clips) {
+      if ((c.category ?? "pixel") !== "pixel") continue;
+      const arr = m.get(c.track);
+      if (arr) arr.push(c); else m.set(c.track, [c]);
+    }
+    return m;
+  }, [clips]);
+  const clipsByFixture = useMemo(() => {
+    const m = new Map<string, Clip[]>();
+    for (const c of clips) {
+      if (!c.scope?.startsWith("fixture:")) continue;
+      const fid = c.scope.slice(8);
+      const arr = m.get(fid);
+      if (arr) arr.push(c); else m.set(fid, [c]);
+    }
+    return m;
+  }, [clips]);
+  const maxLayerByTrack = useMemo(() => {
+    const m = new Map<number, number>();
+    clipsByTrack.forEach((cs, track) => {
+      m.set(track, Math.max(0, ...cs.map((c) => c.layer)));
+    });
+    return m;
+  }, [clipsByTrack]);
+
+  const laneCount = (bar: number) => 1 + (maxLayerByTrack.get(bar) ?? 0);
   const rowHeight = (bar: number) => 14 + laneCount(bar) * LANE_H;
 
   // Lanes = 10 barras + una por fixture no-LED (movers). Los channel clips
@@ -249,7 +291,7 @@ export function TimelineView() {
     // Lane GLOBAL (track -1): looks que pintan las 10 barras a la vez (efectos
     // globales 2D + acentos). Se reutiliza la maquinaria de "bar" con bar=-1.
     // Solo se muestra si hay clips globales.
-    if (clips.some((c) => c.track === -1 && (c.category ?? "pixel") === "pixel")) {
+    if ((clipsByTrack.get(-1)?.length ?? 0) > 0) {
       result.push({ key: "bar--1", kind: "bar", bar: -1, label: "GLOBAL", ip: "" });
     }
     let lastGrp: string | null = null;
@@ -274,7 +316,7 @@ export function TimelineView() {
       result.push({ key: `fx-${f.fixture_id}`, kind: "fixture", fixtureId: f.fixture_id, label: f.label || f.fixture_id, ip: f.profile_id });
     }
     return result;
-  }, [fixtureLanes, clips, groups, collapsedGroups]);
+  }, [fixtureLanes, clipsByTrack, groups, collapsedGroups]);
   // I4: secciones del arranger — calculadas desde los marcadores de I2
   const arrangerSections = useMemo(() => {
     const sorted = [...markers].sort((a, b) => a.time_ms - b.time_ms);
@@ -288,10 +330,10 @@ export function TimelineView() {
     }));
   }, [markers, clips, duration]);
 
-  const clipsForLane = (lane: Lane) => lane.kind === "bar"
-    ? clips.filter((c) => (c.category ?? "pixel") === "pixel" && c.track === lane.bar)
+  const clipsForLane = (lane: Lane): Clip[] => lane.kind === "bar"
+    ? (clipsByTrack.get(lane.bar) ?? [])
     : lane.kind === "fixture"
-      ? clips.filter((c) => c.scope === `fixture:${lane.fixtureId}`)
+      ? (clipsByFixture.get(lane.fixtureId) ?? [])
       : [];
 
   // A3: instancias de pattern cuyo track_offset coincide con esta barra
@@ -312,6 +354,7 @@ export function TimelineView() {
   const laneHeight = (lane: Lane) => {
     if (lane.kind === "group-header") return GROUP_HDR_H;
     if (lane.kind === "group-collapsed") return GROUP_COL_H;
+    if (lane.kind === "bar") return rowHeight(lane.bar);
     const cs = clipsForLane(lane);
     const maxLayer = Math.max(0, ...cs.map((c) => c.layer));
     return 14 + (maxLayer + 1) * LANE_H;
@@ -538,7 +581,7 @@ export function TimelineView() {
       if (clientY >= r.top && clientY < r.bottom) {
         const bar = parseInt(key.slice(4), 10);
         const localY = clientY - r.top - 7; // 7 = padding superior usado en el clip
-        const maxLayer = Math.max(0, ...clips.filter((c) => c.track === bar).map((c) => c.layer));
+        const maxLayer = maxLayerByTrack.get(bar) ?? 0;
         // round (no floor): cada capa tiene una zona de destino amplia; se permite
         // una capa nueva justo debajo de las existentes.
         const layer = Math.max(0, Math.min(Math.round(localY / LANE_H), maxLayer + 1));
@@ -897,7 +940,7 @@ export function TimelineView() {
   };
   const mirrorLR = (c: Clip) =>
     control.call("duplicate_clip", { clip_id: c.id, track: NUM_BARS - 1 - c.track, start_ms: c.start_ms }).then(afterEdit);
-  const splitAt = (c: Clip) => control.call("split_clip", { clip_id: c.id, t_ms: Math.round(t * 1000) }).then(afterEdit);
+  const splitAt = (c: Clip) => control.call("split_clip", { clip_id: c.id, t_ms: Math.round(useStore.getState().t * 1000) }).then(afterEdit);
   const toggleClipMute = (c: Clip) => control.call("set_clip_mute", { clip_id: c.id, muted: !c.muted }).then(afterEdit);
   const toggleClipLock = (c: Clip) => control.call("set_clip_lock", { clip_id: c.id, locked: !c.locked }).then(afterEdit);
   const delClip = (c: Clip) => control.call("delete_clip", { clip_id: c.id }).then(() => { selectClip(null); afterEdit(); });
@@ -940,7 +983,8 @@ export function TimelineView() {
   const openClipMenu = (e: React.MouseEvent, c: Clip) => {
     e.preventDefault(); e.stopPropagation();
     selectClip(c.id);
-    const inside = c.start_ms < t * 1000 && t * 1000 < c.end_ms;
+    const tMsNow = useStore.getState().t * 1000; // leído al abrir el menú (A1)
+    const inside = c.start_ms < tMsNow && tMsNow < c.end_ms;
     const multiSel = selectedClipIds.size > 1;
     setMenu({
       x: e.clientX, y: e.clientY, items: [
@@ -1009,7 +1053,7 @@ export function TimelineView() {
         onPickPattern={(pat) => {
           // Seleccionar pattern en la lista (feedback visual en el banco)
           // En una versión futura, podría iniciar un drag para instanciar
-          const tMs = Math.round(t * 1000);
+          const tMs = Math.round(useStore.getState().t * 1000);
           control.call("add_pattern_instance", {
             pattern_uid: pat.uid, start_ms: tMs, track_offset: 0,
           }).then(() => refreshPatternInstances());
@@ -1282,7 +1326,7 @@ export function TimelineView() {
                 );
                 // I3: group-collapsed thumbnail
                 if (lane.kind === "group-collapsed") {
-                  const gClips = clips.filter((c) => (c.category ?? "pixel") === "pixel" && lane.groupBars.includes(c.track));
+                  const gClips = lane.groupBars.flatMap((b) => clipsByTrack.get(b) ?? []);
                   return (
                     <div key={lane.key} className="tl-row tl-grp-col" style={{ height: GROUP_COL_H, cursor: "pointer" }}
                       onClick={() => toggleGroupCollapse(lane.groupName)}>
@@ -1494,9 +1538,7 @@ export function TimelineView() {
                 <div key={"m" + i} className="lane-marker" style={{ left: m.time_ms / 1000 * zoom, background: m.color || "var(--warn)" }} />
               ))}
 
-              <div className="tl-playhead" style={{ left: t * zoom }}>
-                <div className="ph-flag mono">{fmtTime(t)}</div>
-              </div>
+              <TimelinePlayhead zoom={zoom} />
 
               {/* Multi-selección por rubber-band (solo en modo select) */}
               {tool === "select" && (
