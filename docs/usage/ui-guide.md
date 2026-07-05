@@ -34,12 +34,28 @@ The heart of Show Designer.
 | `V` / `D` / `B` / `C` | Select / Draw / Draw / Cut tool |
 | `Q` | Toggle snap |
 | `+` `−` / `Ctrl+0` | Zoom in/out (2–50×) / reset zoom |
+| `Ctrl+E` | Zoom to selection |
+| `←` `→` | Nudge selection ±1 grid step (`Shift` = ±1 bar) |
+| `↑` `↓` | Move selection to another layer |
+| `L` | Toggle A/B loop of the section under the playhead |
 | `[` `]` | Adjust default effect duration ±50 ms |
 | `Ctrl+C` / `Ctrl+V` | Copy / paste clip |
 | `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / redo |
 | `Ctrl+A` / `Ctrl+Shift+A` | Select all clips in track / everywhere |
 | `Ctrl+Click` | Add/remove clip from selection |
 | `Delete` / `Backspace` | Delete selected clip |
+
+### Ruler & playback
+
+- **Drag on the ruler** → define an **A/B loop region** (playback wraps inside it);
+  single click inside the region removes it. `L` loops the current section.
+- **Double-click on the ruler** → add a marker (inline rename opens right away)
+- **Right-click on the ruler** → split all clips at the playhead / duplicate a section
+- **⇥ Follow** toolbar toggle → auto-scroll keeps the playhead in view during playback
+- While **drawing** a clip you see a live ghost rectangle; in **Cut** mode a scissor
+  line follows the cursor. Drags snap to the BPM grid **and to other clips' edges**.
+- Multi-selection shows `N sel · X.Xs` in the status bar. Bulk moves/deletes/pastes
+  are atomic: one undo step reverts the whole operation.
 
 ### Right Panel: Properties (adaptive inspector)
 

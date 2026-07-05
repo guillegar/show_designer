@@ -11,6 +11,31 @@ en **`STRUCTURE.md`**. La auditoría técnica, en **`ANALYSIS.md`**.
 
 Estado a **2026-07-05** · **v2.0 · 982 tests Python + 36 Vitest · ROADMAP v2+v3 COMPLETOS · ROADMAP v4 COMPLETA (A-H)** — backend headless + frontend React + REST API + webhooks + multiusuario + tap BPM + show generator + historial de gestos + marketplace de plugins + bundle backup/restore + hardening de seguridad (zip slip, marketplace SSRF/RCE, timing-safe tokens, webhook SSRF) + editor completo de fixture desde Patch + Patch UX profesional (mapa DMX, siguiente libre, duplicar, búsqueda, destinos Art-Net) + **edición masiva en lote** (bulk repatch, alinear, distribuir, renombrar) + **auto-patch al añadir múltiples** (count parameter) + **huecos visibles en mapa DMX** + **canvas profesional** (iconos/fit/atajos) + **filtros avanzados** + **import rig** + **test secuencial**.
 **A1+A2+A3+A4+A5+B1+B2+B3+B4+C1+C2+C3+D1+D2+D3+E1+E2+F1+G1+G2+G3+G4+H1+H2+H3+H4+I1+I2+I3+I4+I5+J1+J2+J3+J4+K1+K2+K3+L1+L2+L3+M1+M2+M3+N1+N2 APLICADAS (2026-06-12/14 + 2026-07-05)**: modulación + automatización + patterns + editor de detalle + ergonomía de composición + waveform en timeline + mixer master/cadena por pista + render offline + playback baked + autosave y versiones + performance grid + macros en vivo + soporte MIDI + auto-VJ por reglas + análisis en vivo + cues profesional + OSC I/O + export video preview + test de output y patch visual + 10 efectos built-in nuevos + plugin UI auto-generada + presets curados + live preview inspector + sACN E1.31 + sync de tempo BPM + salida DMX USB directa + SDK de plugins + instalador Windows + multi-show quick-switch + rendimiento a escala + grabación en vivo de macros + marcadores de timeline + grupos colapsables + vista arranger + exportación PDF/CSV + editor de patch visual + **canvas pro** (iconos, fit, shortcuts) + **filtros en patch** + **import rig de proyecto** + **test secuencial fixtures**. **Bloque B COMPLETO. Bloque C COMPLETO. Bloque D COMPLETO. Bloque E COMPLETO. Bloque F COMPLETO. Bloque G COMPLETO. Bloque H COMPLETO.**
+  - ✅ **TIMELINE v2 COMPLETO (2026-07-05)**: 5 fases aplicadas y verificadas en vivo
+    (plan y detalle en `docs/roadmap/ROADMAP-TIMELINE-V2.md`; un commit por fase).
+    - **A (perf)**: `TimelinePlayhead` es el ÚNICO suscriptor de `t` (antes el árbol
+      entero de ~1.3k clips se re-renderizaba ~10×/s en playback); mapas memoizados
+      `clipsByTrack`/`clipsByFixture`/`maxLayerByTrack` (un pase, no un filter O(clips)
+      por lane). A3 (React.memo por fila) diferida deliberadamente (riesgo Fase 9).
+    - **B (bulk)**: `server/handlers/clips_bulk.py` (NUEVO) — `bulk_move_clips`,
+      `bulk_delete_clips`, `bulk_add_clips`, `move_range` (arranger atómico, antes
+      duplicate+delete no-atómico). En `TIMELINE_MUTATORS` → 1 snapshot de undo por
+      lote. Frontend migrado con fallback al bucle. 10 tests `test_timeline_bulk.py`.
+    - **C (feedback)**: fantasma al dibujar + línea de tijera (imperativos, 0
+      re-renders por mousemove); toggle "⇥ Follow" (auto-scroll DAW, localStorage);
+      snap a bordes de otros clips (px en verticalGuidelines de Moveable); nudge por
+      teclado ←→ ±paso de rejilla (Shift=±compás) y ↑↓ cambia capa.
+    - **E (pulido)**: `famHex()` reemplaza el stub cssColorToHex (todos los clips
+      guardaban #3a7acc); marcador/pattern sin window.prompt (inline + mini-modal);
+      stats de selección en status bar; "✂ Dividir todos en el playhead" (menú regla);
+      Ctrl+E zoom-a-selección; toasts en español; HelpOverlay actualizado.
+    - **D (loop A/B)**: `session.loop_range` (runtime-only), handler `set_loop_range`
+      (valida y clampea), wrap en `tick.py` con prioridad sobre el loop de canción,
+      `loop_range` en el estado del stream (+sig). UI: drag en la regla define la
+      región (clic dentro = quitar), overlays regla+lanes, tecla `L` = sección actual.
+      OJO store: `setTransport` conserva la REFERENCIA de loopRange si no cambia
+      (si no, los suscriptores se re-renderizan 10×/s — misma lección que A1).
+      5 tests `test_loop_range.py`. **Suite 987 verdes + 36 Vitest.**
   - ✅ **FASE A — EDITOR: IP + ROTACIÓN + PROTOCOLO INLINE (2026-07-05, ROADMAP v4)**:
     lo pedido explícitamente por el usuario. **Verificado en vivo completo (2026-07-05).**
     - **A1** (IP editable por fixture): `_h_update_fixture` acepta `target_ip` (string vacío
