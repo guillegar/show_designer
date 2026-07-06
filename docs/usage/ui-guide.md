@@ -57,6 +57,20 @@ The heart of Show Designer.
 - Multi-selection shows `N sel · X.Xs` in the status bar. Bulk moves/deletes/pastes
   are atomic: one undo step reverts the whole operation.
 
+### Patterns (reusable clip blocks)
+
+A **pattern** is a saved group of clips you can drop repeatedly (e.g. a chorus look).
+
+1. **Select the clips**: click one, then `Ctrl+Click` to add more (or rubber-band drag
+   over empty space). The status bar shows the count.
+2. **Right-click a selected clip → "Crear pattern (N clips)…"**, type a name, **Crear**.
+   (Works from a single clip too.) The clips become one pattern instance.
+3. **Reuse** from the left **Patterns** tab: click a pattern to drop an instance at the
+   playhead, or drag it onto a track row.
+4. Pattern **instances** show as dashed-border blocks. Right-click one → "Disolver en
+   clips" (turn back into editable clips) or "Borrar instancia". Editing a pattern
+   updates every instance at once.
+
 ### Right Panel: Properties (adaptive inspector)
 
 When a clip is selected the inspector shows, sized to the effect's parameters:
