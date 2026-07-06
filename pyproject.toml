@@ -9,7 +9,7 @@ description = "Professional lighting control software for LED strips and DMX fix
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Prosperity Public License 3.0.0" }
-authors = [{ name = "Guille Garci" }]
+authors = [{ name = "Guille Garci", email = "guillermo.pondal@gmail.com" }]
 
 # Dependencias de runtime (espejo de requirements.txt).
 dependencies = [
