@@ -1183,7 +1183,10 @@ export function TimelineView() {
   const [patternNameModal, setPatternNameModal] = useState<{ clipIds: string[] } | null>(null);
   const [patternName, setPatternName] = useState("Pattern");
   const createPatternFromSelection = (anchorClip: Clip) => {
-    const ids = selectedClipIds.size > 1 ? [...selectedClipIds] : [anchorClip.id];
+    // Coherente con el menú: la multi-selección solo cuenta si incluye el clip
+    // sobre el que se abrió el menú; si no, se hace pattern del clip clicado.
+    const ids = (selectedClipIds.size > 1 && selectedClipIds.has(anchorClip.id))
+      ? [...selectedClipIds] : [anchorClip.id];
     setPatternName("Pattern");
     setPatternNameModal({ clipIds: ids });
   };
@@ -1199,15 +1202,17 @@ export function TimelineView() {
     selectClip(c.id);
     const tMsNow = useStore.getState().t * 1000; // leído al abrir el menú (A1)
     const inside = c.start_ms < tMsNow && tMsNow < c.end_ms;
-    const multiSel = selectedClipIds.size > 1;
+    // "Crear pattern" SIEMPRE disponible: usa la multi-selección si la hay
+    // (rubber-band / Ctrl+clic), o el clip bajo el cursor si no. El backend
+    // acepta desde 1 clip. Si el clip clicado no está en la selección, cuenta 1.
+    const patternCount = (selectedClipIds.size > 1 && selectedClipIds.has(c.id))
+      ? selectedClipIds.size : 1;
     setMenu({
       x: e.clientX, y: e.clientY, items: [
         { label: "Propiedades…", onClick: () => setInspector(true) },
         { type: "sep" },
-        ...(multiSel ? [
-          { label: `Crear pattern (${selectedClipIds.size} clips)…`, onClick: () => createPatternFromSelection(c) },
-          { type: "sep" as const },
-        ] : []),
+        { label: `Crear pattern (${patternCount} clip${patternCount > 1 ? "s" : ""})…`, onClick: () => createPatternFromSelection(c) },
+        { type: "sep" as const },
         { label: "Duplicar", onClick: () => dup(c) },
         ...(c.track >= 0 ? [
           { label: "Duplicar a todas las barras", onClick: () => dupToAllBars(c) },
@@ -1717,7 +1722,25 @@ export function TimelineView() {
                           className={"clip" + (selectedClipId === c.id || selectedClipIds.has(c.id) ? " sel" : "") + (c.locked ? " locked" : "") + (tool === "draw" && (activeFx || activePreset) ? " clip-paintable" : "")}
                           onMouseDown={(e) => {
                             e.stopPropagation(); // evita que la lane cree un clip (draw) o Selecto rubber-band
+                            // Clic derecho: NO tocar la selección (el menú contextual
+                            // la necesita intacta para "Crear pattern"). El mousedown
+                            // del botón 2 llega antes que onContextMenu.
+                            if (e.button !== 0) return;
                             if (tool !== "select" || c.locked) return;
+                            // Ctrl/Cmd+clic: acumular/quitar de la multi-selección
+                            // (antes esto vivía en onClick pero el mousedown reseteaba
+                            // la selección primero → el Ctrl+clic nunca acumulaba).
+                            if (e.ctrlKey || e.metaKey) {
+                              setSelectedClipIds((prev) => {
+                                const next = new Set(prev);
+                                // arrancar desde el clip único ya seleccionado
+                                if (next.size === 0 && selectedClipId != null) next.add(selectedClipId);
+                                if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                                return next;
+                              });
+                              selectClip(c.id);
+                              return;
+                            }
                             // Si el clip ya está en una multi-selección, no la rompas (drag de grupo).
                             if (selectedClipIds.has(c.id) && selectedClipIds.size > 1) {
                               selectClip(c.id);
