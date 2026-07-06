@@ -12,6 +12,11 @@
 > fixtures in a visual *timeline* editor (FL Studio / Adobe style), watch them in a real-time
 > 3D viewer, and control them by hand (web) or with **Claude** via MCP.
 
+<p align="center">
+  <img src="docs/images/02-viewer3d.png" alt="Real-time 3D viewer — LED bars responding to the DMX output" width="840">
+  <br><sub><i>Real-time 3D viewer — 10 LED bars responding live to the DMX output.</i></sub>
+</p>
+
 The engine runs **headless** (Python, no Qt) and serves a **React web app**: audio plays on the
 PC (master clock) and the browser is control + visualizer. The same backend exposes JSON-RPC so
 Claude can drive it over MCP.
@@ -42,6 +47,16 @@ Claude can drive it over MCP.
 | 🎚️ **Live** | Live macros, performance grid, professional cues, MIDI, OSC I/O, tempo sync (tap / Link / MIDI Clock), rule-based auto-VJ |
 | 📤 **Output & export** | Art-Net, **sACN E1.31**, **ENTTEC Open DMX USB**; patch export to PDF, DMX to CSV, **QLC+ XML**, video preview (GIF/MP4) and backup/restore *bundle* |
 | 🌐 **Integration** | Public REST API (`/api/v1`), webhooks (HMAC) and multi-user mode with roles |
+
+---
+
+## 📸 Screenshots
+
+| ![Timeline editor](docs/images/01-timeline.png) | ![Live control](docs/images/05-live.png) |
+|:---:|:---:|
+| **Timeline editor** — multitrack, drag-drop clips, layers, patterns, waveform | **Live** — cues, live macros, tempo sync, performance grid |
+| ![Rig patch](docs/images/04-patch.png) | ![Audio analysis](docs/images/06-analyzer.png) |
+| **Patch** — 2D stage, DMX channel map, per-fixture output test | **Analyzer** — beats, downbeats, sections, BPM & key |
 
 ---
 

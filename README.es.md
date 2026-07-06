@@ -12,6 +12,11 @@
 > DMX en un editor de *timeline* visual (estilo FL Studio / Adobe), míralas en un visor 3D en
 > tiempo real, y contrólalas a mano (web) o con **Claude** vía MCP.
 
+<p align="center">
+  <img src="docs/images/02-viewer3d.png" alt="Visor 3D en tiempo real — barras LED respondiendo a la salida DMX" width="840">
+  <br><sub><i>Visor 3D en tiempo real — 10 barras LED respondiendo en vivo a la salida DMX.</i></sub>
+</p>
+
 El motor corre **headless** (Python, sin Qt) y sirve una **web React**: el audio suena en el PC
 (reloj maestro) y el navegador es control + visualizador. El mismo backend expone JSON-RPC para
 que Claude lo controle por MCP.
@@ -42,6 +47,16 @@ que Claude lo controle por MCP.
 | 🎚️ **Directo** | Macros en vivo, grid de performance, cues profesionales, MIDI, OSC I/O, sync de tempo (tap / Link / MIDI Clock), auto-VJ por reglas |
 | 📤 **Salida y export** | Art-Net, **sACN E1.31**, **ENTTEC Open DMX USB**; export de patch a PDF, DMX a CSV, **QLC+ XML**, preview de vídeo (GIF/MP4) y *bundle* de backup/restore |
 | 🌐 **Integración** | API REST pública (`/api/v1`), webhooks (HMAC) y modo multiusuario con roles |
+
+---
+
+## 📸 Capturas
+
+| ![Editor de timeline](docs/images/01-timeline.png) | ![Control en directo](docs/images/05-live.png) |
+|:---:|:---:|
+| **Editor de timeline** — multipista, *drag-drop* de clips, capas, patterns, waveform | **Directo** — cues, macros en vivo, sync de tempo, performance grid |
+| ![Editor de patch](docs/images/04-patch.png) | ![Análisis de audio](docs/images/06-analyzer.png) |
+| **Patch** — escenario 2D, mapa DMX por canal, test de salida por fixture | **Analyzer** — beats, downbeats, secciones, BPM y tonalidad |
 
 ---
 
