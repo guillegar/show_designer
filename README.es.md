@@ -6,7 +6,7 @@
 [![Tests](https://img.shields.io/badge/tests-1043%20py%20%2B%2036%20web-brightgreen)](#-calidad-y-tests)
 [![Frontend CI](https://github.com/guillegar/show_designer/actions/workflows/frontend-ci.yml/badge.svg)](https://github.com/guillegar/show_designer/actions/workflows/frontend-ci.yml)
 [![License: PPL 3.0](https://img.shields.io/badge/license-PPL%203.0-blue)](LICENSE)
-[![Estado: v2.0](https://img.shields.io/badge/estado-v2.0%20estable-success)](CLAUDE.md)
+[![Estado: v2.0](https://img.shields.io/badge/estado-v2.0%20estable-success)](CHANGELOG.md)
 
 > **Software profesional de iluminación.** Diseña coreografías de luz para tiras LED y fixtures
 > DMX en un editor de *timeline* visual (estilo FL Studio / Adobe), míralas en un visor 3D en
@@ -176,8 +176,7 @@ show_designer/
 └── docs/             # documentación (MkDocs)
 ```
 
-Mapa completo: [`STRUCTURE.md`](STRUCTURE.md). Arquitectura y decisiones: [`CLAUDE.md`](CLAUDE.md)
-y [`docs/advanced/architecture.md`](docs/advanced/architecture.md).
+Arquitectura y decisiones de diseño: [`docs/advanced/architecture.md`](docs/advanced/architecture.md).
 
 ---
 
@@ -185,11 +184,11 @@ y [`docs/advanced/architecture.md`](docs/advanced/architecture.md).
 
 | Doc | Contenido |
 |-----|-----------|
-| [`CLAUDE.md`](CLAUDE.md) | Arquitectura profunda, decisiones de diseño y estado actual (doc de retoma) |
-| [`STRUCTURE.md`](STRUCTURE.md) | Organización de directorios y archivos |
-| [`SETUP.md`](SETUP.md) | Instalación paso a paso |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Cómo contribuir, flujo de PRs y tests |
 | [`docs/`](docs/index.md) | Sitio completo (MkDocs): instalación, uso, plugins, API REST, ADRs… |
+| [`docs/installation.md`](docs/installation.md) | Instalación paso a paso |
+| [`docs/advanced/architecture.md`](docs/advanced/architecture.md) | Arquitectura y decisiones de diseño |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Cómo contribuir, flujo de PRs y tests |
+| [`CHANGELOG.md`](CHANGELOG.md) | Historial de versiones |
 
 ---
 

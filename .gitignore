@@ -100,3 +100,9 @@ _test_out.txt
 # y tras cada mutación del rig. No versionar: churn puro de runtime.
 web/public/v3d/rig_layout.json
 web/dist/v3d/rig_layout.json
+
+# Internal dev docs (kept locally, out of the public portfolio)
+CLAUDE.md
+ANALYSIS.md
+SETUP.md
+STRUCTURE.md

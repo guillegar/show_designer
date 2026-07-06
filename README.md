@@ -6,7 +6,7 @@
 [![Tests](https://img.shields.io/badge/tests-1043%20py%20%2B%2036%20web-brightgreen)](#-quality--tests)
 [![Frontend CI](https://github.com/guillegar/show_designer/actions/workflows/frontend-ci.yml/badge.svg)](https://github.com/guillegar/show_designer/actions/workflows/frontend-ci.yml)
 [![License: PPL 3.0](https://img.shields.io/badge/license-PPL%203.0-blue)](LICENSE)
-[![Status: v2.0](https://img.shields.io/badge/status-v2.0%20stable-success)](CLAUDE.md)
+[![Status: v2.0](https://img.shields.io/badge/status-v2.0%20stable-success)](CHANGELOG.md)
 
 > **Professional lighting software.** Design light choreographies for LED strips and DMX
 > fixtures in a visual *timeline* editor (FL Studio / Adobe style), watch them in a real-time
@@ -176,8 +176,7 @@ show_designer/
 └── docs/             # documentation (MkDocs)
 ```
 
-Full map: [`STRUCTURE.md`](STRUCTURE.md). Architecture and decisions: [`CLAUDE.md`](CLAUDE.md)
-and [`docs/advanced/architecture.md`](docs/advanced/architecture.md).
+Architecture and design decisions: [`docs/advanced/architecture.md`](docs/advanced/architecture.md).
 
 ---
 
@@ -185,11 +184,11 @@ and [`docs/advanced/architecture.md`](docs/advanced/architecture.md).
 
 | Doc | Contents |
 |-----|----------|
-| [`CLAUDE.md`](CLAUDE.md) | Deep architecture, design decisions and current status (handoff doc) |
-| [`STRUCTURE.md`](STRUCTURE.md) | Directory and file organization |
-| [`SETUP.md`](SETUP.md) | Step-by-step installation |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute, PR flow and tests |
 | [`docs/`](docs/index.md) | Full site (MkDocs): installation, usage, plugins, REST API, ADRs… |
+| [`docs/installation.md`](docs/installation.md) | Step-by-step installation |
+| [`docs/advanced/architecture.md`](docs/advanced/architecture.md) | Architecture and design decisions |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute, PR flow and tests |
+| [`CHANGELOG.md`](CHANGELOG.md) | Version history |
 
 ---
 

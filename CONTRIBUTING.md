@@ -89,8 +89,8 @@ Los **checkpoints son git** (un commit por fase/feature; ya NO existe la carpeta
 
 ## Preguntas?
 
-- Lee [CLAUDE.md](CLAUDE.md) para arquitectura profunda
-- Lee [STRUCTURE.md](STRUCTURE.md) para organización del código
+- Lee [docs/advanced/architecture.md](docs/advanced/architecture.md) para la arquitectura en profundidad
+- Explora [docs/](docs/index.md) para uso, plugins, API REST y ADRs
 - Abre una [Discussion](https://github.com/guillegar/show_designer/discussions)
 
 ---
