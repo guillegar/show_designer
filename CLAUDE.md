@@ -729,6 +729,12 @@ pytest tests/test_effects_render.py::test_x -v    # un test
 pytest tests/ --cov=src --cov-report=html         # cobertura (htmlcov/)
 ```
 
+**Capturas del README (portfolio):** el repo es PÚBLICO (portfolio bilingüe — `README.md` en
+inglés = default de GitHub + `README.es.md` en español, con selector de idioma). Las capturas
+reales viven en `docs/images/` y se regeneran con el backend levantado (`:8000`) vía
+`venv311\Scripts\python.exe scripts/_capture_screenshots.py` (Playwright + Chromium; recorre las
+pestañas y guarda los PNG). Si cambia la UI, re-ejecutar para no dejar el README desfasado.
+
 ---
 
 ## 10. Tics del usuario (recordar)
